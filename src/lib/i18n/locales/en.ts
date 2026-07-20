@@ -1,0 +1,63 @@
+import type { Dictionary } from '../dictionary';
+
+export const en: Dictionary = {
+  navSo: 'How it works',
+  navFaq: 'FAQ',
+  navCta: 'Register your Law Clinic',
+  langLabel: 'Language',
+  heroTitle: 'Find the law clinic that fits your issue.',
+  heroSub:
+    'Describe your legal problem in your own words. We find the right student legal clinic for you – free and confidential.',
+  searchLabel: 'What is your issue about?',
+  searchPlaceholder:
+    'For example: My landlord terminated my lease without notice because I supposedly paid the rent too late. I don’t know if that’s even allowed or what to do now.',
+  searchBtn: 'Find a matching law clinic',
+  soHeading: 'How law clinics work',
+  soIntro:
+    'Law clinics are student legal advice services at universities. Advanced law students advise you – always supervised by experienced lawyers.',
+  step1Title: 'Students advise you',
+  step1Text: 'Advanced law students take time for your case and bring up-to-date legal knowledge.',
+  step2Title: 'Under professional supervision',
+  step2Text:
+    'Every consultation is reviewed by licensed lawyers or lecturers – so you get reliable information (§ 6 RDG).',
+  step3Title: 'Free & confidential',
+  step3Text: 'The advice is always free for you and everyone involved is bound to confidentiality.',
+  step4Title: 'First orientation',
+  step4Text: 'You get an initial legal assessment and learn what options and next steps you have.',
+  faqHeading: 'Frequently asked questions',
+  faqSub: 'Many people wonder about this before visiting a law clinic.',
+  faq1Q: 'What does the advice cost?',
+  faq1A: 'Nothing. Advice at a law clinic is always free – regardless of your income or situation.',
+  faq2Q: 'Who exactly advises me?',
+  faq2A:
+    'Advanced law students trained for advising. A licensed lawyer or lecturer reviews the advice before you receive binding information.',
+  faq3Q: 'Is my information confidential?',
+  faq3A:
+    'Yes. Everyone at a law clinic is bound to confidentiality. Your information is used only for your consultation.',
+  faq4Q: 'Can law clinics represent me in court?',
+  faq4A:
+    'Usually not. Law clinics give you an initial legal assessment and help you understand your situation. If you need court representation, they help you find the next steps.',
+  faq5Q: 'What should I bring to the consultation?',
+  faq5A:
+    'Bring all documents related to your case – e.g. letters, contracts, terminations or notices. The more complete the information, the better you can be helped.',
+  footerPrivacy: 'Privacy',
+  footerImprint: 'Imprint',
+  footerAccount: 'Account',
+  cooperation: 'A cooperation project by',
+  assistantName: 'Clinic Finder Assistant',
+  assistantTag: 'ASSISTANT',
+  whyFits: 'Why it fits:',
+  toWebsite: 'Visit website',
+  recFooter:
+    'Contact the law clinic directly by email or via their website. The advice is free and confidential.',
+  chatPlaceholder: 'Type a message…',
+  chatSend: 'Send',
+  chatError: 'Something went wrong. Please try again.',
+  limitMinuteTitle: 'Too many requests',
+  limitMinuteBody:
+    'Too many requests. Please wait a moment. To prevent abuse and control costs, only a few messages are allowed in a short time.',
+  limitDailyTitle: 'Daily limit reached',
+  limitDailyBody:
+    'You have reached the daily message limit. This free service limits requests per day to keep the cost of AI advice sustainable for everyone. Please try again tomorrow or contact a law clinic directly.',
+  charWarn: 'Maximum length reached (4,000 characters).',
+};

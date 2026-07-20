@@ -1,0 +1,55 @@
+import type { NextRequest } from 'next/server';
+import { z } from 'zod';
+
+import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { clinicAdminSchema } from '@/lib/clinics/schema';
+import { logger } from '@/lib/logger';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+async function clinicIdFrom(context: RouteContext): Promise<string | null> {
+  const { id } = await context.params;
+  return z.uuid().safeParse(id).success ? id : null;
+}
+
+// Service client on purpose: column grants keep is_published away from
+// session-client updates; the admin role was re-checked by the guard.
+export async function PATCH(request: NextRequest, context: RouteContext): Promise<Response> {
+  const guard = await requireAdminRoute();
+  if ('response' in guard) return guard.response;
+  const clinicId = await clinicIdFrom(context);
+  if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const parsed = clinicAdminSchema.partial().safeParse(body);
+  if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
+  const { error } = await createSupabaseAdminClient()
+    .from('clinics')
+    .update(parsed.data)
+    .eq('id', clinicId);
+  if (error) {
+    logger.error('admin clinic update failed', { clinicId, reason: error.message });
+    return Response.json({ error: 'Speichern fehlgeschlagen.' }, { status: 500 });
+  }
+  return Response.json({ ok: true });
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext): Promise<Response> {
+  const guard = await requireAdminRoute();
+  if ('response' in guard) return guard.response;
+  const clinicId = await clinicIdFrom(context);
+  if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
+  const adminClient = createSupabaseAdminClient();
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('user_id')
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+  if (profile?.user_id) await adminClient.auth.admin.deleteUser(profile.user_id);
+  const { error } = await adminClient.from('clinics').delete().eq('id', clinicId);
+  if (error) {
+    logger.error('admin clinic delete failed', { clinicId, reason: error.message });
+    return Response.json({ error: 'Löschen fehlgeschlagen.' }, { status: 500 });
+  }
+  return Response.json({ ok: true });
+}

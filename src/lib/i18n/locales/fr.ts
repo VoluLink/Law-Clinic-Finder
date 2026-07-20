@@ -1,0 +1,67 @@
+import type { Dictionary } from '../dictionary';
+
+export const fr: Dictionary = {
+  navSo: 'Comment ça marche',
+  navFaq: 'Questions fréquentes',
+  navCta: 'Inscrire votre Law Clinic',
+  langLabel: 'Langue',
+  heroTitle: 'Trouvez la law clinic adaptée à votre situation.',
+  heroSub:
+    'Décrivez votre problème juridique avec vos propres mots. Nous trouvons la consultation juridique étudiante qu’il vous faut – gratuite et confidentielle.',
+  searchLabel: 'De quoi s’agit-il ?',
+  searchPlaceholder:
+    'Par exemple : Mon propriétaire a résilié mon bail sans préavis car j’aurais payé le loyer trop tard. Je ne sais pas si c’est permis ni quoi faire maintenant.',
+  searchBtn: 'Trouver une law clinic adaptée',
+  soHeading: 'Comment fonctionnent les law clinics',
+  soIntro:
+    'Les law clinics sont des consultations juridiques étudiantes dans les universités. Des étudiants avancés en droit vous conseillent – toujours encadrés par des avocats expérimentés.',
+  step1Title: 'Des étudiants vous conseillent',
+  step1Text:
+    'Des étudiants avancés en droit prennent le temps d’étudier votre cas avec des connaissances juridiques actuelles.',
+  step2Title: 'Sous supervision professionnelle',
+  step2Text:
+    'Chaque consultation est vérifiée par des avocats agréés ou des enseignants – pour des informations fiables (§ 6 RDG).',
+  step3Title: 'Gratuit et confidentiel',
+  step3Text:
+    'La consultation est toujours gratuite et toutes les personnes impliquées sont tenues à la confidentialité.',
+  step4Title: 'Première orientation',
+  step4Text:
+    'Vous obtenez une première évaluation juridique et découvrez vos options et prochaines étapes.',
+  faqHeading: 'Questions fréquentes',
+  faqSub: 'Beaucoup se posent ces questions avant d’aller dans une law clinic.',
+  faq1Q: 'Combien coûte la consultation ?',
+  faq1A:
+    'Rien. La consultation dans une law clinic est toujours gratuite – quel que soit votre revenu ou votre situation.',
+  faq2Q: 'Qui me conseille exactement ?',
+  faq2A:
+    'Des étudiants avancés en droit formés au conseil. Un avocat agréé ou un enseignant vérifie la consultation avant que vous ne receviez une information contraignante.',
+  faq3Q: 'Mes informations sont-elles confidentielles ?',
+  faq3A:
+    'Oui. Toutes les personnes d’une law clinic sont tenues à la confidentialité. Vos informations ne servent qu’à votre consultation.',
+  faq4Q: 'Les law clinics peuvent-elles me représenter au tribunal ?',
+  faq4A:
+    'En général non. Les law clinics donnent une première évaluation et vous aident à situer votre affaire. Si vous avez besoin d’une représentation, elles vous aident à trouver les prochaines étapes.',
+  faq5Q: 'Que dois-je apporter à la consultation ?',
+  faq5A:
+    'Apportez tous les documents liés à votre affaire – lettres, contrats, résiliations ou décisions. Plus les informations sont complètes, mieux on peut vous aider.',
+  footerPrivacy: 'Confidentialité',
+  footerImprint: 'Mentions légales',
+  footerAccount: 'Compte',
+  cooperation: 'Un projet de coopération de',
+  assistantName: 'Assistant Clinic Finder',
+  assistantTag: 'ASSISTANT',
+  whyFits: 'Pourquoi c’est adapté :',
+  toWebsite: 'Voir le site',
+  recFooter:
+    'Contactez la law clinic directement par e-mail ou via son site. La consultation est gratuite et confidentielle.',
+  chatPlaceholder: 'Écrivez un message…',
+  chatSend: 'Envoyer',
+  chatError: 'Une erreur est survenue. Veuillez réessayer.',
+  limitMinuteTitle: 'Trop de requêtes',
+  limitMinuteBody:
+    'Trop de requêtes. Veuillez patienter un instant. Pour éviter les abus et limiter les coûts, seuls quelques messages sont autorisés sur une courte période.',
+  limitDailyTitle: 'Limite quotidienne atteinte',
+  limitDailyBody:
+    'Vous avez atteint la limite quotidienne de messages. Ce service gratuit limite les requêtes par jour pour que le coût du conseil par IA reste soutenable pour tous. Réessayez demain ou contactez directement une law clinic.',
+  charWarn: 'Longueur maximale atteinte (4 000 caractères).',
+};

@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+/* Design tokens — single source of truth: never hardcode a raw value elsewhere.
+   Brand: "law clinics deutschland" petrol/creme design system.
+   Light-only by design — no dark mode. */
+:root {
+  --background: #faf2e7;
+  --foreground: #3a565e;
+  --surface: #ffffff;
+  --surface-tint: #fcfaf5;
+  --border: rgba(14, 75, 91, 0.12);
+  --muted: #52707a;
+  --primary: #0d4b5b;
+  --primary-hover: #093743;
+  --primary-foreground: #faf2e7;
+  --accent: #f0e6d2;
+  --accent-hover: #e6d8bc;
+  --danger: #c75050;
+  --danger-foreground: #ffffff;
+  --success: #2f7a52;
+  --success-surface: #e4f2e9;
+  /* Recommendation cards: legal-area chips and the lighter meta text on them. */
+  --chip: #eef4f4;
+  --muted-soft: #7a949b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-tint: var(--surface-tint);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-chip: var(--chip);
+  --color-muted-soft: var(--muted-soft);
+  --font-sans: var(--font-hanken-grotesk), var(--font-noto-arabic), system-ui, sans-serif;
+  /* Lifted panel used by the landing search card and the signup card. */
+  --shadow-panel: 0 24px 60px -30px rgba(14, 75, 91, 0.45);
+  /* "Weich" shape scale from the design (cards 26 / inputs 16 / buttons 14 / chips 8). */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-3xl: 26px;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-hanken-grotesk), var(--font-noto-arabic), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+[dir='rtl'] body {
+  font-family: var(--font-noto-arabic), var(--font-hanken-grotesk), system-ui, sans-serif;
+}
+
+/* Chat motion (design: lccIn / lccBlink) — referenced via animate-[…] utilities. */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
