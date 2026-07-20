@@ -7,6 +7,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- `npm run typecheck` schlug in einem frischen Clone fehl: `next-env.d.ts` wird von Next generiert
+  und ist daher nicht eingecheckt, ohne die Datei fehlen die Typdeklarationen für Bild-Importe.
+  Das Skript ruft jetzt vorab `next typegen` auf.
+
 ## [0.1.0-alpha.1] - 2026-07-20
 
 Erste Vorabversion. Funktionsumfang unvollständig, nicht produktionsreif.
