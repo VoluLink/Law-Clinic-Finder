@@ -4,6 +4,7 @@ import type { ChatEvent, ClinicRecommendation } from './stream-protocol';
 import { decodeChatEvents, encodeChatEvent } from './stream-protocol';
 
 const recommendation: ClinicRecommendation = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   rank: 1,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Stadtgebiet Köln',
@@ -38,6 +39,10 @@ describe('decodeChatEvents', () => {
     expect(roundTrip([{ t: 'clinics', v: [recommendation] }])).toEqual([
       { t: 'clinics', v: [recommendation] },
     ]);
+  });
+
+  it('round-trips a payload-less nomatch frame', () => {
+    expect(roundTrip([{ t: 'nomatch' }])).toEqual([{ t: 'nomatch' }]);
   });
 
   it('decodes several frames from one chunk', () => {

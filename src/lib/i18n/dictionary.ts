@@ -58,11 +58,18 @@ export type Dictionary = {
   chatPlaceholder: string;
   chatSend: string;
   chatError: string;
+  chatDisabled: string;
+  privacyNote: string;
   limitMinuteTitle: string;
   limitMinuteBody: string;
   limitDailyTitle: string;
   limitDailyBody: string;
   charWarn: string;
+  noMatchTitle: string;
+  noMatchStep1: string;
+  noMatchStep2: string;
+  noMatchStep3: string;
+  noMatchBtnRestart: string;
 };
 
 const DICTIONARIES: Record<Lang, Dictionary> = { de, en, ar, fr, ku, fa, ru, uk, tr };

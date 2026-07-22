@@ -2,12 +2,14 @@ import type { HTMLAttributes } from 'react';
 
 import { cn } from '@/lib/cn';
 
-export type BadgeVariant = 'neutral' | 'primary' | 'success';
+export type BadgeVariant = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   neutral: 'bg-surface text-muted border border-border',
   primary: 'bg-primary text-primary-foreground',
   success: 'bg-success-surface text-success',
+  warning: 'bg-warning-surface text-warning',
+  danger: 'bg-danger/10 text-danger',
 };
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & { variant?: BadgeVariant };

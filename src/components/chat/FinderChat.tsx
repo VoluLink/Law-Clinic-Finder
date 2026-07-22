@@ -17,22 +17,35 @@ import { cn } from '@/lib/cn';
 import type { Dictionary } from '@/lib/i18n/dictionary';
 import type { RateLimitScope } from '@/lib/rate-limit';
 
+import { ChatNoMatch } from './ChatNoMatch';
 import { ClinicRecommendations } from './ClinicRecommendations';
 
 type Role = 'user' | 'assistant';
-type Message = { role: Role; content: string; recommendations?: ClinicRecommendation[] };
+type Message = {
+  role: Role;
+  content: string;
+  recommendations?: ClinicRecommendation[];
+  noMatch?: boolean;
+};
 
-type FinderChatProps = { dict: Dictionary; rtl: boolean };
+/** Display-only opener from /admin/assistant; never sent to the model. */
+type FinderChatProps = { dict: Dictionary; rtl: boolean; greeting?: string };
 
 /**
  * The landing-page search card. The first submit seeds the conversation and
  * swaps the card into the chat view in place (locked decision: no /chat page).
  */
-export function FinderChat({ dict, rtl }: FinderChatProps) {
+export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [limitScope, setLimitScope] = useState<RateLimitScope | null>(null);
+
+  function restart() {
+    setMessages([]);
+    setInput('');
+    setLimitScope(null);
+  }
 
   async function send(content: string) {
     const history = trimChatHistory([...messages, { role: 'user', content }]);
@@ -40,12 +53,14 @@ export function FinderChat({ dict, rtl }: FinderChatProps) {
     setInput('');
     setPending(true);
     try {
-      const limited = await streamReply(history, setMessages);
-      if (limited) {
+      const outcome = await streamReply(history, setMessages);
+      if (outcome === 'unavailable') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: dict.chatDisabled }]);
+      } else if (outcome) {
         setMessages((prev) => prev.slice(0, -1));
         setInput(content);
       }
-      setLimitScope(limited);
+      setLimitScope(outcome === 'unavailable' ? null : outcome);
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: dict.chatError }]);
     } finally {
@@ -62,13 +77,24 @@ export function FinderChat({ dict, rtl }: FinderChatProps) {
 
   const shared = { dict, rtl, input, setInput, pending, onSubmit: handleSubmit };
   if (messages.length === 0) return <SearchCard {...shared} limitScope={limitScope} />;
-  return <ChatCard {...shared} messages={messages} limitScope={limitScope} />;
+  return (
+    <ChatCard
+      {...shared}
+      messages={messages}
+      limitScope={limitScope}
+      greeting={greeting}
+      onRestart={restart}
+    />
+  );
 }
+
+/** `'unavailable'` = the admin switched the assistant off, or it is unconfigured. */
+type ReplyOutcome = RateLimitScope | 'unavailable' | null;
 
 async function streamReply(
   messages: Message[],
   setMessages: Dispatch<SetStateAction<Message[]>>,
-): Promise<RateLimitScope | null> {
+): Promise<ReplyOutcome> {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -78,6 +104,7 @@ async function streamReply(
     const body = (await response.json().catch(() => null)) as { scope?: string } | null;
     return body?.scope === 'day' ? 'day' : 'minute';
   }
+  if (response.status === 503) return 'unavailable';
   if (!response.ok || !response.body) throw new Error('chat request failed');
   await readStream(response.body, setMessages);
   return null;
@@ -105,7 +132,8 @@ async function readStream(
     buffer = rest;
     for (const event of events) {
       if (event.t === 'text') reply.content += event.v;
-      else reply.recommendations = event.v;
+      else if (event.t === 'clinics') reply.recommendations = event.v;
+      else reply.noMatch = true;
     }
     const snapshot = { ...reply };
     setMessages((prev) => [...prev.slice(0, -1), snapshot]);
@@ -139,6 +167,7 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
         maxLength={MAX_CHAT_MESSAGE_CHARS}
         className="min-h-[140px] w-full resize-y rounded-xl border-[1.5px] border-primary/20 bg-surface-tint px-4 py-4 text-[17px] leading-normal outline-none focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary/10"
       />
+      <p className="mt-3 text-sm leading-normal text-muted">{dict.privacyNote}</p>
       {limitScope && <LimitBanner dict={dict} scope={limitScope} />}
       <div className="mt-5">
         <Button
@@ -156,8 +185,10 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
   );
 }
 
-function ChatCard(props: StageProps & { messages: Message[] }) {
-  const { dict, messages, pending, limitScope } = props;
+function ChatCard(
+  props: StageProps & { messages: Message[]; greeting: string; onRestart: () => void },
+) {
+  const { dict, messages, pending, limitScope, greeting, onRestart } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -169,12 +200,16 @@ function ChatCard(props: StageProps & { messages: Message[] }) {
   return (
     <div className="mx-auto max-w-[780px] rounded-3xl border border-border bg-surface p-4 text-start shadow-panel sm:p-6">
       <div ref={scrollRef} className="max-h-[420px] space-y-4 overflow-y-auto p-1">
+        {greeting && (
+          <MessageBubble dict={dict} message={{ role: 'assistant', content: greeting }} />
+        )}
         {messages.map((message, index) => (
           <div key={index} className="space-y-4">
             <MessageBubble dict={dict} message={message} />
             {message.recommendations && (
               <ClinicRecommendations dict={dict} items={message.recommendations} />
             )}
+            {message.noMatch && <ChatNoMatch dict={dict} onRestart={onRestart} />}
           </div>
         ))}
         {awaitingReply && <TypingIndicator dict={dict} />}

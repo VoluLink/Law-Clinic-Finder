@@ -18,4 +18,14 @@ describe('Badge', () => {
     render(<Badge variant="success">bereits aktiv</Badge>);
     expect(screen.getByText('bereits aktiv').className).toContain('bg-success-surface');
   });
+
+  it('applies the warning variant classes when requested', () => {
+    render(<Badge variant="warning">warn</Badge>);
+    expect(screen.getByText('warn').className).toContain('bg-warning-surface');
+  });
+
+  it('applies the danger variant classes when requested', () => {
+    render(<Badge variant="danger">error</Badge>);
+    expect(screen.getByText('error').className).toContain('text-danger');
+  });
 });

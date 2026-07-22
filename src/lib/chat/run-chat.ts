@@ -3,6 +3,12 @@ import { z } from 'zod';
 
 import type { ChatSettings } from '@/lib/settings';
 
+import {
+  buildSystemPrompt,
+  RECOMMEND_CLINICS_DESCRIPTION,
+  REPORT_NO_MATCH_DESCRIPTION,
+  SEARCH_CLINICS_DESCRIPTION,
+} from './prompts';
 import { recommendClinicsInputSchema } from './recommend-clinics';
 import type { ChatMessage } from './schema';
 import { searchClinicsInputSchema } from './search-clinics';
@@ -13,10 +19,12 @@ const MAX_TOOL_TURNS = 5;
 type StreamEvent = { type: string; delta?: unknown };
 
 const textDeltaSchema = z.object({ type: z.literal('text_delta'), text: z.string() });
-type FinalMessage = { content: unknown[]; stop_reason: string | null };
+const usageSchema = z.object({ input_tokens: z.number(), output_tokens: z.number() });
+type FinalMessage = { content: unknown[]; stop_reason: string | null; usage?: unknown };
 type StreamParams = {
   model: string;
   max_tokens: number;
+  temperature: number;
   system: string;
   messages: Anthropic.MessageParam[];
   tools: Anthropic.Tool[];
@@ -45,17 +53,18 @@ export type ChatRunResult = {
   matchedClinicCount: number | null;
   toolCallCount: number;
   recommendations: ClinicRecommendation[];
+  /** Distinct directory ids recommended across the whole run — for stats. */
+  recommendedClinicIds: string[];
   model: string;
+  inputTokens: number;
+  outputTokens: number;
 };
 
 export type ChatRun = { stream: ReadableStream<Uint8Array>; result: Promise<ChatRunResult> };
 
 export const SEARCH_CLINICS_TOOL: Anthropic.Tool = {
   name: 'search_clinics',
-  description:
-    'Searches the directory of published German law clinics. Filter by city, ' +
-    'by legal area (German term, e.g. "Mietrecht"), and/or by a free-text query. ' +
-    'A city filter also returns nationwide clinics. Returns matching clinics as JSON.',
+  description: SEARCH_CLINICS_DESCRIPTION,
   // z.toJSONSchema emits a draft-2020-12 object schema; the SDK type just
   // wants its literal 'object' discriminant.
   input_schema: z.toJSONSchema(searchClinicsInputSchema) as Anthropic.Tool['input_schema'],
@@ -63,14 +72,16 @@ export const SEARCH_CLINICS_TOOL: Anthropic.Tool = {
 
 export const RECOMMEND_CLINICS_TOOL: Anthropic.Tool = {
   name: 'recommend_clinics',
-  description:
-    'Presents the chosen law clinics to the user as ranked cards in the page, with ' +
-    'name, region, legal areas and contact buttons rendered by the website. Call this ' +
-    'once you know which clinics fit, listing them best-first and giving a short reason ' +
-    'per clinic. Use the exact clinic name from search_clinics — names that do not match ' +
-    'the directory are dropped. The cards already show the details, so keep the message ' +
-    'around them short and do not repeat the list in prose.',
+  description: RECOMMEND_CLINICS_DESCRIPTION,
   input_schema: z.toJSONSchema(recommendClinicsInputSchema) as Anthropic.Tool['input_schema'],
+};
+
+// No parameters: the model's mere invocation is the signal, and the card's copy
+// is app-owned, so there is nothing for the model to fill in.
+export const REPORT_NO_MATCH_TOOL: Anthropic.Tool = {
+  name: 'report_no_match',
+  description: REPORT_NO_MATCH_DESCRIPTION,
+  input_schema: z.toJSONSchema(z.object({})) as Anthropic.Tool['input_schema'],
 };
 
 const toolUseBlockSchema = z.object({
@@ -85,7 +96,19 @@ type RunState = {
   toolCalls: number;
   matched: number | null;
   recommendations: ClinicRecommendation[];
+  /** Every distinct clinic id recommended, kept across multiple tool calls. */
+  recommendedIds: Set<string>;
+  inputTokens: number;
+  outputTokens: number;
 };
+
+/** Sums token usage across every turn's final message (mocks may omit it). */
+function addUsage(state: RunState, final: FinalMessage): void {
+  const usage = usageSchema.safeParse(final.usage);
+  if (!usage.success) return;
+  state.inputTokens += usage.data.input_tokens;
+  state.outputTokens += usage.data.output_tokens;
+}
 
 export function runChat(
   deps: RunChatDeps,
@@ -123,12 +146,21 @@ async function driveConversation(
     role: m.role,
     content: m.content,
   }));
-  const state: RunState = { text: '', toolCalls: 0, matched: null, recommendations: [] };
+  const state: RunState = {
+    text: '',
+    toolCalls: 0,
+    matched: null,
+    recommendations: [],
+    recommendedIds: new Set(),
+    inputTokens: 0,
+    outputTokens: 0,
+  };
   for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
     const final = await streamTurn(deps, settings, history, (t) => {
       state.text += t;
       emit({ t: 'text', v: t });
     });
+    addUsage(state, final);
     const toolUses = collectToolUses(final);
     if (final.stop_reason !== 'tool_use' || toolUses.length === 0) break;
     // Response content blocks are valid request params (SDK-documented pattern).
@@ -140,7 +172,10 @@ async function driveConversation(
     matchedClinicCount: state.matched,
     toolCallCount: state.toolCalls,
     recommendations: state.recommendations,
+    recommendedClinicIds: [...state.recommendedIds],
     model: settings.chat_model,
+    inputTokens: state.inputTokens,
+    outputTokens: state.outputTokens,
   };
 }
 
@@ -153,9 +188,10 @@ async function streamTurn(
   const stream = deps.anthropic.messages.stream({
     model: settings.chat_model,
     max_tokens: settings.chat_max_tokens,
-    system: settings.chat_system_prompt,
+    temperature: settings.chat_temperature,
+    system: buildSystemPrompt(settings.chat_system_prompt, settings.chat_skill),
     messages: history,
-    tools: [SEARCH_CLINICS_TOOL, RECOMMEND_CLINICS_TOOL],
+    tools: [SEARCH_CLINICS_TOOL, RECOMMEND_CLINICS_TOOL, REPORT_NO_MATCH_TOOL],
   });
   for await (const event of stream) {
     if (event.type !== 'content_block_delta') continue;
@@ -192,7 +228,9 @@ async function runTool(
     const content =
       block.name === RECOMMEND_CLINICS_TOOL.name
         ? await runRecommend(deps, block.input, state, emit)
-        : await runSearch(deps, block.input, state);
+        : block.name === REPORT_NO_MATCH_TOOL.name
+          ? runNoMatch(emit)
+          : await runSearch(deps, block.input, state);
     return { type: 'tool_result', tool_use_id: block.id, content };
   } catch {
     // Reported to the model as a failed tool call; it apologises to the user.
@@ -203,6 +241,13 @@ async function runTool(
       is_error: true,
     };
   }
+}
+
+/** Signals the "no clinic fits" card to the UI; its copy is app-owned, so the
+ *  frame carries no payload and the model gets a plain acknowledgement back. */
+function runNoMatch(emit: (event: ChatEvent) => void): string {
+  emit({ t: 'nomatch' });
+  return JSON.stringify({ displayed: true });
 }
 
 async function runSearch(deps: RunChatDeps, input: unknown, state: RunState): Promise<string> {
@@ -221,6 +266,7 @@ async function runRecommend(
   const { json, recommendations } = await deps.executeRecommendClinics(input);
   if (recommendations.length > 0) {
     state.recommendations = recommendations;
+    for (const card of recommendations) state.recommendedIds.add(card.id);
     emit({ t: 'clinics', v: recommendations });
   }
   return json;

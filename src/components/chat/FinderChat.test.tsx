@@ -13,6 +13,7 @@ import { de } from '@/lib/i18n/locales/de';
 import { FinderChat } from './FinderChat';
 
 const card: ClinicRecommendation = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   rank: 1,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Stadtgebiet Köln',
@@ -142,6 +143,56 @@ describe('FinderChat', () => {
     renderChat();
     await submitQuery('Mietproblem in Köln');
     expect(await screen.findByText(card.name)).toBeInTheDocument();
+  });
+
+  it('tells the user the assistant is off instead of showing a generic error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    renderChat();
+    await submitQuery('Frage');
+
+    expect(await screen.findByText(de.chatDisabled)).toBeInTheDocument();
+    expect(screen.queryByText(de.chatError)).not.toBeInTheDocument();
+  });
+
+  it('shows the configured greeting once the conversation starts', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    render(<FinderChat dict={de} rtl={false} greeting="Hallo, wie kann ich helfen?" />);
+    await submitQuery('Meine Frage');
+    expect(await screen.findByText('Hallo, wie kann ich helfen?')).toBeInTheDocument();
+  });
+
+  it('keeps the greeting out of the history sent to the model', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(streamResponse('Antwort'));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<FinderChat dict={de} rtl={false} greeting="Hallo!" />);
+    await submitQuery('Meine Frage');
+
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(body.messages).toEqual([{ role: 'user', content: 'Meine Frage' }]);
+  });
+
+  it('renders the no-match card and returns to the search card on restart', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          eventResponse([
+            { t: 'text', v: 'Leider konnte ich keine passende Law Clinic finden.' },
+            { t: 'nomatch' },
+          ]),
+        ),
+    );
+    renderChat();
+    await submitQuery('Sehr spezielles Anliegen ohne Treffer');
+
+    expect(await screen.findByText(de.noMatchTitle)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(de.noMatchBtnRestart) }));
+
+    expect(screen.queryByText(de.noMatchTitle)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(de.searchLabel)).toBeInTheDocument();
   });
 
   it('shows no cards when the reply is prose only', async () => {

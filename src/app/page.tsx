@@ -8,15 +8,34 @@ import { Wordmark } from '@/components/layout/Wordmark';
 import { isRtl, type Lang } from '@/lib/i18n/config';
 import { getDictionary, type Dictionary } from '@/lib/i18n/dictionary';
 import { getRequestLang } from '@/lib/i18n/get-request-lang';
+import { loadChatSettings } from '@/lib/settings';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+/**
+ * The greeting is the only setting the landing page needs, and `anon` cannot
+ * read the settings table — hence the service-role client. A missing key or an
+ * unreachable database must not take the whole page down, so it degrades to no
+ * greeting rather than throwing.
+ */
+async function loadGreeting(): Promise<string> {
+  if (!process.env.SUPABASE_SECRET_KEY) return '';
+  try {
+    const settings = await loadChatSettings(createSupabaseAdminClient());
+    return settings.chat_greeting;
+  } catch {
+    return '';
+  }
+}
 
 export default async function Home() {
   const lang = await getRequestLang();
   const dict = getDictionary(lang);
+  const greeting = await loadGreeting();
   return (
     <div className="flex flex-1 flex-col">
       <Nav dict={dict} lang={lang} />
       <main className="flex-1">
-        <Hero dict={dict} rtl={isRtl(lang)} />
+        <Hero dict={dict} rtl={isRtl(lang)} greeting={greeting} />
         <StepsSection dict={dict} />
         <FaqSection dict={dict} />
       </main>
@@ -54,7 +73,7 @@ function Nav({ dict, lang }: { dict: Dictionary; lang: Lang }) {
   );
 }
 
-function Hero({ dict, rtl }: { dict: Dictionary; rtl: boolean }) {
+function Hero({ dict, rtl, greeting }: { dict: Dictionary; rtl: boolean; greeting: string }) {
   return (
     <section id="top" className="pt-12 pb-10 sm:pt-[72px]">
       <div className={CONTAINER}>
@@ -70,7 +89,7 @@ function Hero({ dict, rtl }: { dict: Dictionary; rtl: boolean }) {
           </p>
         </div>
         <div className="mt-10">
-          <FinderChat dict={dict} rtl={rtl} />
+          <FinderChat dict={dict} rtl={rtl} greeting={greeting} />
         </div>
       </div>
     </section>

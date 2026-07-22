@@ -7,6 +7,7 @@ import { de } from '@/lib/i18n/locales/de';
 import { ClinicRecommendations } from './ClinicRecommendations';
 
 const withEmail: ClinicRecommendation = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   rank: 1,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Stadtgebiet Köln',

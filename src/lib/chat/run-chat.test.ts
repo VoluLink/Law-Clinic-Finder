@@ -6,7 +6,11 @@ import { runChat, type AnthropicLike } from './run-chat';
 import { decodeChatEvents, type ChatEvent, type ClinicRecommendation } from './stream-protocol';
 
 type FakeEvent = { type: string; delta?: { type: string; text: string } };
-type FakeFinal = { content: unknown[]; stop_reason: string };
+type FakeFinal = {
+  content: unknown[];
+  stop_reason: string;
+  usage?: { input_tokens: number; output_tokens: number };
+};
 
 function fakeTurn(events: FakeEvent[], final: FakeFinal) {
   return {
@@ -42,6 +46,7 @@ async function readText(stream: ReadableStream<Uint8Array>): Promise<string> {
 const userMessage = { role: 'user' as const, content: 'Mietrecht in Berlin?' };
 
 const card: ClinicRecommendation = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   rank: 1,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Köln',
@@ -219,6 +224,50 @@ describe(runChat, () => {
     await readEvents(runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]).stream);
     expect(executeRecommendClinics).toHaveBeenCalledTimes(1);
     expect(tools.executeSearchClinics).not.toHaveBeenCalled();
+  });
+
+  it('sums token usage across every turn of the run', async () => {
+    const toolUse = { type: 'tool_use', id: 't1', name: 'search_clinics', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(
+        fakeTurn([], {
+          content: [toolUse],
+          stop_reason: 'tool_use',
+          usage: { input_tokens: 100, output_tokens: 20 },
+        }),
+      )
+      .mockReturnValueOnce(
+        fakeTurn([textDelta('Fertig')], {
+          content: [{ type: 'text', text: 'Fertig' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 150, output_tokens: 30 },
+        }),
+      );
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+      executeSearchClinics: vi.fn().mockResolvedValue(JSON.stringify({ count: 0, clinics: [] })),
+    };
+
+    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    await readEvents(run.stream);
+    await expect(run.result).resolves.toMatchObject({ inputTokens: 250, outputTokens: 50 });
+  });
+
+  it('emits a nomatch frame when the model reports it cannot help', async () => {
+    const toolUse = { type: 'tool_use', id: 'tool-1', name: 'report_no_match', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+    };
+
+    const events = await readEvents(runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]).stream);
+    expect(events).toContainEqual({ t: 'nomatch' });
   });
 
   it('emits no clinics frame when the model recommends only unknown names', async () => {

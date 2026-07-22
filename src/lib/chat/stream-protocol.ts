@@ -10,6 +10,10 @@ import { z } from 'zod';
  */
 
 export const clinicRecommendationSchema = z.object({
+  // The directory id, carried so the client can attribute a website/email
+  // click back to this clinic. Published clinics are already public, so the id
+  // is not sensitive.
+  id: z.string().min(1),
   rank: z.number().int().positive(),
   name: z.string().min(1),
   region: z.string().nullable(),
@@ -24,6 +28,9 @@ export type ClinicRecommendation = z.infer<typeof clinicRecommendationSchema>;
 const chatEventSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('text'), v: z.string() }),
   z.object({ t: z.literal('clinics'), v: z.array(clinicRecommendationSchema) }),
+  // Signals that the assistant concluded no clinic fits; the client shows a
+  // fixed "ways forward" card. Carries no payload — its copy is app-owned.
+  z.object({ t: z.literal('nomatch') }),
 ]);
 
 export type ChatEvent = z.infer<typeof chatEventSchema>;

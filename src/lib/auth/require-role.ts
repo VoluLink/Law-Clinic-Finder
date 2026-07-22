@@ -26,8 +26,15 @@ export async function requireRole(
   allowed: Array<Profile['role']>,
 ): Promise<Profile> {
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) throw new AuthError('not signed in', 401);
-  const { data: profile } = await supabase.from('profiles').select('role, clinic_id').maybeSingle();
+  const userId = data?.claims?.sub;
+  if (!userId) throw new AuthError('not signed in', 401);
+  // Filter by user_id explicitly; RLS alone is not enough here — an admin can
+  // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, clinic_id')
+    .eq('user_id', userId)
+    .maybeSingle();
   const parsed = profileSchema.safeParse(profile);
   if (!parsed.success || !allowed.includes(parsed.data.role)) {
     throw new AuthError('insufficient role', 403);

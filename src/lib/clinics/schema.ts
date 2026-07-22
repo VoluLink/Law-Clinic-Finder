@@ -33,9 +33,9 @@ export const clinicInviteSchema = z.object({
 });
 
 /**
- * Self-signup registration (spec §8.6): name, homepage, contact email,
- * region, legal areas, target clients and languages are required; the
- * description and requirements stay optional.
+ * Self-signup registration: name, homepage, contact email, region, legal
+ * areas, target clients and languages are required; the description and
+ * requirements stay optional.
  */
 export const clinicSubmissionSchema = z.object({
   name: z.string().trim().min(1).max(200),

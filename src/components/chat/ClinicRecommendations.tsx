@@ -89,6 +89,20 @@ function RecommendationCard({ dict, clinic }: { dict: Dictionary; clinic: Clinic
   );
 }
 
+/**
+ * Fire-and-forget click count for the clinic's own stats tab. keepalive lets it
+ * survive the navigation the click triggers; a failure is ignored so the link
+ * always works. Carries no user data — just the clinic and which link.
+ */
+function trackClick(clinicId: string, kind: 'click_website' | 'click_email'): void {
+  void fetch('/api/clinic-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clinicId, kind }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function CardActions({ dict, clinic }: { dict: Dictionary; clinic: ClinicRecommendation }) {
   if (!clinic.website && !clinic.email) return null;
   const action = 'gap-2 px-4 py-2.5 text-sm font-bold';
@@ -99,6 +113,7 @@ function CardActions({ dict, clinic }: { dict: Dictionary; clinic: ClinicRecomme
           href={clinic.website}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackClick(clinic.id, 'click_website')}
           className={buttonClasses('primary', 'default', action)}
         >
           {GlobeIcon}
@@ -108,6 +123,7 @@ function CardActions({ dict, clinic }: { dict: Dictionary; clinic: ClinicRecomme
       {clinic.email && (
         <a
           href={`mailto:${clinic.email}`}
+          onClick={() => trackClick(clinic.id, 'click_email')}
           className={buttonClasses('accent', 'default', `${action} break-all`)}
         >
           {MailIcon}

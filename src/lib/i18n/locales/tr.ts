@@ -55,6 +55,9 @@ export const tr: Dictionary = {
   chatPlaceholder: 'Bir mesaj yazın…',
   chatSend: 'Gönder',
   chatError: 'Bir şeyler ters gitti. Lütfen tekrar deneyin.',
+  chatDisabled: 'Asistan şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+  privacyNote:
+    'Lütfen tam ad veya iletişim bilgisi girmeyin. Görüşmeler yalnızca anonim olarak saklanır.',
   limitMinuteTitle: 'Çok fazla istek',
   limitMinuteBody:
     'Çok fazla istek. Lütfen bir an bekleyin. Kötüye kullanımı önlemek ve maliyetleri sınırlamak için kısa sürede yalnızca birkaç mesaja izin verilir.',
@@ -62,4 +65,12 @@ export const tr: Dictionary = {
   limitDailyBody:
     'Günlük mesaj sınırına ulaştınız. Bu ücretsiz hizmet, yapay zekâ danışmanlığının maliyetini herkes için sürdürülebilir tutmak amacıyla günlük istekleri sınırlar. Lütfen yarın tekrar deneyin veya doğrudan bir hukuk kliniğiyle iletişime geçin.',
   charWarn: 'Maksimum uzunluğa ulaşıldı (4.000 karakter).',
+  noMatchTitle: 'Yine de nasıl devam edilir',
+  noMatchStep1:
+    'Aramanı genişlet: Birçok hukuk kliniği, oturduğun yerden bağımsız olarak ülke genelinde telefon veya video ile danışmanlık verir.',
+  noMatchStep2:
+    'Sohbeti farklı bilgilerle yeniden başlat – başka bir bölge, daha geniş bir hukuk alanı veya başka bir dil bazen yine de bir sonuca götürür.',
+  noMatchStep3:
+    'Sulh hukuk mahkemesinden danışma yardımı (Beratungshilfe) başvurusu yap: İlk hukuki danışma için yalnızca küçük bir katılım payı ödersin.',
+  noMatchBtnRestart: 'Sohbeti yeniden başlat',
 };

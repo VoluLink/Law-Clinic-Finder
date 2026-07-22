@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { recommendClinics, recommendClinicsInputSchema } from './recommend-clinics';
 
 type Row = {
+  id: string;
   name: string;
   region: string | null;
   legal_areas: string | null;
@@ -11,6 +12,7 @@ type Row = {
 };
 
 const milcc: Row = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Stadtgebiet Köln',
   legal_areas: 'Mietrecht',
@@ -19,6 +21,7 @@ const milcc: Row = {
 };
 
 const srk: Row = {
+  id: 'ff000000-0000-0000-0000-000000000002',
   name: 'Studentische Rechtsberatung Köln',
   region: 'Köln',
   legal_areas: 'Allgemeines Zivilrecht; Behördengänge',
@@ -79,6 +82,12 @@ describe('recommendClinics', () => {
     const { client } = createSupabaseMock([milcc]);
     const { recommendations } = await recommendClinics(client as never, { clinics: [picks[0]] });
     expect(recommendations[0].reason).toBe('Genau dein Rechtsgebiet.');
+  });
+
+  it('carries the directory id onto the card so clicks can be attributed', async () => {
+    const { client } = createSupabaseMock([milcc]);
+    const { recommendations } = await recommendClinics(client as never, { clinics: [picks[0]] });
+    expect(recommendations[0].id).toBe(milcc.id);
   });
 
   it('splits the semicolon-separated legal areas into tags', async () => {
@@ -150,6 +159,22 @@ describe('recommendClinics', () => {
       clinics: [picks[0], { name: 'Erfundene Law Clinic', reason: 'existiert nicht' }],
     });
     expect(JSON.parse(json)).toEqual({ shown: 1, unknown: ['Erfundene Law Clinic'] });
+  });
+
+  it('shows at most the configured number of cards', async () => {
+    const { client } = createSupabaseMock([milcc, srk]);
+    const { recommendations } = await recommendClinics(client as never, { clinics: picks }, 1);
+    expect(recommendations.map((r) => r.name)).toEqual([milcc.name]);
+  });
+
+  it('drops unknown names before applying the cap, so real clinics are not pushed out', async () => {
+    const { client } = createSupabaseMock([milcc, srk]);
+    const { recommendations } = await recommendClinics(
+      client as never,
+      { clinics: [{ name: 'Erfundene Law Clinic', reason: 'weg' }, ...picks] },
+      2,
+    );
+    expect(recommendations.map((r) => r.name)).toEqual([milcc.name, srk.name]);
   });
 
   it('renumbers ranks contiguously after an unknown clinic is dropped', async () => {

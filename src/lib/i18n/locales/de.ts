@@ -57,6 +57,9 @@ export const de: Dictionary = {
   chatPlaceholder: 'Nachricht eingeben…',
   chatSend: 'Senden',
   chatError: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.',
+  chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuchen Sie es später erneut.',
+  privacyNote:
+    'Bitte geben Sie keine vollständigen Namen oder Kontaktdaten ein. Gespräche werden nur anonymisiert gespeichert.',
   limitMinuteTitle: 'Zu viele Anfragen',
   limitMinuteBody:
     'Zu viele Anfragen. Bitte warten Sie einen Moment. Um Missbrauch und Kosten zu begrenzen, sind kurzfristig nur wenige Nachrichten möglich.',
@@ -64,4 +67,12 @@ export const de: Dictionary = {
   limitDailyBody:
     'Sie haben das Tageslimit an Nachrichten erreicht. Dieser kostenlose Dienst begrenzt die Anfragen pro Tag, um die Kosten der KI-Beratung für alle tragbar zu halten. Bitte versuchen Sie es morgen erneut oder wenden Sie sich direkt an eine Law Clinic.',
   charWarn: 'Maximale Länge erreicht (4.000 Zeichen).',
+  noMatchTitle: 'Wie es trotzdem weitergeht',
+  noMatchStep1:
+    'Erweitere deine Suche: Viele Law Clinics beraten bundesweit per Telefon oder Video – unabhängig von deinem Wohnort.',
+  noMatchStep2:
+    'Starte den Chat mit anderen Angaben neu – eine andere Region, ein breiter gefasstes Rechtsgebiet oder eine andere Sprache führt manchmal doch zu einem Treffer.',
+  noMatchStep3:
+    'Beantrage Beratungshilfe beim Amtsgericht: Für eine anwaltliche Erstberatung zahlst du damit nur einen geringen Eigenanteil.',
+  noMatchBtnRestart: 'Chat neu starten',
 };

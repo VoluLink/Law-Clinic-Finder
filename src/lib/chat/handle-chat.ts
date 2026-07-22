@@ -4,6 +4,7 @@ import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
 import type { ChatSettings } from '@/lib/settings';
 
+import { redactPatterns } from './redact';
 import type { ChatRunResult } from './run-chat';
 import { chatRequestSchema, type ChatMessage } from './schema';
 import { CHAT_STREAM_CONTENT_TYPE } from './stream-protocol';
@@ -43,8 +44,15 @@ export async function handleChatRequest(
   if (!parsed.success) return jsonError(400, 'Ungültige Anfrage.');
   const settings = await deps.loadSettings();
   if (!settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
-  const { stream, result } = deps.run(settings, parsed.data.messages);
-  deps.schedule(() => finishRun(deps, parsed.data.messages, result));
+  // Strip contact details before the text leaves the server, not just before it
+  // is stored: the model does not need an email or phone number to name a
+  // clinic, so there is no reason to send them to the API at all.
+  const messages = parsed.data.messages.map((message) => ({
+    role: message.role,
+    content: redactPatterns(message.content),
+  }));
+  const { stream, result } = deps.run(settings, messages);
+  deps.schedule(() => finishRun(deps, messages, result));
   return new Response(stream, { headers: { 'Content-Type': CHAT_STREAM_CONTENT_TYPE } });
 }
 

@@ -28,3 +28,37 @@ export function aggregateConversationStats(rows: ConversationStatRow[]): Convers
       .sort((a, b) => b.count - a.count),
   };
 }
+
+const MS_PER_DAY = 86_400_000;
+const DAYS_PER_WEEK = 7;
+
+function weekStartLabel(startMs: number): string {
+  const date = new Date(startMs);
+  return `${date.getDate()}.${date.getMonth() + 1}`;
+}
+
+/** Rolling 7-day buckets ending at `now`, oldest → newest, for the 8-week chart. */
+export function weeklyCounts(
+  createdAt: string[],
+  now: number,
+  weeks = 8,
+): Array<{ label: string; value: number }> {
+  const buckets = new Array<number>(weeks).fill(0);
+  for (const iso of createdAt) {
+    const week = Math.floor((now - new Date(iso).getTime()) / MS_PER_DAY / DAYS_PER_WEEK);
+    if (week >= 0 && week < weeks) buckets[week] += 1;
+  }
+  return buckets
+    .map((value, week) => ({
+      label: weekStartLabel(now - (week + 1) * DAYS_PER_WEEK * MS_PER_DAY),
+      value,
+    }))
+    .reverse();
+}
+
+/** Share of conversations that ended with at least one matched clinic, as a percent. */
+export function matchRate(rows: Array<{ matched_clinic_count: number | null }>): number {
+  if (rows.length === 0) return 0;
+  const matched = rows.filter((row) => (row.matched_clinic_count ?? 0) > 0).length;
+  return Math.round((matched / rows.length) * 100);
+}

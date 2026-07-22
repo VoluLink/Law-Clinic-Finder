@@ -28,9 +28,10 @@ export type ClaimResult =
   | { status: 'error' };
 
 /**
- * Self-service claim: sends the access invite to the address already on file
- * (the emailed link is the ownership verification — spec §12 "clinic keeps
- * control"). The caller supplies `invite` (production: `reinviteClinic`).
+ * Self-service claim: sends the access invite to the address already on file,
+ * so the emailed link is itself the ownership check — only whoever can read
+ * that inbox takes control. The caller supplies `invite` (production:
+ * `reinviteClinic`).
  */
 export async function claimClinic(
   deps: ClaimDeps,

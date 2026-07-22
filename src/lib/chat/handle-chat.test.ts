@@ -111,6 +111,26 @@ describe(handleChatRequest, () => {
     );
   });
 
+  it('strips contact details before the messages reach the model', async () => {
+    const deps = createDeps();
+    const body = {
+      messages: [{ role: 'user', content: 'Schreiben Sie an anna@example.de oder 0221 4567890.' }],
+    };
+    await handleChatRequest(chatRequest(body), deps);
+    expect(deps.run).toHaveBeenCalledWith(DEFAULT_CHAT_SETTINGS, [
+      { role: 'user', content: 'Schreiben Sie an [E-MAIL] oder [TELEFON].' },
+    ]);
+  });
+
+  it('persists the redacted text, not what the user typed', async () => {
+    const deps = createDeps();
+    const body = { messages: [{ role: 'user', content: 'Meine Mail: anna@example.de' }] };
+    await handleChatRequest(chatRequest(body), deps);
+    await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
+    const [transcript] = vi.mocked(deps.persist).mock.calls[0];
+    expect(transcript[0].content).toBe('Meine Mail: [E-MAIL]');
+  });
+
   it('logs instead of throwing when the run fails after streaming started', async () => {
     const deps = createDeps({
       run: vi.fn().mockReturnValue({

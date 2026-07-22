@@ -31,9 +31,16 @@ export async function loadProxySession(request: NextRequest): Promise<ProxySessi
   });
 
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { response, role: null };
+  const userId = data?.claims?.sub;
+  if (!userId) return { response, role: null };
 
-  const { data: profile } = await supabase.from('profiles').select('role').maybeSingle();
+  // Filter by user_id explicitly; RLS alone is not enough here — an admin can
+  // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle();
   const parsed = roleSchema.safeParse(profile?.role);
   return { response, role: parsed.success ? parsed.data : null };
 }

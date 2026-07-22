@@ -24,7 +24,7 @@ describe(proxy, () => {
 
   it('redirects clinic users away from the admin area', async () => {
     loadSession.mockResolvedValue(sessionResponse('clinic'));
-    const result = await proxy(new NextRequest('http://localhost/admin/settings'));
+    const result = await proxy(new NextRequest('http://localhost/admin/assistant'));
     expect(result.headers.get('location')).toBe('http://localhost/clinic');
   });
 

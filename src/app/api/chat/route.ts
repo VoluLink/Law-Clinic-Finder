@@ -14,7 +14,7 @@ import {
   combineRateLimiters,
   createRateLimiter,
 } from '@/lib/rate-limit';
-import { parseChatSettings } from '@/lib/settings';
+import { loadChatSettings } from '@/lib/settings';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const limiter = combineRateLimiters(
@@ -37,10 +37,7 @@ function buildDeps(): ChatHandlerDeps {
   return {
     limiter,
     logger,
-    loadSettings: async () => {
-      const { data } = await adminClient.from('settings').select('key, value');
-      return parseChatSettings(data ?? []);
-    },
+    loadSettings: () => loadChatSettings(adminClient),
     run: (settings, messages) => {
       // Service-role, because `anon` no longer holds SELECT on contact_email
       // (20260720120000_lockdown_grants) and the assistant needs to be able to
@@ -49,7 +46,7 @@ function buildDeps(): ChatHandlerDeps {
       // it is covered by a regression test.
       const executeSearchClinics = (input: unknown) => searchClinics(adminClient, input ?? {});
       const executeRecommendClinics = (input: unknown) =>
-        recommendClinics(adminClient, input ?? {});
+        recommendClinics(adminClient, input ?? {}, settings.chat_max_recommendations);
       return runChat(
         { anthropic, executeSearchClinics, executeRecommendClinics },
         settings,
@@ -60,7 +57,13 @@ function buildDeps(): ChatHandlerDeps {
       persistConversation(
         { adminClient, redact: (t) => redactTranscript(redactionModel, t), logger },
         transcript,
-        { matchedClinicCount: run.matchedClinicCount, model: run.model },
+        {
+          matchedClinicCount: run.matchedClinicCount,
+          recommendedClinicIds: run.recommendedClinicIds,
+          model: run.model,
+          inputTokens: run.inputTokens,
+          outputTokens: run.outputTokens,
+        },
       ),
     schedule: (task) => after(task),
   };

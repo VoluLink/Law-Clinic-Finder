@@ -19,6 +19,14 @@
   --danger-foreground: #ffffff;
   --success: #2f7a52;
   --success-surface: #e4f2e9;
+  --warning: #9a6b1f;
+  --warning-surface: #f7ecd6;
+  /* Stronger positive green for dashboard deltas (▲ over the muted body green). */
+  --success-strong: #3ea37b;
+  /* Petrol chart ramp: oldest/smallest → newest/largest is var(--primary). */
+  --chart-1: #cbdddd;
+  --chart-2: #8fb8bb;
+  --chart-3: #4e8a90;
   /* Recommendation cards: legal-area chips and the lighter meta text on them. */
   --chip: #eef4f4;
   --muted-soft: #7a949b;
@@ -40,6 +48,12 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-success: var(--success);
   --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-success-strong: var(--success-strong);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
   --color-chip: var(--chip);
   --color-muted-soft: var(--muted-soft);
   --font-sans: var(--font-hanken-grotesk), var(--font-noto-arabic), system-ui, sans-serif;
@@ -57,7 +71,9 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-hanken-grotesk), var(--font-noto-arabic), system-ui, sans-serif;
+  /* --font-brand is set at runtime by the admin Branding tab; unset falls back. */
+  font-family:
+    var(--font-brand, var(--font-hanken-grotesk)), var(--font-noto-arabic), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -87,5 +103,33 @@ body {
   40% {
     opacity: 1;
     transform: translateY(-3px);
+  }
+}
+
+/* Admin dashboard + drawer motion (design: lcpGrow / lcpSlide / lcpFade). */
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

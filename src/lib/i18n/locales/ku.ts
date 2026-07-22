@@ -55,6 +55,9 @@ export const ku: Dictionary = {
   chatPlaceholder: 'Peyamekê binivîse…',
   chatSend: 'Bişîne',
   chatError: 'Tiştek çewt çû. Ji kerema xwe dîsa biceribîne.',
+  chatDisabled: 'Alîkar niha ne berdest e. Ji kerema xwe paşê dîsa biceribîne.',
+  privacyNote:
+    'Ji kerema xwe navên tevahî an agahiyên têkiliyê nenivîse. Axaftin tenê bênav tên tomarkirin.',
   limitMinuteTitle: 'Pir daxwaz',
   limitMinuteBody:
     'Pir daxwaz. Ji kerema xwe demekê bisekine. Ji bo pêşîlêgirtina xerabikaranîn û lêçûnan, di demeke kurt de tenê çend peyam gengaz in.',
@@ -62,4 +65,12 @@ export const ku: Dictionary = {
   limitDailyBody:
     'We sînorê rojane yê peyaman kişand. Ev xizmeta belaş daxwazan rojane sînordar dike da ku lêçûna şêwirmendiya AI ji bo herkesî domdar bimîne. Ji kerema xwe sibê dîsa biceribîne an rasterast bi Law Clinic-ê re têkilî deyne.',
   charWarn: 'Dirêjiya herî zêde hat (4.000 tîp).',
+  noMatchTitle: 'Çawa dîsa jî pêş de biçe',
+  noMatchStep1:
+    'Lêgerîna xwe fireh bike: Gelek Law Clinic li seranserê welat bi telefon an vîdyoyê şêwirmendiyê dikin – bêyî ku cihê rûniştina te girîng be.',
+  noMatchStep2:
+    'Chatê bi agahiyên din ji nû ve dest pê bike – herêmeke din, warekî hiqûqî yê firehtir an zimanekî din carinan dibe sedema encamekê.',
+  noMatchStep3:
+    'Ji dadgeha herêmî alîkariya şêwirmendiyê (Beratungshilfe) bixwaze: Wê demê tu ji bo şêwirmendiya hiqûqî ya destpêkê tenê pareke biçûk didî.',
+  noMatchBtnRestart: 'Chatê ji nû ve dest pê bike',
 };

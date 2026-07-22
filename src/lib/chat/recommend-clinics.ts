@@ -1,10 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import type { ClinicRecommendation } from './stream-protocol';
+import { MAX_CHAT_RECOMMENDATIONS } from '@/lib/settings';
 
-/** Bounds the shortlist so one reply cannot bury the user in cards. */
-const MAX_RECOMMENDATIONS = 8;
+import type { ClinicRecommendation } from './stream-protocol';
 
 /**
  * A few directory rows hold a prose sentence in `legal_areas` rather than a
@@ -22,14 +21,18 @@ export const recommendClinicsInputSchema = z.object({
       }),
     )
     .min(1)
-    .max(MAX_RECOMMENDATIONS),
+    // Static ceiling: this schema is turned into the tool definition at module
+    // load, so it cannot depend on the admin setting. The configured, lower
+    // limit is applied to the result below.
+    .max(MAX_CHAT_RECOMMENDATIONS),
 });
 
 export type RecommendClinicsInput = z.infer<typeof recommendClinicsInputSchema>;
 
-const CARD_COLUMNS = 'name, region, legal_areas, website, contact_email';
+const CARD_COLUMNS = 'id, name, region, legal_areas, website, contact_email';
 
 const rowSchema = z.object({
+  id: z.string(),
   name: z.string(),
   region: z.string().nullable().default(null),
   legal_areas: z.string().nullable().default(null),
@@ -54,6 +57,7 @@ export type RecommendClinicsResult = {
 export async function recommendClinics(
   client: SupabaseClient,
   input: unknown,
+  maxCards: number = MAX_CHAT_RECOMMENDATIONS,
 ): Promise<RecommendClinicsResult> {
   const { clinics } = recommendClinicsInputSchema.parse(input);
   const names = clinics.map((pick) => pick.name);
@@ -72,10 +76,14 @@ export async function recommendClinics(
   );
 
   const unknown = names.filter((name) => !byName.has(name));
-  const recommendations = clinics.flatMap((pick) => {
-    const row = byName.get(pick.name);
-    return row ? [toCard(row, pick.reason)] : [];
-  });
+  const recommendations = clinics
+    .flatMap((pick) => {
+      const row = byName.get(pick.name);
+      return row ? [toCard(row, pick.reason)] : [];
+    })
+    // Trim to the configured cap only after unknown names are gone, so a
+    // hallucinated pick cannot push a real clinic off the end of the list.
+    .slice(0, maxCards);
   // Rank after filtering so a dropped entry never leaves a gap in the numbering.
   recommendations.forEach((card, index) => {
     card.rank = index + 1;
@@ -89,6 +97,7 @@ export async function recommendClinics(
 
 function toCard(row: z.infer<typeof rowSchema>, reason: string): ClinicRecommendation {
   return {
+    id: row.id,
     rank: 0,
     name: row.name,
     region: row.region,

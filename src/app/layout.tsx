@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { Hanken_Grotesk, Noto_Sans_Arabic } from 'next/font/google';
 import './globals.css';
 
+import { Analytics } from '@/components/analytics/Analytics';
+import { ConsentBanner } from '@/components/analytics/ConsentBanner';
+import { brandingCssVars, googleFontHref } from '@/lib/branding/branding';
+import { getBranding } from '@/lib/branding/server';
 import { dirFor } from '@/lib/i18n/config';
 import { getRequestLang } from '@/lib/i18n/get-request-lang';
 
@@ -27,14 +31,24 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const lang = await getRequestLang();
+  const [lang, branding] = await Promise.all([getRequestLang(), getBranding()]);
+  const fontHref = googleFontHref(branding.font);
   return (
     <html
       lang={lang}
       dir={dirFor(lang)}
       className={`${hankenGrotesk.variable} ${notoSansArabic.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {fontHref && <link rel="stylesheet" href={fontHref} />}
+        {/* Runtime :root token overrides from the admin Branding tab. */}
+        <style dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <Analytics />
+        {children}
+        <ConsentBanner />
+      </body>
     </html>
   );
 }

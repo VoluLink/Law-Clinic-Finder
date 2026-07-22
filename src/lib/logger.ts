@@ -10,7 +10,7 @@ export type Logger = {
   child: (fields: LogFields) => Logger;
 };
 
-type WriteLine = (line: LogLine) => void;
+export type WriteLine = (line: LogLine) => void;
 
 function writeToStdio(line: LogLine): void {
   const stream = line.level === 'error' || line.level === 'warn' ? 'stderr' : 'stdout';
@@ -31,4 +31,27 @@ export function createLogger(base: LogFields = {}, write: WriteLine = writeToStd
   };
 }
 
-export const logger = createLogger();
+// Optional secondary sink for the process-wide logger, wired once at server
+// startup (src/instrumentation.ts) to persist logs into the admin "Protokolle"
+// table. Kept as a settable hook so this file stays environment-agnostic and
+// never statically imports the server-only DB sink.
+let sink: WriteLine | null = null;
+
+export function setLogSink(next: WriteLine | null): void {
+  sink = next;
+}
+
+function fanout(line: LogLine): void {
+  writeToStdio(line);
+  if (!sink) return;
+  try {
+    sink(line);
+  } catch (error) {
+    // A failing sink must never break the request path or recurse back through
+    // the logger. Report it on stderr and carry on.
+    const reason = error instanceof Error ? error.message : 'unknown';
+    process.stderr.write(`log sink failed: ${reason}\n`);
+  }
+}
+
+export const logger = createLogger({}, fanout);

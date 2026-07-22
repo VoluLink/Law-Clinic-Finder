@@ -31,7 +31,7 @@ export const SIGNUP_REGISTER_RATE_LIMIT: RateLimitConfig = { maxRequests: 5, win
 
 /**
  * In-memory sliding-window limiter. Per-process only — behind multiple
- * instances, enforce limits at the proxy layer as well (see AR-3/VS-11).
+ * instances, enforce limits at the proxy layer as well.
  */
 export function createRateLimiter({ maxRequests, windowMs }: RateLimitConfig): RateLimiter {
   const hits = new Map<string, number[]>();

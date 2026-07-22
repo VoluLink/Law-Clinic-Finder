@@ -14,8 +14,8 @@ export type RegisterResult =
 
 /**
  * New-clinic registration. A name collision never creates a duplicate — the
- * caller is redirected into the claim flow for the existing entry instead
- * (spec §8.6). Otherwise the submission lands in the admin approval queue.
+ * caller is redirected into the claim flow for the existing entry instead.
+ * Otherwise the submission lands in the admin approval queue.
  */
 export async function registerClinic(
   deps: SignupDeps,
