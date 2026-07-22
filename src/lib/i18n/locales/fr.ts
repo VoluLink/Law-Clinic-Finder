@@ -58,6 +58,7 @@ export const fr: Dictionary = {
   chatSend: 'Envoyer',
   chatError: 'Une erreur est survenue. Veuillez réessayer.',
   chatDisabled: "L'assistant est actuellement indisponible. Veuillez réessayer plus tard.",
+  chatUnavailableTitle: 'Assistant momentanément indisponible',
   privacyNote:
     'Veuillez ne pas saisir de noms complets ni de coordonnées. Les conversations sont enregistrées uniquement de façon anonyme.',
   limitMinuteTitle: 'Trop de requêtes',

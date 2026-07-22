@@ -56,6 +56,7 @@ export const tr: Dictionary = {
   chatSend: 'Gönder',
   chatError: 'Bir şeyler ters gitti. Lütfen tekrar deneyin.',
   chatDisabled: 'Asistan şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+  chatUnavailableTitle: 'Asistan şu anda kullanılamıyor',
   privacyNote:
     'Lütfen tam ad veya iletişim bilgisi girmeyin. Görüşmeler yalnızca anonim olarak saklanır.',
   limitMinuteTitle: 'Çok fazla istek',

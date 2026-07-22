@@ -81,6 +81,20 @@ body {
   font-family: var(--font-noto-arabic), var(--font-hanken-grotesk), system-ui, sans-serif;
 }
 
+/* Flatten the native color input so its color fills the whole rounded control
+   instead of sitting as an inset swatch inside a frame. */
+.color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-md);
+}
+.color-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-md);
+}
+
 /* Chat motion (design: lccIn / lccBlink) — referenced via animate-[…] utilities. */
 @keyframes chat-in {
   from {

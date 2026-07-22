@@ -5,9 +5,11 @@ import type { ChatSettings } from '@/lib/settings';
 
 import {
   buildSystemPrompt,
+  LIST_DIRECTORY_TERMS_DESCRIPTION,
   RECOMMEND_CLINICS_DESCRIPTION,
   REPORT_NO_MATCH_DESCRIPTION,
   SEARCH_CLINICS_DESCRIPTION,
+  TOOL_NAMES,
 } from './prompts';
 import { recommendClinicsInputSchema } from './recommend-clinics';
 import type { ChatMessage } from './schema';
@@ -46,6 +48,7 @@ export type RunChatDeps = {
   executeRecommendClinics: (
     input: unknown,
   ) => Promise<{ json: string; recommendations: ClinicRecommendation[] }>;
+  executeListDirectoryTerms: () => Promise<string>;
 };
 
 export type ChatRunResult = {
@@ -63,7 +66,7 @@ export type ChatRunResult = {
 export type ChatRun = { stream: ReadableStream<Uint8Array>; result: Promise<ChatRunResult> };
 
 export const SEARCH_CLINICS_TOOL: Anthropic.Tool = {
-  name: 'search_clinics',
+  name: TOOL_NAMES.searchClinics,
   description: SEARCH_CLINICS_DESCRIPTION,
   // z.toJSONSchema emits a draft-2020-12 object schema; the SDK type just
   // wants its literal 'object' discriminant.
@@ -71,7 +74,7 @@ export const SEARCH_CLINICS_TOOL: Anthropic.Tool = {
 };
 
 export const RECOMMEND_CLINICS_TOOL: Anthropic.Tool = {
-  name: 'recommend_clinics',
+  name: TOOL_NAMES.recommendClinics,
   description: RECOMMEND_CLINICS_DESCRIPTION,
   input_schema: z.toJSONSchema(recommendClinicsInputSchema) as Anthropic.Tool['input_schema'],
 };
@@ -79,8 +82,16 @@ export const RECOMMEND_CLINICS_TOOL: Anthropic.Tool = {
 // No parameters: the model's mere invocation is the signal, and the card's copy
 // is app-owned, so there is nothing for the model to fill in.
 export const REPORT_NO_MATCH_TOOL: Anthropic.Tool = {
-  name: 'report_no_match',
+  name: TOOL_NAMES.reportNoMatch,
   description: REPORT_NO_MATCH_DESCRIPTION,
+  input_schema: z.toJSONSchema(z.object({})) as Anthropic.Tool['input_schema'],
+};
+
+// No parameters either: the model reads the whole vocabulary back, there is
+// nothing to filter on. The current directory is fetched live on each call.
+export const LIST_DIRECTORY_TERMS_TOOL: Anthropic.Tool = {
+  name: TOOL_NAMES.listDirectoryTerms,
+  description: LIST_DIRECTORY_TERMS_DESCRIPTION,
   input_schema: z.toJSONSchema(z.object({})) as Anthropic.Tool['input_schema'],
 };
 
@@ -191,7 +202,12 @@ async function streamTurn(
     temperature: settings.chat_temperature,
     system: buildSystemPrompt(settings.chat_system_prompt, settings.chat_skill),
     messages: history,
-    tools: [SEARCH_CLINICS_TOOL, RECOMMEND_CLINICS_TOOL, REPORT_NO_MATCH_TOOL],
+    tools: [
+      SEARCH_CLINICS_TOOL,
+      RECOMMEND_CLINICS_TOOL,
+      REPORT_NO_MATCH_TOOL,
+      LIST_DIRECTORY_TERMS_TOOL,
+    ],
   });
   for await (const event of stream) {
     if (event.type !== 'content_block_delta') continue;
@@ -225,12 +241,7 @@ async function runTool(
 ): Promise<Anthropic.ToolResultBlockParam> {
   state.toolCalls += 1;
   try {
-    const content =
-      block.name === RECOMMEND_CLINICS_TOOL.name
-        ? await runRecommend(deps, block.input, state, emit)
-        : block.name === REPORT_NO_MATCH_TOOL.name
-          ? runNoMatch(emit)
-          : await runSearch(deps, block.input, state);
+    const content = await dispatchTool(deps, block, state, emit);
     return { type: 'tool_result', tool_use_id: block.id, content };
   } catch {
     // Reported to the model as a failed tool call; it apologises to the user.
@@ -240,6 +251,25 @@ async function runTool(
       content: 'Die Suche ist fehlgeschlagen.',
       is_error: true,
     };
+  }
+}
+
+/** Routes a tool call to its executor. Search is the default (most frequent) branch. */
+function dispatchTool(
+  deps: RunChatDeps,
+  block: z.infer<typeof toolUseBlockSchema>,
+  state: RunState,
+  emit: (event: ChatEvent) => void,
+): Promise<string> | string {
+  switch (block.name) {
+    case RECOMMEND_CLINICS_TOOL.name:
+      return runRecommend(deps, block.input, state, emit);
+    case REPORT_NO_MATCH_TOOL.name:
+      return runNoMatch(emit);
+    case LIST_DIRECTORY_TERMS_TOOL.name:
+      return deps.executeListDirectoryTerms();
+    default:
+      return runSearch(deps, block.input, state);
   }
 }
 

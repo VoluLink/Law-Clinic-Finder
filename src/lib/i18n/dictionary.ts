@@ -59,6 +59,7 @@ export type Dictionary = {
   chatSend: string;
   chatError: string;
   chatDisabled: string;
+  chatUnavailableTitle: string;
   privacyNote: string;
   limitMinuteTitle: string;
   limitMinuteBody: string;

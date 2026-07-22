@@ -5,8 +5,8 @@ import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const NAV: NavItem[] = [
-  { href: '/clinic', label: 'Mein Eintrag', icon: '▤' },
-  { href: '/clinic/statistics', label: 'Statistiken', icon: '▧' },
+  { href: '/clinic', label: 'Mein Eintrag', icon: 'address-card' },
+  { href: '/clinic/statistics', label: 'Statistiken', icon: 'chart-column' },
 ];
 
 const TITLES: Record<string, string> = {

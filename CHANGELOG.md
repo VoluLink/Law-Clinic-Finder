@@ -7,8 +7,39 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Hinweiskarte statt Chatbox**: Ist der Chatbot deaktiviert oder unkonfiguriert, zeigt die
+  Startseite jetzt schon beim Laden die gestaltete `ChatUnavailable`-Karte („später erneut
+  versuchen", übersetzt in allen 9 Sprachen) statt der Chatbox — bisher erschien der Hinweis erst
+  nach dem Absenden einer Nachricht.
+- **Toggle-Komponente** im UI-Kit; der Kill-Switch im KI-Assistent-Tab heißt jetzt
+  „Chatbot aktiviert" und ist ein Schalter statt einer Checkbox.
+- **Standardfassung & Zurücksetzen im KI-Tab:** Neben Rolle und Ablauf hält die Datenbank eine
+  eingefrorene Standardfassung (`chat_system_prompt_default`/`chat_skill_default`); ein Button
+  „Auf Standard zurücksetzen" stellt sie im Tab wieder her.
+- **Toolbox im KI-Tab:** eine Referenz der im Ablauf verwendbaren Werkzeuge (`list_directory_terms`,
+  `search_clinics`, `recommend_clinics`, `report_no_match`) mit Erklärungen, damit Admins die Namen
+  beim Bearbeiten des Ablaufs korrekt wiederverwenden.
+- **Warnung im KI-Tab**, wenn Rolle oder Ablauf leer sind und der Chatbot deshalb nicht arbeiten
+  kann — Ratsuchende sehen dann die Hinweiskarte statt des Chats.
+
+### Geändert
+
+- **`settings` ist die einzige Quelle für alle Regler des KI-Assistenten — kein Code-Fallback mehr.**
+  Rolle und Ablauf leben nur noch in der Datenbank (`chat_system_prompt`/`chat_skill`) und werden pro
+  Anfrage von dort gelesen; `src/lib/chat/prompts.ts` enthält keinen Prompt-Text mehr, nur die
+  code-seitigen Tool-Beschreibungen, den Redaktions-Prompt und die Toolbox-Referenz. Der Startwert
+  wird per versionierter Supabase-Migration gesät; fehlt ein Pflichtwert oder ist er ungültig, gilt
+  der Chat als nicht verfügbar statt auf Code zurückzufallen. Die frühere „override-only"-/
+  Fallback-Logik in `prompts.ts` entfällt.
+- Der Next.js-Dev-Indikator (das „N" unten links) ist per `devIndicators: false` ausgeblendet.
+
 ### Behoben
 
+- Der Live-Chatbot nutzte einen veralteten, in der Datenbank eingefrorenen „Ablauf" und feuerte die
+  „Kein Treffer"-Karte (`report_no_match`) nie; die eingefrorenen Prompt-Zeilen wurden an den
+  aktuellen `prompts.ts`-Stand angeglichen.
 - `npm run typecheck` schlug in einem frischen Clone fehl: `next-env.d.ts` wird von Next generiert
   und ist daher nicht eingecheckt, ohne die Datei fehlen die Typdeklarationen für Bild-Importe.
   Das Skript ruft jetzt vorab `next typegen` auf.

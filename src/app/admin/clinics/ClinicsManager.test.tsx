@@ -87,6 +87,17 @@ describe('ClinicsManager', () => {
     expect(screen.getByDisplayValue('Mietrecht Clinic')).toBeInTheDocument();
   });
 
+  it('renders guided chip and suggestion controls for category cells in edit mode', async () => {
+    renderManager();
+    await userEvent.click(screen.getByRole('button', { name: /Datenbank bearbeiten/ }));
+    // legal_areas becomes a chip combobox carrying the stored value as a chip.
+    expect(screen.getAllByRole('combobox', { name: 'Rechtsgebiet' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Mietrecht entfernen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Asylrecht entfernen' })).toBeInTheDocument();
+    // region becomes a free-text suggestion input carrying the city.
+    expect(screen.getByDisplayValue('Köln')).toBeInTheDocument();
+  });
+
   it('approves a pending submission via the API', async () => {
     const fetchMock = renderManager();
     await userEvent.click(screen.getByRole('button', { name: 'Freischalten' }));

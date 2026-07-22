@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { ASSISTANT_ROLE, CONSULTATION_SKILL } from './chat/prompts';
-
 export type ChatSettings = {
   chat_model: string;
   chat_enabled: boolean;
@@ -25,74 +23,90 @@ export const MAX_CHAT_RECOMMENDATIONS = 8;
 
 export const MAX_CHAT_GREETING_CHARS = 500;
 
-export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
-  chat_model: 'claude-haiku-4-5-20251001',
-  chat_enabled: true,
-  chat_max_tokens: 1024,
-  // Lower than the API default of 1.0: clinic picks should be consistent
-  // between two people describing the same problem.
-  chat_temperature: 0.3,
-  chat_system_prompt: ASSISTANT_ROLE,
-  chat_skill: CONSULTATION_SKILL,
-  chat_greeting: '',
-  chat_max_recommendations: MAX_CHAT_RECOMMENDATIONS,
-};
+/** The frozen baseline for the two prompt texts lives under these sibling keys;
+ *  the admin panel's "reset to default" restores them. They are never written by
+ *  the admin PUT (not part of chatSettingsUpdateSchema), so they stay immutable. */
+const SYSTEM_PROMPT_DEFAULT_KEY = 'chat_system_prompt_default';
+const SKILL_DEFAULT_KEY = 'chat_skill_default';
 
 export type SettingRow = { key: string; value: unknown };
+
+/**
+ * One schema per setting — the single source both the admin update payload and
+ * the runtime read validate against, so the two can never drift.
+ */
+const chatSettingsShape = {
+  chat_model: z.string().min(1).max(100),
+  chat_enabled: z.boolean(),
+  chat_max_tokens: z.number().int().positive().max(MAX_CHAT_MAX_TOKENS),
+  chat_temperature: z.number().min(0).max(1),
+  chat_system_prompt: z.string().min(1).max(20_000),
+  chat_skill: z.string().min(1).max(20_000),
+  chat_greeting: z.string().max(MAX_CHAT_GREETING_CHARS),
+  chat_max_recommendations: z.number().int().min(1).max(MAX_CHAT_RECOMMENDATIONS),
+} as const;
+
+const CHAT_SETTINGS_KEYS = Object.keys(chatSettingsShape) as (keyof ChatSettings)[];
+
+/** Admin settings editor payload. */
+export const chatSettingsUpdateSchema = z.object(chatSettingsShape);
+
+export type ChatSettingsResult =
+  { ok: true; settings: ChatSettings } | { ok: false; missing: string[] };
+
+/**
+ * Validates the `settings` rows against every key strictly. There is no code
+ * fallback: a missing or invalid key leaves the chat unconfigured (`ok: false`),
+ * so a bad row degrades to the "unavailable" notice rather than sending a broken
+ * prompt to the API. The seed migration guarantees all keys exist in practice.
+ */
+export function parseChatSettings(rows: SettingRow[]): ChatSettingsResult {
+  const byKey = new Map(rows.map((row) => [row.key, row.value] as const));
+  const settings: Record<string, unknown> = {};
+  const missing: string[] = [];
+  for (const key of CHAT_SETTINGS_KEYS) {
+    const parsed = chatSettingsShape[key].safeParse(byKey.get(key));
+    if (parsed.success) settings[key] = parsed.data;
+    else missing.push(key);
+  }
+  if (missing.length > 0) return { ok: false, missing };
+  return { ok: true, settings: settings as ChatSettings };
+}
 
 /**
  * Reads the settings table. `anon` has no SELECT on it, so callers must pass a
  * service-role client — always from a server component or route.
  */
-export async function loadChatSettings(client: SupabaseClient): Promise<ChatSettings> {
+export async function loadChatSettings(client: SupabaseClient): Promise<ChatSettingsResult> {
   const { data } = await client.from('settings').select('key, value');
   return parseChatSettings(data ?? []);
 }
 
-const temperatureSchema = z.number().min(0).max(1);
-const maxTokensSchema = z.number().int().positive().max(MAX_CHAT_MAX_TOKENS);
-const recommendationsSchema = z.number().int().min(1).max(MAX_CHAT_RECOMMENDATIONS);
-const greetingSchema = z.string().max(MAX_CHAT_GREETING_CHARS);
-
-/** Admin settings editor payload — single source next to the defaults. */
-export const chatSettingsUpdateSchema = z.object({
-  chat_model: z.string().min(1).max(100),
-  chat_enabled: z.boolean(),
-  chat_max_tokens: maxTokensSchema,
-  chat_temperature: temperatureSchema,
-  chat_system_prompt: z.string().min(1).max(20_000),
-  chat_skill: z.string().min(1).max(20_000),
-  chat_greeting: greetingSchema,
-  chat_max_recommendations: recommendationsSchema,
-});
+export type AssistantFormView = {
+  /** Present, valid values; a genuinely missing key is simply absent. */
+  values: Partial<ChatSettings>;
+  /** Baseline text the admin can revert Rolle/Ablauf to. */
+  defaults: { chat_system_prompt: string; chat_skill: string };
+  /** False when Rolle or Ablauf is absent — the bot cannot operate. */
+  promptConfigured: boolean;
+};
 
 /**
- * Maps raw `settings` rows onto a typed, fully-populated ChatSettings object.
- * Missing or invalid values fall back to DEFAULT_CHAT_SETTINGS so a bad row can
- * never crash the chat route.
+ * Lenient projection for the admin editor: it must render whatever is stored,
+ * even when incomplete, plus the revert baselines and whether the bot can run.
  */
-export function parseChatSettings(rows: SettingRow[]): ChatSettings {
+export function readAssistantFormView(rows: SettingRow[]): AssistantFormView {
   const byKey = new Map(rows.map((row) => [row.key, row.value] as const));
-
-  const pick = <T>(key: keyof ChatSettings, schema: z.ZodType<T>, fallback: T): T => {
-    if (!byKey.has(key)) return fallback;
-    const parsed = schema.safeParse(byKey.get(key));
-    return parsed.success ? parsed.data : fallback;
+  const values: Record<string, unknown> = {};
+  for (const key of CHAT_SETTINGS_KEYS) {
+    const parsed = chatSettingsShape[key].safeParse(byKey.get(key));
+    if (parsed.success) values[key] = parsed.data;
+  }
+  const defaults = {
+    chat_system_prompt: z.string().catch('').parse(byKey.get(SYSTEM_PROMPT_DEFAULT_KEY)),
+    chat_skill: z.string().catch('').parse(byKey.get(SKILL_DEFAULT_KEY)),
   };
-
-  const d = DEFAULT_CHAT_SETTINGS;
-  return {
-    chat_model: pick('chat_model', z.string().min(1), d.chat_model),
-    chat_enabled: pick('chat_enabled', z.boolean(), d.chat_enabled),
-    chat_max_tokens: pick('chat_max_tokens', maxTokensSchema, d.chat_max_tokens),
-    chat_temperature: pick('chat_temperature', temperatureSchema, d.chat_temperature),
-    chat_system_prompt: pick('chat_system_prompt', z.string().min(1), d.chat_system_prompt),
-    chat_skill: pick('chat_skill', z.string().min(1), d.chat_skill),
-    chat_greeting: pick('chat_greeting', greetingSchema, d.chat_greeting),
-    chat_max_recommendations: pick(
-      'chat_max_recommendations',
-      recommendationsSchema,
-      d.chat_max_recommendations,
-    ),
-  };
+  const typed = values as Partial<ChatSettings>;
+  const promptConfigured = Boolean(typed.chat_system_prompt) && Boolean(typed.chat_skill);
+  return { values: typed, defaults, promptConfigured };
 }

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { after, type NextRequest } from 'next/server';
 
+import { listDirectoryTerms } from '@/lib/chat/directory-terms';
 import { handleChatRequest, type ChatHandlerDeps } from '@/lib/chat/handle-chat';
 import { persistConversation } from '@/lib/chat/persist-conversation';
 import { createRedactionModel, redactTranscript } from '@/lib/chat/redact';
@@ -47,8 +48,9 @@ function buildDeps(): ChatHandlerDeps {
       const executeSearchClinics = (input: unknown) => searchClinics(adminClient, input ?? {});
       const executeRecommendClinics = (input: unknown) =>
         recommendClinics(adminClient, input ?? {}, settings.chat_max_recommendations);
+      const executeListDirectoryTerms = () => listDirectoryTerms(adminClient);
       return runChat(
-        { anthropic, executeSearchClinics, executeRecommendClinics },
+        { anthropic, executeSearchClinics, executeRecommendClinics, executeListDirectoryTerms },
         settings,
         messages,
       );

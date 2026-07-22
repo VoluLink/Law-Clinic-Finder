@@ -62,6 +62,8 @@ describe(searchClinics, () => {
     ['no filters', {}],
     ['a city', { city: 'Hamburg' }],
     ['a legal area', { legal_area: 'Mietrecht' }],
+    ['a language', { language: 'Deutsch' }],
+    ['a target group', { target_group: 'Studierende' }],
     ['a free-text query', { query: 'Beratung' }],
     ['every filter at once', { query: 'Beratung', city: 'Hamburg', legal_area: 'Mietrecht' }],
   ])('still restricts to published clinics with %s', async (_label, input) => {
@@ -98,6 +100,27 @@ describe(searchClinics, () => {
       ([method, args]) => method === 'ilike' && args[0] === 'legal_areas',
     );
     expect(String(ilikeCall?.[1][1])).toMatch(/^%[^%_()]+%$/);
+  });
+
+  it('filters languages by substring match', async () => {
+    const { client, calls } = createSupabaseMock({ data: [], error: null });
+    await searchClinics(client as never, { language: 'Arabisch' });
+    expect(calls).toContainEqual(['ilike', ['languages', '%Arabisch%']]);
+  });
+
+  it('filters target groups by substring match', async () => {
+    const { client, calls } = createSupabaseMock({ data: [], error: null });
+    await searchClinics(client as never, { target_group: 'Studierende' });
+    expect(calls).toContainEqual(['ilike', ['target_clients', '%Studierende%']]);
+  });
+
+  it('sanitizes wildcard characters out of the language and target-group filters', async () => {
+    const { client, calls } = createSupabaseMock({ data: [], error: null });
+    await searchClinics(client as never, { language: 'Deu%_tsch', target_group: 'Stud)(ierende' });
+    const ilikeArgs = calls
+      .filter(([method]) => method === 'ilike')
+      .map(([, args]) => String(args[1]));
+    expect(ilikeArgs.every((arg) => /^%[^%_()]+%$/.test(arg))).toBe(true);
   });
 
   it('sanitizes PostgREST filter syntax out of free-text queries', async () => {

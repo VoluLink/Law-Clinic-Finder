@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_CHAT_SETTINGS } from '@/lib/settings';
+import { makeChatSettings } from '@/lib/settings.fixtures';
 
 import { runChat, type AnthropicLike } from './run-chat';
 import { decodeChatEvents, type ChatEvent, type ClinicRecommendation } from './stream-protocol';
+
+const settings = makeChatSettings();
 
 type FakeEvent = { type: string; delta?: { type: string; text: string } };
 type FakeFinal = {
@@ -61,6 +63,7 @@ function unusedTools() {
   return {
     executeSearchClinics: vi.fn().mockRejectedValue(new Error('search not expected')),
     executeRecommendClinics: vi.fn().mockRejectedValue(new Error('recommend not expected')),
+    executeListDirectoryTerms: vi.fn().mockRejectedValue(new Error('list terms not expected')),
   };
 }
 
@@ -77,13 +80,13 @@ describe(runChat, () => {
       ...unusedTools(),
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     expect(await readText(run.stream)).toBe('Hallo Welt');
     await expect(run.result).resolves.toMatchObject({
       assistantText: 'Hallo Welt',
       toolCallCount: 0,
       recommendations: [],
-      model: DEFAULT_CHAT_SETTINGS.chat_model,
+      model: settings.chat_model,
     });
   });
 
@@ -112,7 +115,7 @@ describe(runChat, () => {
       executeSearchClinics,
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     expect(await readText(run.stream)).toBe('Gefunden!');
     expect(executeSearchClinics).toHaveBeenCalledWith({ city: 'Berlin' });
     await expect(run.result).resolves.toMatchObject({ toolCallCount: 1, matchedClinicCount: 2 });
@@ -122,6 +125,39 @@ describe(runChat, () => {
     expect(secondCall.messages[2].content[0]).toMatchObject({
       type: 'tool_result',
       tool_use_id: 'tool-1',
+    });
+  });
+
+  it('hands the directory vocabulary back to the model when it asks for it', async () => {
+    const toolUse = { type: 'tool_use', id: 'tool-1', name: 'list_directory_terms', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(
+        fakeTurn([textDelta('Alles klar.')], {
+          content: [{ type: 'text', text: 'Alles klar.' }],
+          stop_reason: 'end_turn',
+        }),
+      );
+    const vocabulary = JSON.stringify({
+      legal_areas: ['Mietrecht'],
+      regions: [],
+      languages: [],
+      target_groups: [],
+    });
+    const executeListDirectoryTerms = vi.fn().mockResolvedValue(vocabulary);
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+      executeListDirectoryTerms,
+    };
+
+    await readEvents(runChat(deps, settings, [userMessage]).stream);
+    expect(executeListDirectoryTerms).toHaveBeenCalledTimes(1);
+    expect(stream.mock.calls[1][0].messages[2].content[0]).toMatchObject({
+      type: 'tool_result',
+      tool_use_id: 'tool-1',
+      content: vocabulary,
     });
   });
 
@@ -143,7 +179,7 @@ describe(runChat, () => {
       executeSearchClinics,
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     await readEvents(run.stream);
     const secondCall = stream.mock.calls[1][0];
     expect(secondCall.messages[2].content[0]).toMatchObject({ is_error: true });
@@ -163,7 +199,7 @@ describe(runChat, () => {
       executeSearchClinics,
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     await readEvents(run.stream);
     await run.result;
     expect(stream.mock.calls.length).toBeLessThanOrEqual(6);
@@ -194,7 +230,7 @@ describe(runChat, () => {
       executeRecommendClinics,
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     const events = await readEvents(run.stream);
     expect(events).toContainEqual({ t: 'clinics', v: [card] });
     await expect(run.result).resolves.toMatchObject({ recommendations: [card] });
@@ -221,7 +257,7 @@ describe(runChat, () => {
       executeRecommendClinics,
     };
 
-    await readEvents(runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]).stream);
+    await readEvents(runChat(deps, settings, [userMessage]).stream);
     expect(executeRecommendClinics).toHaveBeenCalledTimes(1);
     expect(tools.executeSearchClinics).not.toHaveBeenCalled();
   });
@@ -250,7 +286,7 @@ describe(runChat, () => {
       executeSearchClinics: vi.fn().mockResolvedValue(JSON.stringify({ count: 0, clinics: [] })),
     };
 
-    const run = runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]);
+    const run = runChat(deps, settings, [userMessage]);
     await readEvents(run.stream);
     await expect(run.result).resolves.toMatchObject({ inputTokens: 250, outputTokens: 50 });
   });
@@ -266,7 +302,7 @@ describe(runChat, () => {
       ...unusedTools(),
     };
 
-    const events = await readEvents(runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]).stream);
+    const events = await readEvents(runChat(deps, settings, [userMessage]).stream);
     expect(events).toContainEqual({ t: 'nomatch' });
   });
 
@@ -289,7 +325,7 @@ describe(runChat, () => {
         .mockResolvedValue({ json: '{"shown":0,"unknown":["Erfunden"]}', recommendations: [] }),
     };
 
-    const events = await readEvents(runChat(deps, DEFAULT_CHAT_SETTINGS, [userMessage]).stream);
+    const events = await readEvents(runChat(deps, settings, [userMessage]).stream);
     expect(events.filter((event) => event.t === 'clinics')).toEqual([]);
   });
 });

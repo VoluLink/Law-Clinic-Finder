@@ -2,7 +2,7 @@ import { clientIp } from '@/lib/http/client-ip';
 import { isSameOrigin } from '@/lib/http/same-origin';
 import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
-import type { ChatSettings } from '@/lib/settings';
+import type { ChatSettings, ChatSettingsResult } from '@/lib/settings';
 
 import { redactPatterns } from './redact';
 import type { ChatRunResult } from './run-chat';
@@ -11,7 +11,7 @@ import { CHAT_STREAM_CONTENT_TYPE } from './stream-protocol';
 
 export type ChatHandlerDeps = {
   limiter: ScopedRateLimiter;
-  loadSettings: () => Promise<ChatSettings>;
+  loadSettings: () => Promise<ChatSettingsResult>;
   run: (
     settings: ChatSettings,
     messages: ChatMessage[],
@@ -42,8 +42,9 @@ export async function handleChatRequest(
   const body = await request.json().catch(() => null);
   const parsed = chatRequestSchema.safeParse(body);
   if (!parsed.success) return jsonError(400, 'Ungültige Anfrage.');
-  const settings = await deps.loadSettings();
-  if (!settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
+  const loaded = await deps.loadSettings();
+  if (!loaded.ok) return jsonError(503, 'Der Chat ist derzeit nicht konfiguriert.');
+  if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
   // Strip contact details before the text leaves the server, not just before it
   // is stored: the model does not need an email or phone number to name a
   // clinic, so there is no reason to send them to the API at all.
@@ -51,7 +52,7 @@ export async function handleChatRequest(
     role: message.role,
     content: redactPatterns(message.content),
   }));
-  const { stream, result } = deps.run(settings, messages);
+  const { stream, result } = deps.run(loaded.settings, messages);
   deps.schedule(() => finishRun(deps, messages, result));
   return new Response(stream, { headers: { 'Content-Type': CHAT_STREAM_CONTENT_TYPE } });
 }

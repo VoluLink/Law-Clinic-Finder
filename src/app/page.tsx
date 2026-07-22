@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { ChatUnavailable } from '@/components/chat/ChatUnavailable';
 import { FinderChat } from '@/components/chat/FinderChat';
 import { FaqAccordion } from '@/components/layout/FaqAccordion';
 import { Footer } from '@/components/layout/Footer';
@@ -11,31 +12,38 @@ import { getRequestLang } from '@/lib/i18n/get-request-lang';
 import { loadChatSettings } from '@/lib/settings';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
+type ChatLanding = { available: boolean; greeting: string };
+
 /**
- * The greeting is the only setting the landing page needs, and `anon` cannot
- * read the settings table — hence the service-role client. A missing key or an
- * unreachable database must not take the whole page down, so it degrades to no
- * greeting rather than throwing.
+ * The landing page needs the greeting and whether the assistant is live. `anon`
+ * cannot read the settings table, so this uses the service-role client.
+ * `available` mirrors the chat route's 503 conditions (env keys present, the
+ * settings fully configured, AND `chat_enabled`); a missing setting or unreachable
+ * database degrades to unavailable rather than throwing, so the page shows the
+ * notice instead of a broken chat.
  */
-async function loadGreeting(): Promise<string> {
-  if (!process.env.SUPABASE_SECRET_KEY) return '';
+async function loadChatLanding(): Promise<ChatLanding> {
+  const configured =
+    Boolean(process.env.SUPABASE_SECRET_KEY) && Boolean(process.env.ANTHROPIC_API_KEY);
+  if (!configured) return { available: false, greeting: '' };
   try {
-    const settings = await loadChatSettings(createSupabaseAdminClient());
-    return settings.chat_greeting;
+    const loaded = await loadChatSettings(createSupabaseAdminClient());
+    if (!loaded.ok) return { available: false, greeting: '' };
+    return { available: loaded.settings.chat_enabled, greeting: loaded.settings.chat_greeting };
   } catch {
-    return '';
+    return { available: false, greeting: '' };
   }
 }
 
 export default async function Home() {
   const lang = await getRequestLang();
   const dict = getDictionary(lang);
-  const greeting = await loadGreeting();
+  const chat = await loadChatLanding();
   return (
     <div className="flex flex-1 flex-col">
       <Nav dict={dict} lang={lang} />
       <main className="flex-1">
-        <Hero dict={dict} rtl={isRtl(lang)} greeting={greeting} />
+        <Hero dict={dict} rtl={isRtl(lang)} available={chat.available} greeting={chat.greeting} />
         <StepsSection dict={dict} />
         <FaqSection dict={dict} />
       </main>
@@ -73,7 +81,17 @@ function Nav({ dict, lang }: { dict: Dictionary; lang: Lang }) {
   );
 }
 
-function Hero({ dict, rtl, greeting }: { dict: Dictionary; rtl: boolean; greeting: string }) {
+function Hero({
+  dict,
+  rtl,
+  available,
+  greeting,
+}: {
+  dict: Dictionary;
+  rtl: boolean;
+  available: boolean;
+  greeting: string;
+}) {
   return (
     <section id="top" className="pt-12 pb-10 sm:pt-[72px]">
       <div className={CONTAINER}>
@@ -89,7 +107,11 @@ function Hero({ dict, rtl, greeting }: { dict: Dictionary; rtl: boolean; greetin
           </p>
         </div>
         <div className="mt-10">
-          <FinderChat dict={dict} rtl={rtl} greeting={greeting} />
+          {available ? (
+            <FinderChat dict={dict} rtl={rtl} greeting={greeting} />
+          ) : (
+            <ChatUnavailable dict={dict} />
+          )}
         </div>
       </div>
     </section>

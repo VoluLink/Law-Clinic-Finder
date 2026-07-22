@@ -14,7 +14,7 @@ export function ColorField({ label, hint, value, onChange }: ColorFieldProps) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-label={label}
-        className="h-10 w-12 cursor-pointer rounded-md border border-border bg-surface"
+        className="color-swatch h-10 w-12 cursor-pointer overflow-hidden rounded-md border border-border p-0"
       />
       <div className="flex-1">
         <div className="text-sm font-semibold text-foreground">{label}</div>

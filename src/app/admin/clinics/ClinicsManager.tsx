@@ -1,13 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type ChangeEvent } from 'react';
+import { useState } from 'react';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Panel } from '@/components/ui/Panel';
+import { SuggestInput } from '@/components/ui/SuggestInput';
+import { TagCombobox } from '@/components/ui/TagCombobox';
 import type { AccessState } from '@/lib/admin/clinic-access';
+import { LANGUAGES, LEGAL_AREAS, REGION_SUGGESTIONS, TARGET_GROUPS } from '@/lib/clinics/options';
 
 export type AdminClinicRow = {
   id: string;
@@ -44,6 +47,13 @@ type EditableKey =
   | 'target_clients'
   | 'languages'
   | 'requirements';
+
+/** Category columns that get the chip combobox; the rest stay free-text. */
+const MULTI_SUGGESTIONS: Partial<Record<EditableKey, readonly string[]>> = {
+  legal_areas: LEGAL_AREAS,
+  target_clients: TARGET_GROUPS,
+  languages: LANGUAGES,
+};
 
 const COLUMNS: Array<{ key: EditableKey; label: string }> = [
   { key: 'name', label: 'Name' },
@@ -264,13 +274,11 @@ function ClinicRow({
       {COLUMNS.map((column) => (
         <td key={column.key} className="min-w-[150px] p-3">
           {editing ? (
-            <textarea
+            <EditCell
+              columnKey={column.key}
+              label={column.label}
               value={clinic[column.key] ?? ''}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                actions.onCell(column.key, event.target.value)
-              }
-              rows={2}
-              className="w-full resize-y rounded-md border border-border bg-surface-tint p-2 text-sm outline-none focus:border-primary"
+              onChange={(value) => actions.onCell(column.key, value)}
             />
           ) : (
             <ReadCell column={column.key} clinic={clinic} />
@@ -300,6 +308,53 @@ function ClinicRow({
         </td>
       )}
     </tr>
+  );
+}
+
+function EditCell({
+  columnKey,
+  label,
+  value,
+  onChange,
+}: {
+  columnKey: EditableKey;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const suggestions = MULTI_SUGGESTIONS[columnKey];
+  if (suggestions) {
+    return (
+      <TagCombobox
+        label={label}
+        labelHidden
+        value={value}
+        onChange={onChange}
+        suggestions={suggestions}
+        placeholder="Auswählen oder eingeben…"
+      />
+    );
+  }
+  if (columnKey === 'region') {
+    return (
+      <SuggestInput
+        label={label}
+        labelHidden
+        value={value}
+        onChange={onChange}
+        suggestions={REGION_SUGGESTIONS}
+        placeholder="Stadt oder „Deutschlandweit“"
+      />
+    );
+  }
+  return (
+    <textarea
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      rows={2}
+      className="w-full resize-y rounded-md border border-border bg-surface-tint p-2 text-sm outline-none focus:border-primary"
+    />
   );
 }
 

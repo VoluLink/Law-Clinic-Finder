@@ -54,6 +54,7 @@ export const en: Dictionary = {
   chatSend: 'Send',
   chatError: 'Something went wrong. Please try again.',
   chatDisabled: 'The assistant is currently unavailable. Please try again later.',
+  chatUnavailableTitle: 'Assistant currently unavailable',
   privacyNote:
     'Please do not enter full names or contact details. Conversations are only stored anonymised.',
   limitMinuteTitle: 'Too many requests',

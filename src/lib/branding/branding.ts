@@ -53,7 +53,7 @@ export const brandingSchema = z.object({
 export type Branding = z.infer<typeof brandingSchema>;
 
 export const DEFAULT_BRANDING: Branding = {
-  wordmark: 'law clinics',
+  wordmark: 'Law Clinics Deutschland',
   logo_url: null,
   color_primary: '#0d4b5b',
   color_background: '#faf2e7',

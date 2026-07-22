@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { combineRateLimiters, createRateLimiter, type RateLimitConfig } from '@/lib/rate-limit';
-import { DEFAULT_CHAT_SETTINGS } from '@/lib/settings';
+import { makeChatSettings } from '@/lib/settings.fixtures';
 
 import { handleChatRequest, type ChatHandlerDeps } from './handle-chat';
 
 const validBody = { messages: [{ role: 'user', content: 'Hilfe bei Mietrecht?' }] };
+const settings = makeChatSettings();
 
 function chatRequest(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/api/chat', {
@@ -28,14 +29,14 @@ function minuteLimiter(config: RateLimitConfig) {
 function createDeps(overrides?: Partial<ChatHandlerDeps>): ChatHandlerDeps {
   return {
     limiter: minuteLimiter({ maxRequests: 100, windowMs: 60_000 }),
-    loadSettings: vi.fn().mockResolvedValue(DEFAULT_CHAT_SETTINGS),
+    loadSettings: vi.fn().mockResolvedValue({ ok: true, settings }),
     run: vi.fn().mockReturnValue({
       stream: new Response('Antwort').body,
       result: Promise.resolve({
         assistantText: 'Antwort',
         matchedClinicCount: 1,
         toolCallCount: 1,
-        model: DEFAULT_CHAT_SETTINGS.chat_model,
+        model: settings.chat_model,
       }),
     }),
     persist: vi.fn().mockResolvedValue(undefined),
@@ -90,7 +91,18 @@ describe(handleChatRequest, () => {
 
   it('returns 503 when the chat is disabled', async () => {
     const deps = createDeps({
-      loadSettings: vi.fn().mockResolvedValue({ ...DEFAULT_CHAT_SETTINGS, chat_enabled: false }),
+      loadSettings: vi.fn().mockResolvedValue({
+        ok: true,
+        settings: makeChatSettings({ chat_enabled: false }),
+      }),
+    });
+    const response = await handleChatRequest(chatRequest(validBody), deps);
+    expect(response.status).toBe(503);
+  });
+
+  it('returns 503 when the settings are unconfigured (missing prompt)', async () => {
+    const deps = createDeps({
+      loadSettings: vi.fn().mockResolvedValue({ ok: false, missing: ['chat_system_prompt'] }),
     });
     const response = await handleChatRequest(chatRequest(validBody), deps);
     expect(response.status).toBe(503);
@@ -117,7 +129,7 @@ describe(handleChatRequest, () => {
       messages: [{ role: 'user', content: 'Schreiben Sie an anna@example.de oder 0221 4567890.' }],
     };
     await handleChatRequest(chatRequest(body), deps);
-    expect(deps.run).toHaveBeenCalledWith(DEFAULT_CHAT_SETTINGS, [
+    expect(deps.run).toHaveBeenCalledWith(settings, [
       { role: 'user', content: 'Schreiben Sie an [E-MAIL] oder [TELEFON].' },
     ]);
   });

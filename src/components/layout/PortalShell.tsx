@@ -6,9 +6,10 @@ import type { ReactNode } from 'react';
 
 import { Wordmark } from '@/components/layout/Wordmark';
 import { Button } from '@/components/ui/Button';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 
-export type NavItem = { href: string; label: string; icon: string };
+export type NavItem = { href: string; label: string; icon: IconName };
 /** The pinned bottom identity block — doubles as the account/Konto tab link. */
 export type PortalFooter = { href: string; title: string; subtitle: string; navLabel: string };
 
@@ -134,9 +135,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
           : 'font-medium text-primary-foreground/[0.85]',
       )}
     >
-      <span aria-hidden className="text-[17px]">
-        {item.icon}
-      </span>
+      <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
       {item.label}
     </Link>
   );
@@ -153,7 +152,7 @@ function MobileNav({
   footer: PortalFooter;
   homeHref: string;
 }) {
-  const items = [...nav, { href: footer.href, label: footer.navLabel, icon: '○' }];
+  const items = [...nav, { href: footer.href, label: footer.navLabel }];
   return (
     <nav className="flex gap-2 overflow-x-auto bg-primary px-4 py-2 min-[860px]:hidden">
       {items.map((item) => (

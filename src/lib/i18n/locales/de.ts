@@ -58,6 +58,7 @@ export const de: Dictionary = {
   chatSend: 'Senden',
   chatError: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.',
   chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuchen Sie es später erneut.',
+  chatUnavailableTitle: 'Assistent zurzeit nicht verfügbar',
   privacyNote:
     'Bitte geben Sie keine vollständigen Namen oder Kontaktdaten ein. Gespräche werden nur anonymisiert gespeichert.',
   limitMinuteTitle: 'Zu viele Anfragen',

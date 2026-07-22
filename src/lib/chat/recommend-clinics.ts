@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
+import { parseMultiValue } from '@/lib/clinics/options';
 import { MAX_CHAT_RECOMMENDATIONS } from '@/lib/settings';
 
 import type { ClinicRecommendation } from './stream-protocol';
@@ -101,42 +102,11 @@ function toCard(row: z.infer<typeof rowSchema>, reason: string): ClinicRecommend
     rank: 0,
     name: row.name,
     region: row.region,
-    areas: splitAreas(row.legal_areas),
+    // `legal_areas` is free text; parseMultiValue handles the inconsistent
+    // separators, MAX_AREAS caps a prose row so it is not a wall of chips.
+    areas: parseMultiValue(row.legal_areas).slice(0, MAX_AREAS),
     reason,
     website: row.website,
     email: row.contact_email,
   };
-}
-
-/**
- * `legal_areas` is free text and the directory is inconsistent: most rows
- * separate with `;`, but a handful use `,` — and several of those wrap a list
- * in parentheses ("Zivilrecht (Mietrecht, Kaufrecht)"), where a naive comma
- * split would shred one area into fragments. So: prefer the semicolon when the
- * row has one, and only ever split at bracket depth zero.
- */
-function splitAreas(value: string | null): string[] {
-  if (!value) return [];
-  const separator = value.includes(';') ? ';' : ',';
-  return splitTopLevel(value, separator)
-    .map((area) => area.trim())
-    .filter(Boolean)
-    .slice(0, MAX_AREAS);
-}
-
-function splitTopLevel(value: string, separator: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let current = '';
-  for (const char of value) {
-    if (char === '(') depth += 1;
-    else if (char === ')') depth = Math.max(0, depth - 1);
-    if (char === separator && depth === 0) {
-      parts.push(current);
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  return [...parts, current];
 }

@@ -56,6 +56,7 @@ export const ku: Dictionary = {
   chatSend: 'Bişîne',
   chatError: 'Tiştek çewt çû. Ji kerema xwe dîsa biceribîne.',
   chatDisabled: 'Alîkar niha ne berdest e. Ji kerema xwe paşê dîsa biceribîne.',
+  chatUnavailableTitle: 'Alîkar niha ne berdest e',
   privacyNote:
     'Ji kerema xwe navên tevahî an agahiyên têkiliyê nenivîse. Axaftin tenê bênav tên tomarkirin.',
   limitMinuteTitle: 'Pir daxwaz',

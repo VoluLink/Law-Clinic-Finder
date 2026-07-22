@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ASSISTANT_ROLE, buildSystemPrompt, CONSULTATION_SKILL } from './prompts';
+import { buildSystemPrompt, PROMPT_TOOLBOX, TOOL_NAMES } from './prompts';
 
 describe(buildSystemPrompt, () => {
   it('wraps the role and the skill in their own tagged sections', () => {
@@ -14,24 +14,28 @@ describe(buildSystemPrompt, () => {
     expect(prompt.indexOf('ROLLE')).toBeLessThan(prompt.indexOf('ABLAUF'));
   });
 
-  it('composes admin-edited text verbatim, without dropping either part', () => {
-    const prompt = buildSystemPrompt(ASSISTANT_ROLE, CONSULTATION_SKILL);
-    expect(prompt).toContain(ASSISTANT_ROLE);
-    expect(prompt).toContain(CONSULTATION_SKILL);
+  it('composes the given text verbatim, without dropping either part', () => {
+    const role = 'Eine Rolle mit <Zeichen>, & Umlauten äöü.';
+    const skill = 'Ein Ablauf.\nMit Zeilenumbruch.';
+    const prompt = buildSystemPrompt(role, skill);
+    expect(prompt).toContain(role);
+    expect(prompt).toContain(skill);
   });
 });
 
-describe('CONSULTATION_SKILL', () => {
-  // The cards are the product; a reply that only lists clinics in prose is a
-  // regression, so the procedure has to name the tool that renders them.
-  it('names both tools the assistant is expected to drive', () => {
-    expect(CONSULTATION_SKILL).toContain('search_clinics');
-    expect(CONSULTATION_SKILL).toContain('recommend_clinics');
+describe('PROMPT_TOOLBOX', () => {
+  it('documents every tool the assistant can call, in flow order', () => {
+    expect(PROMPT_TOOLBOX.map((tool) => tool.name)).toEqual([
+      TOOL_NAMES.listDirectoryTerms,
+      TOOL_NAMES.searchClinics,
+      TOOL_NAMES.recommendClinics,
+      TOOL_NAMES.reportNoMatch,
+    ]);
   });
-});
 
-describe('ASSISTANT_ROLE', () => {
-  it('keeps the no-legal-advice constraint', () => {
-    expect(ASSISTANT_ROLE).toContain('KEINE Rechtsberatung');
+  it('gives each tool a non-empty explanation', () => {
+    for (const tool of PROMPT_TOOLBOX) {
+      expect(tool.description.length).toBeGreaterThan(0);
+    }
   });
 });

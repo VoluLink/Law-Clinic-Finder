@@ -3,11 +3,11 @@ import type { ReactNode } from 'react';
 import { PortalShell, type NavItem } from '@/components/layout/PortalShell';
 
 const NAV: NavItem[] = [
-  { href: '/admin', label: 'Dashboard', icon: '▧' },
-  { href: '/admin/clinics', label: 'Law Clinics', icon: '☰' },
-  { href: '/admin/assistant', label: 'KI-Assistent', icon: '✦' },
-  { href: '/admin/logs', label: 'Protokolle', icon: '▤' },
-  { href: '/admin/branding', label: 'Branding', icon: '◨' },
+  { href: '/admin', label: 'Dashboard', icon: 'gauge-high' },
+  { href: '/admin/clinics', label: 'Law Clinics', icon: 'building-columns' },
+  { href: '/admin/assistant', label: 'KI-Assistent', icon: 'robot' },
+  { href: '/admin/logs', label: 'Protokolle', icon: 'file-lines' },
+  { href: '/admin/branding', label: 'Branding', icon: 'palette' },
 ];
 
 const TITLES: Record<string, string> = {

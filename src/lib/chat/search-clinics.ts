@@ -5,6 +5,8 @@ export const searchClinicsInputSchema = z.object({
   query: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
   legal_area: z.string().max(100).optional(),
+  language: z.string().max(100).optional(),
+  target_group: z.string().max(100).optional(),
 });
 
 export type SearchClinicsInput = z.infer<typeof searchClinicsInputSchema>;
@@ -47,7 +49,7 @@ function sanitizeFreeText(value: string): string {
  * (region "Deutschlandweit"). Returns a JSON string for the tool result.
  */
 export async function searchClinics(client: SupabaseClient, input: unknown): Promise<string> {
-  const { query, city, legal_area } = searchClinicsInputSchema.parse(input);
+  const { query, city, legal_area, language, target_group } = searchClinicsInputSchema.parse(input);
 
   let builder = client.from('clinics').select(CLINIC_COLUMNS).eq('is_published', true);
 
@@ -58,6 +60,12 @@ export async function searchClinics(client: SupabaseClient, input: unknown): Pro
 
   const areaTerm = legal_area ? sanitizeFreeText(legal_area) : '';
   if (areaTerm) builder = builder.ilike('legal_areas', `%${areaTerm}%`);
+
+  const languageTerm = language ? sanitizeFreeText(language) : '';
+  if (languageTerm) builder = builder.ilike('languages', `%${languageTerm}%`);
+
+  const clientTerm = target_group ? sanitizeFreeText(target_group) : '';
+  if (clientTerm) builder = builder.ilike('target_clients', `%${clientTerm}%`);
 
   const queryTerm = query ? sanitizeFreeText(query) : '';
   if (queryTerm) {

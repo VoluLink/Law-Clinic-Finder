@@ -53,6 +53,7 @@ export const ar: Dictionary = {
   chatSend: 'إرسال',
   chatError: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   chatDisabled: 'المساعد غير متاح حاليًا. يرجى المحاولة لاحقًا.',
+  chatUnavailableTitle: 'المساعد غير متاح حاليًا',
   privacyNote: 'يرجى عدم إدخال الأسماء الكاملة أو بيانات الاتصال. تُحفظ المحادثات بشكل مجهول فقط.',
   limitMinuteTitle: 'طلبات كثيرة جداً',
   limitMinuteBody:

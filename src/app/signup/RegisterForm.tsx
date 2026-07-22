@@ -5,7 +5,10 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { SuggestInput } from '@/components/ui/SuggestInput';
+import { TagCombobox } from '@/components/ui/TagCombobox';
 import { Textarea } from '@/components/ui/Textarea';
+import { LANGUAGES, LEGAL_AREAS, REGION_SUGGESTIONS, TARGET_GROUPS } from '@/lib/clinics/options';
 import { clinicSubmissionSchema } from '@/lib/clinics/schema';
 import type { DirectoryMatch } from '@/lib/signup/directory';
 import type { RegisterResult } from '@/lib/signup/handle-register';
@@ -37,9 +40,12 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  function setValue(field: keyof FormValues) {
+    return (value: string) => setValues((prev) => ({ ...prev, [field]: value }));
+  }
+
   function setField(field: keyof FormValues) {
-    return (event: { target: { value: string } }) =>
-      setValues((prev) => ({ ...prev, [field]: event.target.value }));
+    return (event: { target: { value: string } }) => setValue(field)(event.target.value);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -80,18 +86,34 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
           value={values.website}
           onChange={setField('website')}
         />
-        <Input label="Region" value={values.region} onChange={setField('region')} />
-        <Input
-          label="Rechtsgebiete (mit ; getrennt)"
-          value={values.legal_areas}
-          onChange={setField('legal_areas')}
+        <SuggestInput
+          label="Region"
+          value={values.region}
+          onChange={setValue('region')}
+          suggestions={REGION_SUGGESTIONS}
+          placeholder="Stadt oder „Deutschlandweit“"
         />
-        <Input
+        <TagCombobox
+          label="Rechtsgebiete"
+          value={values.legal_areas}
+          onChange={setValue('legal_areas')}
+          suggestions={LEGAL_AREAS}
+          placeholder="Auswählen oder eingeben…"
+        />
+        <TagCombobox
           label="Zielgruppe / Mandant:innen"
           value={values.target_clients}
-          onChange={setField('target_clients')}
+          onChange={setValue('target_clients')}
+          suggestions={TARGET_GROUPS}
+          placeholder="Auswählen oder eingeben…"
         />
-        <Input label="Sprachen" value={values.languages} onChange={setField('languages')} />
+        <TagCombobox
+          label="Sprachen"
+          value={values.languages}
+          onChange={setValue('languages')}
+          suggestions={LANGUAGES}
+          placeholder="Auswählen oder eingeben…"
+        />
         <Textarea
           label="Beratungsangebot (optional)"
           value={values.description}

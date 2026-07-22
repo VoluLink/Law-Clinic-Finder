@@ -9,7 +9,12 @@ import { FileDropzone } from '@/components/ui/FileDropzone';
 import { Input } from '@/components/ui/Input';
 import { Panel } from '@/components/ui/Panel';
 import { Select } from '@/components/ui/Select';
-import { BRANDING_FONTS, brandingSchema, type Branding } from '@/lib/branding/branding';
+import {
+  BRANDING_FONTS,
+  brandingSchema,
+  DEFAULT_BRANDING,
+  type Branding,
+} from '@/lib/branding/branding';
 
 type Status = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -149,7 +154,7 @@ function BrandPreview({ value }: { value: Branding }) {
     >
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-extrabold" style={{ color: value.color_primary }}>
-          {value.wordmark || 'law clinics'}
+          {value.wordmark || DEFAULT_BRANDING.wordmark}
         </span>
         <span
           className="rounded-full px-3 py-1 text-xs font-bold"
