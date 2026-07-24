@@ -36,6 +36,12 @@ describe('Input', () => {
     expect(screen.getByText('Stadt').className).toContain('sr-only');
   });
 
+  it('surfaces the hint in a tooltip and marks the field required', () => {
+    render(<Input label="Stadt" name="city" hint="Wo die Clinic sitzt." required />);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Wo die Clinic sitzt.');
+    expect(screen.getByLabelText('Stadt')).toHaveAttribute('aria-required', 'true');
+  });
+
   it('renders a leading icon alongside the field', () => {
     render(<Input label="Stadt" name="city" leadingIcon={<svg data-testid="magnifier" />} />);
     expect(screen.getByTestId('magnifier')).toBeInTheDocument();

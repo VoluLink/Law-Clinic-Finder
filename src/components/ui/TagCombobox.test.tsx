@@ -70,4 +70,22 @@ describe('TagCombobox', () => {
     expect(screen.queryByRole('option', { name: 'Mietrecht' })).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Asylrecht' })).toBeInTheDocument();
   });
+
+  it('surfaces the hint and marks the combobox required', () => {
+    render(
+      <TagCombobox
+        label="Region"
+        value=""
+        onChange={vi.fn()}
+        suggestions={SUGGESTIONS}
+        hint="Mehrere Städte möglich."
+        required
+      />,
+    );
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Mehrere Städte möglich.');
+    expect(screen.getByRole('combobox', { name: 'Region' })).toHaveAttribute(
+      'aria-required',
+      'true',
+    );
+  });
 });

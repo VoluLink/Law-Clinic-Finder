@@ -77,7 +77,7 @@ describe(searchClinics, () => {
     await searchClinics(client as never, { city: 'Berlin' });
     const orCall = calls.find(([method]) => method === 'or');
     expect(String(orCall?.[1][0])).toContain('region.ilike.*Berlin*');
-    expect(String(orCall?.[1][0])).toContain('deutschlandweit');
+    expect(String(orCall?.[1][0])).toContain('bundesweit');
   });
 
   it('sanitizes PostgREST syntax out of the city filter', async () => {

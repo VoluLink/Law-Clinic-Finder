@@ -9,6 +9,27 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Umfassende Region-Vorschläge:** Das Feld „Region / Stadt" schlägt jetzt „Bundesweit", alle 16
+  Bundesländer, alle 19 Regierungsbezirke (präfigiert, z. B. „Regierungsbezirk Köln") und alle 79
+  deutschen Großstädte vor. Die Liste ist die einzige Quelle für Mitglieder-, Admin- und
+  Signup-Formular.
+- **Lese-/Bearbeiten-Ansicht im Mitgliederbereich:** Der eigene Eintrag wird zuerst schreibgeschützt
+  angezeigt; erst „Bearbeiten" macht die Felder editierbar und blendet „Speichern" und „Abbrechen"
+  ein.
+- **„Abbrechen"-Button** verwirft ungespeicherte Änderungen — im Mitglieder-Formular und in der
+  Admin-Datenbanktabelle (beide kehren zur Lese-Ansicht zurück und verwerfen alle Änderungen).
+- **Tabellenweites Speichern in der Admin-Datenbank:** Der frühere „Fertig"-Knopf ist jetzt
+  „Speichern"; er sichert alle geänderten Zeilen auf einmal und kehrt zur Lese-Ansicht zurück. Die
+  einzelnen Speichern-/Abbrechen-Knöpfe pro Zeile entfallen, nur „Zeile löschen" bleibt pro Zeile.
+- **„Speichern" bleibt ausgegraut, solange nichts geändert wurde** — im Mitglieder-Formular und in
+  der Admin-Tabelle, über die gemeinsame `EditActions`-Komponente.
+- **E-Mail-Felder akzeptieren nur noch gültige Adressen.** Eine gemeinsame Prüfung (`emailValue`/
+  `isValidEmail`) liegt allen E-Mail-Eingaben zugrunde: Das Beratungsemail-Feld im Mitglieder-Formular
+  ist jetzt ein `type="email"`-Feld, die Admin-Kontoänderung blockiert das Speichern bei ungültiger
+  Adresse mit einem Inline-Hinweis, und die Admin-Datenbanktabelle verweigert das tabellenweite
+  Speichern und benennt die betroffene Law Clinic, wenn eine Beratungsemail keine gültige Adresse ist.
+  Die Fehlermeldung ist einheitlich deutsch.
+
 - **Hinweiskarte statt Chatbox**: Ist der Chatbot deaktiviert oder unkonfiguriert, zeigt die
   Startseite jetzt schon beim Laden die gestaltete `ChatUnavailable`-Karte („später erneut
   versuchen", übersetzt in allen 9 Sprachen) statt der Chatbox — bisher erschien der Hinweis erst
@@ -23,9 +44,25 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   beim Bearbeiten des Ablaufs korrekt wiederverwenden.
 - **Warnung im KI-Tab**, wenn Rolle oder Ablauf leer sind und der Chatbot deshalb nicht arbeiten
   kann — Ratsuchende sehen dann die Hinweiskarte statt des Chats.
+- **Monats-Navigator im Admin-Dashboard:** Die KI-Statistiken (Interaktionen, API-Kosten,
+  Vermittlungsquote, Rechtsgebiete, Balkendiagramm) lassen sich jetzt monatsweise vor- und
+  zurückblättern. Das Fenster reicht ein Jahr zurück (bis zum ältesten aufbewahrten Monat) und nicht
+  über den aktuellen Monat hinaus.
+- **Automatische Datenaufbewahrung:** Der detaillierte Chat-Verlauf bleibt nur noch für die neuesten
+  200 Gespräche gespeichert; ältere behalten ihre anonyme Statistik. Ein tägliches Aufräumen löscht
+  Gespräche-Statistiken, `clinic_events` und das Einladungs-Log ein Jahr nach Monatsende. Ausgenommen
+  bleiben Protokolle (eigene 7-Tage-Regel), offene Registrierungen (bis zur Admin-Entscheidung) und
+  alle Stammdaten. Die Mitglieder-Statistik ist damit rollierend über zwölf Monate.
 
 ### Geändert
 
+- **Durchgängige Du-Ansprache:** Alle deutschen Texte sprechen Ratsuchende, Mitglieder und Admins
+  jetzt einheitlich mit „du" an (vorher teils „Sie") — inklusive der Hinweiskarte „Assistent zurzeit
+  nicht verfügbar", der Limit- und Fehlermeldungen im Chat, der Login-, Signup-, Datenschutz- und
+  Formulartexte sowie der gemeinsamen E-Mail-Fehlermeldung.
+- **Nationwide-Region heißt jetzt „Bundesweit"** (vorher „Deutschlandweit"). Der Sentinel im
+  Chat-Werkzeug `list_directory_terms`, die Stadt-plus-nationwide-Suche und bestehende Verzeichnis-
+  Einträge (per Migration) wurden angeglichen.
 - **`settings` ist die einzige Quelle für alle Regler des KI-Assistenten — kein Code-Fallback mehr.**
   Rolle und Ablauf leben nur noch in der Datenbank (`chat_system_prompt`/`chat_skill`) und werden pro
   Anfrage von dort gelesen; `src/lib/chat/prompts.ts` enthält keinen Prompt-Text mehr, nur die

@@ -8,6 +8,8 @@ describe('Icon', () => {
     ['robot', '0 0 640 512'],
     ['address-card', '0 0 576 512'],
     ['gauge-high', '0 0 512 512'],
+    ['arrow-left', '0 0 512 512'],
+    ['arrow-right', '0 0 512 512'],
   ] as const)('renders %s with its own viewBox and a glyph path', (name, viewBox) => {
     const { container } = render(<Icon name={name} />);
     expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(viewBox);

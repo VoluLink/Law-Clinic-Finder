@@ -191,43 +191,151 @@ export const LANGUAGES = [
   'Zulu',
 ] as const;
 
-/** "Deutschlandweit" is the reserved nationwide sentinel and must stay first. */
-export const REGION_SUGGESTIONS = [
-  'Deutschlandweit',
+/** The reserved nationwide sentinel; it must stay first. */
+const NATIONWIDE_REGION = 'Bundesweit';
+
+/** All 16 Bundesländer, in German alphabetical order. */
+const BUNDESLAENDER = [
+  'Baden-Württemberg',
+  'Bayern',
+  'Berlin',
+  'Brandenburg',
+  'Bremen',
+  'Hamburg',
+  'Hessen',
+  'Mecklenburg-Vorpommern',
+  'Niedersachsen',
+  'Nordrhein-Westfalen',
+  'Rheinland-Pfalz',
+  'Saarland',
+  'Sachsen',
+  'Sachsen-Anhalt',
+  'Schleswig-Holstein',
+  'Thüringen',
+] as const;
+
+/**
+ * The 19 currently existing Regierungsbezirke (BW, Bayern, Hessen, NRW). Each is
+ * prefixed so it never collides with a same-named city ("Regierungsbezirk Köln"
+ * vs. the city "Köln") and reads unambiguously as a district.
+ */
+const REGIERUNGSBEZIRKE = [
+  'Regierungsbezirk Stuttgart',
+  'Regierungsbezirk Karlsruhe',
+  'Regierungsbezirk Freiburg',
+  'Regierungsbezirk Tübingen',
+  'Regierungsbezirk Oberbayern',
+  'Regierungsbezirk Niederbayern',
+  'Regierungsbezirk Oberpfalz',
+  'Regierungsbezirk Oberfranken',
+  'Regierungsbezirk Mittelfranken',
+  'Regierungsbezirk Unterfranken',
+  'Regierungsbezirk Schwaben',
+  'Regierungsbezirk Darmstadt',
+  'Regierungsbezirk Gießen',
+  'Regierungsbezirk Kassel',
+  'Regierungsbezirk Arnsberg',
+  'Regierungsbezirk Detmold',
+  'Regierungsbezirk Düsseldorf',
+  'Regierungsbezirk Köln',
+  'Regierungsbezirk Münster',
+] as const;
+
+/** All 79 German Großstädte (≥100 000 inhabitants), by population, largest first. */
+const GROSSSTAEDTE = [
   'Berlin',
   'Hamburg',
   'München',
   'Köln',
   'Frankfurt am Main',
-  'Stuttgart',
   'Düsseldorf',
   'Leipzig',
+  'Stuttgart',
   'Dortmund',
-  'Essen',
   'Bremen',
+  'Essen',
   'Dresden',
-  'Hannover',
   'Nürnberg',
+  'Hannover',
+  'Duisburg',
+  'Bochum',
+  'Wuppertal',
+  'Bielefeld',
   'Bonn',
-  'Münster',
   'Mannheim',
   'Karlsruhe',
-  'Freiburg',
-  'Heidelberg',
-  'Tübingen',
-  'Göttingen',
-  'Mainz',
-  'Marburg',
-  'Gießen',
-  'Passau',
-  'Regensburg',
+  'Münster',
   'Augsburg',
-  'Bielefeld',
-  'Trier',
-  'Osnabrück',
-  'Jena',
+  'Wiesbaden',
+  'Mönchengladbach',
+  'Gelsenkirchen',
+  'Aachen',
+  'Braunschweig',
   'Kiel',
+  'Chemnitz',
+  'Magdeburg',
+  'Freiburg im Breisgau',
+  'Krefeld',
+  'Halle (Saale)',
+  'Mainz',
+  'Erfurt',
+  'Lübeck',
+  'Oberhausen',
+  'Rostock',
+  'Kassel',
+  'Hagen',
+  'Potsdam',
+  'Saarbrücken',
+  'Hamm',
+  'Oldenburg',
+  'Ludwigshafen am Rhein',
+  'Mülheim an der Ruhr',
+  'Leverkusen',
+  'Darmstadt',
+  'Osnabrück',
+  'Solingen',
+  'Herne',
+  'Heidelberg',
+  'Paderborn',
+  'Neuss',
+  'Regensburg',
+  'Ingolstadt',
+  'Pforzheim',
+  'Würzburg',
+  'Offenbach am Main',
+  'Heilbronn',
+  'Fürth',
+  'Göttingen',
+  'Ulm',
+  'Wolfsburg',
+  'Reutlingen',
+  'Bremerhaven',
+  'Bottrop',
+  'Erlangen',
+  'Recklinghausen',
+  'Remscheid',
+  'Koblenz',
+  'Bergisch Gladbach',
+  'Jena',
+  'Trier',
+  'Salzgitter',
+  'Siegen',
+  'Moers',
+  'Kaiserslautern',
 ] as const;
+
+/**
+ * Nationwide sentinel, then the 16 Bundesländer, the 19 Regierungsbezirke and
+ * every Großstadt — broadest regions first so the datalist surfaces them on top.
+ * De-duplicated because the three Stadtstaaten (Berlin, Hamburg, Bremen) are both
+ * a Bundesland and a Großstadt; the first (Bundesland) occurrence wins.
+ */
+export const REGION_SUGGESTIONS: readonly string[] = dedupe([
+  NATIONWIDE_REGION,
+  ...BUNDESLAENDER,
+  ...REGIERUNGSBEZIRKE,
+  ...GROSSSTAEDTE,
+]);
 
 /** Canonical join separator for multi-value fields. */
 const SEPARATOR = '; ';

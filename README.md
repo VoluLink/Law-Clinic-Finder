@@ -54,38 +54,39 @@ zusätzlich mit 404, sobald `NODE_ENV=production` gilt.
 Einstiegspunkte: `src/app/layout.tsx` (Root-Layout), `src/proxy.ts` (Rollen-Gating; ersetzt
 `middleware.ts` ab Next 16; Matcher `/admin/*`, `/clinic/*`), API-Routen unter `src/app/api/`.
 
-| Pfad                         | Zweck                                                                                                                                                                            |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/page.tsx`           | Öffentliche Startseite mit eingebettetem FinderChat (oder `ChatUnavailable`-Hinweis, wenn der Chatbot aus/unkonfiguriert ist)                                                    |
-| `src/app/login/`             | Gemeinsames Login für Clinics und Admins (Magic Link, nur auf Einladung)                                                                                                         |
-| `src/app/signup/`            | Selbstregistrierung: Verzeichnis durchsuchen → Eintrag beanspruchen oder neu                                                                                                     |
-| `src/app/auth/confirm/`      | OTP-Verifikation via `token_hash`                                                                                                                                                |
-| `src/app/clinic/`            | Clinic-Bereich (Teal-Sidebar-Shell): Mein Eintrag, Statistiken (Empfehlungen/Klicks), Konto (Selbst-Löschung)                                                                    |
-| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (Statistik + Gespräche-Drawer), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                     |
-| `src/app/api/chat/`          | Streamender Claude-Tool-Use-Loop; speichert redigierte Konversationen + Empfehlungs-Events                                                                                       |
-| `src/app/api/clinic/`        | Clinic-Self-Service: eigenen Eintrag bearbeiten (`PATCH`), Konto löschen (`DELETE /account`: unpublish + Login weg)                                                              |
-| `src/app/api/clinic-events/` | Öffentlicher Klick-Beacon (Website/E-Mail); same-origin, rate-limitiert, nur veröffentlichte Clinics, PII-frei                                                                   |
-| `src/app/api/signup/`        | Öffentliche API: Suche, Beanspruchung, Registrierung                                                                                                                             |
-| `src/app/api/admin/**`       | Admin-CRUD: Clinics, Einladungen, Zugang-Entzug, Einreichungen, Einstellungen, Branding, Protokolle                                                                              |
-| `src/components/ui/`         | UI-Kit: Badge, Button, Card, Checkbox, ColorField, Drawer, FileDropzone, Input, Modal, Panel, Select, SuggestInput, TagCombobox, StatCard, BarChart, MeterList, Textarea, Toggle |
-| `src/lib/branding/`          | Branding-Record laden/validieren; Runtime-Theming (`:root`-Tokens + Google-Font) im Root-Layout                                                                                  |
-| `src/lib/analytics/`         | GA4-Consent (Mode v2) + Data-API-Kennzahlen (`ga-metrics.ts`, leer bis konfiguriert)                                                                                             |
-| `src/components/analytics/`  | GA-Script (einwilligungsgesteuert) + Cookie-Consent-Banner                                                                                                                       |
-| `src/components/admin/`      | AdminChrome: Admin-Navigation auf Basis der geteilten `PortalShell`                                                                                                              |
-| `src/components/layout/`     | Wordmark, AreaHeader, `PortalShell` (geteilte Teal-Sidebar für Admin- **und** Clinic-Portal, aktive Tabs via `usePathname`)                                                      |
-| `src/components/chat/`       | FinderChat (Suchkarte → Chat) plus die Empfehlungskarten (Klick-Beacon auf Website/E-Mail) und `ChatUnavailable` (Hinweis, wenn der Chatbot aus ist)                             |
-| `src/lib/chat/`              | `prompts.ts` (Modelltexte), Schema, Tools, NDJSON, Loop, Redaktion, `usage.ts` (Token/Kosten pro Gespräch)                                                                       |
-| `src/lib/clinic/`            | `stats.ts`: Kennzahlen des Statistik-Tabs (Empfehlungen, Klicks, Klickrate)                                                                                                      |
-| `src/lib/clinics/`           | `revoke-access.ts` (Login löschen ± unpublish), `click-event.ts` (Klick-Recorder), `schema.ts`, `options.ts` (Vorschlagslisten + `;`-Parser)                                     |
-| `src/lib/logs/`              | `log-store.ts`: Sink, der Logs in `public.logs` schreibt (7 Tage Aufbewahrung)                                                                                                   |
-| `src/instrumentation.ts`     | Next-Startup-Hook: verbindet den Logger mit dem `logs`-Sink                                                                                                                      |
-| `src/lib/i18n/`              | Wörterbücher für 9 Sprachen, `lcf_lang`-Cookie, RTL-Hilfen                                                                                                                       |
-| `src/lib/signup/`            | Verzeichnissuche, E-Mail-Maskierung, Beanspruchungsfenster, Registrierung                                                                                                        |
-| `src/lib/supabase/`          | Clients: Browser, Server (Cookies), Service (nur Server), Proxy-Session                                                                                                          |
-| `src/lib/auth/`              | `requireRole` (+ `AuthError`), Admin-Guard für API-Routen                                                                                                                        |
-| `src/lib/`                   | Logger (strukturiertes JSON, optional in `logs`-Tabelle), Rate-Limiting, Einstellungen, `cn`, Schemata                                                                           |
-| `supabase/migrations/`       | Schema und RLS — alleinige Quelle der Wahrheit                                                                                                                                   |
-| `scripts/`                   | Zod-validierter Clinic-Import, Dev-Hilfsskripte                                                                                                                                  |
+| Pfad                         | Zweck                                                                                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/page.tsx`           | Öffentliche Startseite mit eingebettetem FinderChat (oder `ChatUnavailable`-Hinweis, wenn der Chatbot aus/unkonfiguriert ist)                                                                                  |
+| `src/app/login/`             | Gemeinsames Login für Clinics und Admins (Magic Link, nur auf Einladung)                                                                                                                                       |
+| `src/app/signup/`            | Selbstregistrierung: Verzeichnis durchsuchen → Eintrag beanspruchen oder neu                                                                                                                                   |
+| `src/app/auth/confirm/`      | OTP-Verifikation via `token_hash`; veröffentlicht eine vollständige Clinic automatisch bei erster Einladungsbestätigung (`type=invite`)                                                                        |
+| `src/app/clinic/`            | Clinic-Bereich (Teal-Sidebar-Shell): Mein Eintrag, Statistiken (Empfehlungen/Klicks), Konto (Selbst-Löschung)                                                                                                  |
+| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                          |
+| `src/app/api/chat/`          | Streamender Claude-Tool-Use-Loop; speichert redigierte Konversationen + Empfehlungs-Events                                                                                                                     |
+| `src/app/api/clinic/`        | Clinic-Self-Service: eigenen Eintrag bearbeiten (`PATCH`), Konto löschen (`DELETE /account`: unpublish + Login weg)                                                                                            |
+| `src/app/api/clinic-events/` | Öffentlicher Klick-Beacon (Website/E-Mail); same-origin, rate-limitiert, nur veröffentlichte Clinics, PII-frei                                                                                                 |
+| `src/app/api/signup/`        | Öffentliche API: Suche, Beanspruchung, Registrierung                                                                                                                                                           |
+| `src/app/api/admin/**`       | Admin-CRUD: Clinics, Einladungen, Zugang-Entzug, Einreichungen, Einstellungen, Branding, Protokolle                                                                                                            |
+| `src/components/ui/`         | UI-Kit: Badge, Button, Card, Checkbox, ColorField, Drawer, FieldLabel, FileDropzone, Icon, InfoHint, Input, Modal, Panel, Select, SuggestionList, TagCombobox, StatCard, BarChart, MeterList, Textarea, Toggle |
+| `src/lib/branding/`          | Branding-Record laden/validieren; Runtime-Theming (`:root`-Tokens + Google-Font) im Root-Layout                                                                                                                |
+| `src/lib/analytics/`         | GA4-Consent (Mode v2) + Data-API-Kennzahlen (`ga-metrics.ts`, leer bis konfiguriert)                                                                                                                           |
+| `src/components/analytics/`  | GA-Script (einwilligungsgesteuert) + Cookie-Consent-Banner                                                                                                                                                     |
+| `src/components/admin/`      | AdminChrome (Admin-Navigation via `PortalShell`), MonthStepper (Monats-Navigator des Dashboards)                                                                                                               |
+| `src/components/layout/`     | Wordmark, AreaHeader, `PortalShell` (geteilte Teal-Sidebar für Admin- **und** Clinic-Portal, aktive Tabs via `usePathname`)                                                                                    |
+| `src/components/chat/`       | FinderChat (Suchkarte → Chat) plus die Empfehlungskarten (Klick-Beacon auf Website/E-Mail) und `ChatUnavailable` (Hinweis, wenn der Chatbot aus ist)                                                           |
+| `src/lib/chat/`              | `prompts.ts` (Modelltexte), Schema, Tools, NDJSON, Loop, Redaktion, `usage.ts` (Token/Kosten pro Gespräch)                                                                                                     |
+| `src/lib/clinic/`            | `stats.ts`: Kennzahlen des Statistik-Tabs (Empfehlungen, Klicks, Klickrate)                                                                                                                                    |
+| `src/lib/admin/`             | Dashboard-Kennzahlen (`stats.ts`), Zugriffsstatus (`clinic-access.ts`), Monatsfenster (`month-window.ts`: rollierende 12-Monats-Aufbewahrung, Monatsschritte)                                                  |
+| `src/lib/clinics/`           | `revoke-access.ts` (Login löschen ± unpublish), `click-event.ts` (Klick-Recorder), `schema.ts`, `options.ts` (Vorschlagslisten + `;`-Parser), `publish-requirements.ts` (Pflichtfeld-Gate zum Veröffentlichen) |
+| `src/lib/logs/`              | `log-store.ts`: Sink, der Logs in `public.logs` schreibt (7 Tage Aufbewahrung)                                                                                                                                 |
+| `src/instrumentation.ts`     | Next-Startup-Hook: verbindet den Logger mit dem `logs`-Sink                                                                                                                                                    |
+| `src/lib/i18n/`              | Wörterbücher für 9 Sprachen, `lcf_lang`-Cookie, RTL-Hilfen                                                                                                                                                     |
+| `src/lib/signup/`            | Verzeichnissuche, E-Mail-Maskierung, Beanspruchungsfenster, Registrierung                                                                                                                                      |
+| `src/lib/supabase/`          | Clients: Browser, Server (Cookies), Service (nur Server), Proxy-Session                                                                                                                                        |
+| `src/lib/auth/`              | `requireRole` (+ `AuthError`), Admin-Guard für API-Routen                                                                                                                                                      |
+| `src/lib/`                   | Logger (strukturiertes JSON, optional in `logs`-Tabelle), Rate-Limiting, Einstellungen, `cn`, Schemata                                                                                                         |
+| `supabase/migrations/`       | Schema und RLS — alleinige Quelle der Wahrheit                                                                                                                                                                 |
+| `scripts/`                   | Zod-validierter Clinic-Import, Dev-Hilfsskripte                                                                                                                                                                |
 
 **Datenfluss:** Browser → API-Route (Zod-Validierung, `requireRole`) → Supabase (Postgres + RLS)
 → Antwort. Beim Chat streamt `/api/chat` die Antwort erst nach Rate-Limit- und Einstellungsprüfung;
@@ -111,7 +112,8 @@ Empfehlungskarte an `/api/clinic-events` (`click_website`/`click_email`). Die Ev
 Nutzerdaten (nur Clinic-ID, Art, Zeitstempel). Der Statistik-Tab der Clinic liest sie über die View
 `clinic_event_counts` (`security_invoker`, RLS auf `private.app_clinic_id()`) — **nur die eigenen
 Zahlen, nicht für Admins**. Löscht ein Gespräch (DSGVO), bleibt der Zähler erhalten
-(`conversation_id … on delete set null`).
+(`conversation_id … on delete set null`). `clinic_events` wird nach 12 Monaten bereinigt (siehe
+_Datenaufbewahrung_), die Mitglieder-Statistik ist also rollierend über ein Jahr.
 
 **System-Prompt = Rolle + Ablauf:** Der System-Prompt wird zur Laufzeit aus zwei Texten
 zusammengesetzt (`buildSystemPrompt` in `src/lib/chat/prompts.ts`): `<role>` (wer der Assistent
@@ -159,15 +161,41 @@ die echte Client-IP setzen (`X-Forwarded-For`).
 { unpublish })`, die auch der Admin-Zugang-Entzug nutzt (`unpublish: false`, Eintrag bleibt
   sichtbar). Der Admin-Filter „Mit Konto verknüpft“ zeigt Einträge mit Mitglieds-Login (aktiv oder
   eingeladen); „Alle“ behält ausgeblendete/selbstgelöschte Einträge.
-- **Geführte Dateneingabe:** Die Kategoriefelder `legal_areas`, `target_clients`, `languages`
-  (Mehrfachauswahl via `TagCombobox`) und `region` (Einzelwert via `SuggestInput`) schlagen
-  standardisierte Werte aus `src/lib/clinics/options.ts` vor — der einzigen Quelle, die alle drei
-  Eingabemasken (Mitglieder-Formular, Admin-Editor, öffentliche Registrierung) nutzen. Freitext
-  bleibt erlaubt (geführt, nicht erzwungen). Die Speicherung ändert sich nicht: Mehrfachwerte
-  liegen weiter als `"; "`-verkettetes `text` (`parseMultiValue`/`serializeMultiValue`), passend zu
-  `search_clinics` (`ilike`) und den Empfehlungskarten (`splitAreas`). Bestandsdaten bleiben
-  unangetastet. `"Deutschlandweit"` ist der reservierte bundesweite Sentinel und steht in den
-  Regionsvorschlägen an erster Stelle.
+- **Geführte Dateneingabe:** Die Kategoriefelder `legal_areas`, `target_clients`, `languages` und
+  `region` (alle Mehrfachauswahl via `TagCombobox`) schlagen standardisierte Werte aus
+  `src/lib/clinics/options.ts` vor — der einzigen Quelle, die alle drei Eingabemasken
+  (Mitglieder-Formular, Admin-Editor, öffentliche Registrierung) nutzen. Freitext bleibt erlaubt
+  (geführt, nicht erzwungen). Die Speicherung ändert sich nicht: Mehrfachwerte liegen weiter als
+  `"; "`-verkettetes `text` (`parseMultiValue`/`serializeMultiValue`), passend zu `search_clinics`
+  (`ilike`) und den Empfehlungskarten (`splitAreas`). Bestandsdaten bleiben unangetastet.
+  `"Bundesweit"` ist der reservierte bundesweite Sentinel und steht in den Regionsvorschlägen an
+  erster Stelle; darauf folgen alle Bundesländer, Regierungsbezirke und Großstädte. Das
+  Mitglieder-Formular zeigt den Eintrag zunächst schreibgeschützt und blendet Bearbeiten erst nach
+  Klick auf „Bearbeiten" ein („Abbrechen" verwirft ungespeicherte Änderungen).
+- **Feld-Hilfen & Pflichtkennzeichen:** Jedes Feld trägt in Admin-, Mitglieder- und
+  Registrierungs-Ansicht ein `circle-info`-Symbol (`InfoHint`), das beim Hovern/Fokussieren einen
+  Erklärtext zeigt — einzige Quelle ist `FIELD_HELP` in `src/lib/clinics/field-help.ts`.
+  Pflichtfelder erhalten über die gemeinsame `FieldLabel` ein rotes `*` (rein visuell; der Status
+  wird per `aria-required` an das Control gemeldet); die Pflichtmengen stammen aus
+  `MEMBER_KEYS`/`PUBLISH_KEYS` (`publish-requirements.ts`). Die Beschreibung der Beratungsarbeit ist
+  nur Pflicht, wenn „Berät individuell?" = Nein.
+- **Veröffentlichung ist an Vollständigkeit geknüpft.** Eine Clinic wird nur öffentlich (und damit
+  für den Chatbot sichtbar), wenn `name`, `website`, `region`, `legal_areas`, `target_clients`,
+  `languages` und die Beratungsarbeit-Angabe gesetzt sind — einzige Quelle ist
+  `publishBlockers`/`missingRequiredKeys` in `src/lib/clinics/publish-requirements.ts`, genutzt vom
+  Admin-Umschalter, der Admin-`PATCH`-Route (422 bei Lücken) und der Auto-Veröffentlichung.
+  Mitglieder-Formular und Registrierung erzwingen zusätzlich `contact_email`
+  (`clinicMemberSaveSchema`, `clinicSubmissionSchema`). **Beratungsarbeit** ist eine Ja/Nein-Angabe
+  (`advises_clients`): „Nein" verlangt einen erklärenden Text zur Alternativleistung — geteilte
+  `AdviceField`-Komponente in Formular, Registrierung und Admin-Editor. Auto-Veröffentlichung
+  passiert nur bei der **ersten** Einladungsbestätigung (`type=invite`), nie bei späteren Logins,
+  damit ein Admin-„Verbergen" nicht aufgehoben wird. Der Admin-Editor rendert jede Zelle passend
+  zum Inhalt (E-Mail/URL/Text/Ja-Nein) neben den geführten Vorschlägen.
+- **Chat-Sprache:** Der Assistent fragt die Sprache der ratsuchenden Person nicht ab, sondern leitet
+  sie aus der Nachrichtensprache ab; nachgefragt wird nur, wenn erkennbar für eine andere Person
+  gesucht wird. Passt eine Clinic inhaltlich, führt aber die Sprache nicht auf, wird sie trotzdem
+  empfohlen — mit dem Hinweis, die Sprache direkt zu klären. Diese Regeln leben im `chat_skill`-Text
+  (DB `settings`), nicht im Code.
 - **Chat-Stream ist NDJSON, kein Klartext.** `/api/chat` sendet eine JSON-Zeile pro Frame
   (`{"t":"text"}` bzw. `{"t":"clinics"}`, siehe `src/lib/chat/stream-protocol.ts`). Wer den Stream
   liest, muss Teilzeilen puffern — ein Frame kann über zwei Chunks brechen. Unbekannte oder
@@ -196,6 +224,18 @@ die echte Client-IP setzen (`X-Forwarded-For`).
   kurze `msg` plus `reason`/IDs übergeben, nie Nachrichten, Klartext-Fehlerbodies, Tokens oder
   Personendaten – denn alles Übergebene landet jetzt 7 Tage in der Datenbank und ist per „Für LLM
   kopieren“ exportierbar.
+- **Datenaufbewahrung:** Zwei Stufen halten die regelmäßig anwachsenden Tabellen klein. (1) Der
+  detaillierte Chat-**Verlauf** bleibt nur für die neuesten **200** Gespräche gespeichert; ältere
+  behalten ihre Statistik, verlieren aber `redacted_transcript` — in Echtzeit in
+  `record_conversation` gekappt (die schwere `jsonb`-Spalte, zugleich die einzige heikle). (2) Ein
+  tägliches `pg_cron`-Job `prune_expired_data()` löscht alles ab einem Jahr, an Monatsgrenzen
+  ausgerichtet: Grenzwert `date_trunc('month', now()) - interval '12 months'` (im Oktober 2027 ist
+  Oktober 2026 noch sichtbar, September 2026 nicht mehr). Betroffen: `conversations`, `clinic_events`,
+  `claim_requests`. **Ausgenommen:** `logs` (eigene 7-Tage-Regel im Sink), `clinic_submissions`
+  (offene Registrierungen bleiben bis zur Admin-Entscheidung) und alle operativen Tabellen (`clinics`,
+  `profiles`, `settings`, `branding`, Auth). Das Admin-Dashboard blättert mit dem `MonthStepper`
+  monatsweise durch dieses rollierende 12-Monats-Fenster (`src/lib/admin/month-window.ts` als einzige
+  Quelle für Grenzen und Monatsbereich).
 - **Testbarkeit:** Module nehmen Abhängigkeiten als Parameter (`runChat(deps, …)`,
   `handleChatRequest(request, deps)`); Routen sind dünne Verdrahtung.
 - **Portabilität:** Keine hostspezifischen APIs; `output: 'standalone'` und das Dockerfile müssen

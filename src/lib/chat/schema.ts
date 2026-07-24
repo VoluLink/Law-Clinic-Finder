@@ -10,6 +10,9 @@ export const chatMessageSchema = z.object({
 });
 
 export const chatRequestSchema = z.object({
+  // Stable per-chat id from the client, so every turn's tokens accumulate onto
+  // one conversation row instead of inserting a fresh row per message-exchange.
+  sessionId: z.uuid().optional(),
   messages: z
     .array(chatMessageSchema)
     .min(1)

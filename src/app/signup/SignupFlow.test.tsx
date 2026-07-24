@@ -68,13 +68,13 @@ describe('SignupFlow', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Das ist meine' }));
     expect(screen.getByText('k****t@milcc.de')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Anmeldelink anfordern' }));
-    expect(await screen.findByText('Prüfen Sie Ihr Postfach')).toBeInTheDocument();
+    expect(await screen.findByText('Prüfe dein Postfach')).toBeInTheDocument();
   });
 
   it('offers login instead of claiming for already active clinics', async () => {
     stubRoutes({ '/api/signup/search': () => Response.json({ results: [claimed] }) });
     render(<SignupFlow />);
-    const loginLink = await screen.findByRole('link', { name: 'Mit E-Mail anmelden →' });
+    const loginLink = await screen.findByRole('link', { name: 'Mit E-Mail anmelden' });
     expect(loginLink).toHaveAttribute('href', '/login');
     expect(screen.queryByRole('button', { name: 'Das ist meine' })).not.toBeInTheDocument();
   });

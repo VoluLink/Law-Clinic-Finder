@@ -36,7 +36,7 @@ const rows: Row[] = [
   {
     // `mietrecht` repeats the first row case-insensitively; comma-separated languages.
     legal_areas: 'mietrecht; Arbeitsrecht',
-    region: 'Deutschlandweit',
+    region: 'Bundesweit',
     languages: 'Arabisch, Kurdisch',
     target_clients: 'Studierende',
   },
@@ -49,7 +49,7 @@ describe('listDirectoryTerms', () => {
     const result = JSON.parse(await listDirectoryTerms(client as never));
     expect(result).toEqual({
       legal_areas: ['Arbeitsrecht', 'Mietrecht', 'Zivilrecht (Mietrecht, Kaufrecht)'],
-      regions: ['Deutschlandweit', 'Stadtgebiet Köln'],
+      regions: ['Bundesweit', 'Stadtgebiet Köln'],
       languages: ['Arabisch', 'Deutsch', 'Englisch', 'Kurdisch'],
       target_groups: ['Geflüchtete', 'Studierende'],
     });
@@ -58,10 +58,10 @@ describe('listDirectoryTerms', () => {
   it('pins the nationwide region first even when it sorts later alphabetically', async () => {
     const { client } = createSupabaseMock([
       { legal_areas: null, region: 'Aachen', languages: null, target_clients: null },
-      { legal_areas: null, region: 'Deutschlandweit', languages: null, target_clients: null },
+      { legal_areas: null, region: 'Bundesweit', languages: null, target_clients: null },
     ]);
     const { regions } = JSON.parse(await listDirectoryTerms(client as never));
-    expect(regions).toEqual(['Deutschlandweit', 'Aachen']);
+    expect(regions).toEqual(['Bundesweit', 'Aachen']);
   });
 
   it('drops a prose cell that is too long to be a real term', async () => {

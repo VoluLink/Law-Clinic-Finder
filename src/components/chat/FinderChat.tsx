@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { MAX_CHAT_MESSAGE_CHARS, trimChatHistory } from '@/lib/chat/schema';
 import { decodeChatEvents, type ClinicRecommendation } from '@/lib/chat/stream-protocol';
 import { cn } from '@/lib/cn';
@@ -40,20 +41,24 @@ export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [limitScope, setLimitScope] = useState<RateLimitScope | null>(null);
+  // One id per chat, so the server folds every turn onto a single conversation.
+  const sessionId = useRef<string | null>(null);
 
   function restart() {
     setMessages([]);
     setInput('');
     setLimitScope(null);
+    sessionId.current = null;
   }
 
   async function send(content: string) {
     const history = trimChatHistory([...messages, { role: 'user', content }]);
+    sessionId.current ??= crypto.randomUUID();
     setMessages((prev) => [...prev, { role: 'user', content }]);
     setInput('');
     setPending(true);
     try {
-      const outcome = await streamReply(history, setMessages);
+      const outcome = await streamReply(history, setMessages, sessionId.current);
       if (outcome === 'unavailable') {
         setMessages((prev) => [...prev, { role: 'assistant', content: dict.chatDisabled }]);
       } else if (outcome) {
@@ -94,11 +99,12 @@ type ReplyOutcome = RateLimitScope | 'unavailable' | null;
 async function streamReply(
   messages: Message[],
   setMessages: Dispatch<SetStateAction<Message[]>>,
+  sessionId: string,
 ): Promise<ReplyOutcome> {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ sessionId, messages }),
   });
   if (response.status === 429) {
     const body = (await response.json().catch(() => null)) as { scope?: string } | null;
@@ -176,9 +182,7 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
           className="gap-2.5 px-7 py-4 text-[17px] font-bold"
         >
           {dict.searchBtn}
-          <span aria-hidden className="text-[19px]">
-            {rtl ? '←' : '→'}
-          </span>
+          <Icon name={rtl ? 'arrow-left' : 'arrow-right'} className="h-4 w-4" />
         </Button>
       </div>
     </form>
@@ -238,7 +242,7 @@ function MessageBubble({ dict, message }: { dict: Dictionary; message: Message }
               : 'rounded-ee-[4px] bg-primary text-primary-foreground',
           )}
         >
-          {!isBot && <span className="sr-only">Sie: </span>}
+          {!isBot && <span className="sr-only">Du: </span>}
           {message.content}
         </div>
       </div>

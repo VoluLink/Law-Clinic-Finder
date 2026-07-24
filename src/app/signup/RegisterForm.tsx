@@ -2,14 +2,16 @@
 
 import { useState, type FormEvent } from 'react';
 
+import { AdviceField } from '@/components/clinics/AdviceField';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { SuggestInput } from '@/components/ui/SuggestInput';
 import { TagCombobox } from '@/components/ui/TagCombobox';
 import { Textarea } from '@/components/ui/Textarea';
+import { FIELD_HELP } from '@/lib/clinics/field-help';
 import { LANGUAGES, LEGAL_AREAS, REGION_SUGGESTIONS, TARGET_GROUPS } from '@/lib/clinics/options';
 import { clinicSubmissionSchema } from '@/lib/clinics/schema';
+import { fieldErrorsFrom } from '@/lib/forms/field-errors';
 import type { DirectoryMatch } from '@/lib/signup/directory';
 import type { RegisterResult } from '@/lib/signup/handle-register';
 
@@ -23,11 +25,13 @@ const EMPTY_FORM = {
   legal_areas: '',
   target_clients: '',
   languages: '',
+  advises_clients: true,
   description: '',
   requirements: '',
 };
 
 type FormValues = typeof EMPTY_FORM;
+type FieldErrors = Partial<Record<keyof FormValues, string>>;
 
 type RegisterFormProps = {
   onDone: () => void;
@@ -38,6 +42,7 @@ type RegisterFormProps = {
 export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps) {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
 
   function setValue(field: keyof FormValues) {
@@ -52,14 +57,16 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
     event.preventDefault();
     const parsed = clinicSubmissionSchema.safeParse(values);
     if (!parsed.success) {
-      setError('Bitte füllen Sie alle Pflichtfelder korrekt aus (Website mit https://).');
+      setErrors(fieldErrorsFrom<keyof FormValues>(parsed.error.issues));
+      setError('Bitte fülle alle Pflichtfelder korrekt aus (Website mit https://).');
       return;
     }
+    setErrors({});
     setPending(true);
     setError(null);
     const result = await submitRegistration(parsed.data);
     setPending(false);
-    if (!result) return setError('Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut.');
+    if (!result) return setError('Etwas ist schiefgelaufen. Bitte versuche es später erneut.');
     if (result.status === 'collision') return onCollision(result.clinic);
     onDone();
   }
@@ -71,13 +78,26 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
       <p className="text-base text-muted">
         Der Eintrag wird vom Team von Law Clinics Deutschland geprüft und freigeschaltet.
       </p>
+      <p className="text-sm text-muted-soft">
+        <span className="text-danger">*</span> Pflichtfeld
+      </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input label="Name der Law Clinic" value={values.name} onChange={setField('name')} />
+        <Input
+          label="Name der Law Clinic"
+          value={values.name}
+          onChange={setField('name')}
+          hint={FIELD_HELP.name}
+          required
+          error={errors.name}
+        />
         <Input
           label="E-Mail-Adresse der Organisation (Login-Adresse)"
           type="email"
           value={values.contact_email}
           onChange={setField('contact_email')}
+          hint={FIELD_HELP.contact_email}
+          required
+          error={errors.contact_email}
         />
         <Input
           label="Website"
@@ -85,13 +105,18 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
           placeholder="https://…"
           value={values.website}
           onChange={setField('website')}
+          required
+          error={errors.website}
         />
-        <SuggestInput
+        <TagCombobox
           label="Region"
           value={values.region}
           onChange={setValue('region')}
           suggestions={REGION_SUGGESTIONS}
-          placeholder="Stadt oder „Deutschlandweit“"
+          placeholder="Stadt oder „Bundesweit“"
+          hint={FIELD_HELP.region}
+          required
+          error={errors.region}
         />
         <TagCombobox
           label="Rechtsgebiete"
@@ -99,6 +124,9 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
           onChange={setValue('legal_areas')}
           suggestions={LEGAL_AREAS}
           placeholder="Auswählen oder eingeben…"
+          hint={FIELD_HELP.legal_areas}
+          required
+          error={errors.legal_areas}
         />
         <TagCombobox
           label="Zielgruppe / Mandant:innen"
@@ -106,6 +134,9 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
           onChange={setValue('target_clients')}
           suggestions={TARGET_GROUPS}
           placeholder="Auswählen oder eingeben…"
+          hint={FIELD_HELP.target_clients}
+          required
+          error={errors.target_clients}
         />
         <TagCombobox
           label="Sprachen"
@@ -113,16 +144,24 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
           onChange={setValue('languages')}
           suggestions={LANGUAGES}
           placeholder="Auswählen oder eingeben…"
+          hint={FIELD_HELP.languages}
+          required
+          error={errors.languages}
         />
-        <Textarea
-          label="Beratungsangebot (optional)"
-          value={values.description}
-          onChange={setField('description')}
+        <AdviceField
+          advises={values.advises_clients}
+          description={values.description}
+          onAdvisesChange={(advises) =>
+            setValues((prev) => ({ ...prev, advises_clients: advises }))
+          }
+          onDescriptionChange={setValue('description')}
+          error={errors.description}
         />
         <Textarea
           label="Andere Voraussetzungen (optional)"
           value={values.requirements}
           onChange={setField('requirements')}
+          hint={FIELD_HELP.requirements}
         />
         {error && (
           <p role="alert" className="text-sm text-danger">

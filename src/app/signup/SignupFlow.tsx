@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonClasses } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Icon } from '@/components/ui/Icon';
 import { Input } from '@/components/ui/Input';
 import type { DirectoryMatch } from '@/lib/signup/directory';
 import type { ClaimResult } from '@/lib/signup/handle-claim';
@@ -20,7 +21,7 @@ type Stage =
   | { name: 'register' }
   | { name: 'done' };
 
-const GENERIC_ERROR = 'Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut.';
+const GENERIC_ERROR = 'Etwas ist schiefgelaufen. Bitte versuche es später erneut.';
 const SEARCH_DEBOUNCE_MS = 300;
 
 async function requestClaim(clinicId: string): Promise<ClaimResult> {
@@ -179,8 +180,12 @@ function SearchResults({
           {clinic.claimed ? (
             <span className="flex shrink-0 items-center gap-3">
               <Badge variant="success">bereits aktiv</Badge>
-              <Link href="/login" className="text-sm font-semibold text-primary hover:underline">
-                Mit E-Mail anmelden →
+              <Link
+                href="/login"
+                className={buttonClasses('secondary', 'pill', 'shrink-0 px-5 py-2.5 text-primary')}
+              >
+                Mit E-Mail anmelden
+                <Icon name="arrow-right" className="h-3.5 w-3.5" />
               </Link>
             </span>
           ) : (
@@ -234,7 +239,7 @@ function ClaimStage({
         </p>
       ) : (
         <p className="text-base text-muted">
-          Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktieren Sie Law Clinics
+          Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktiere Law Clinics
           Deutschland, um den Zugang einzurichten.
         </p>
       )}
@@ -259,13 +264,13 @@ function ClaimStage({
 
 function claimMessage(result: ClaimResult): string {
   if (result.status === 'already_claimed') {
-    return 'Diese Law Clinic ist bereits aktiv. Melden Sie sich mit der E-Mail-Adresse Ihrer Organisation an.';
+    return 'Diese Law Clinic ist bereits aktiv. Melde dich mit der E-Mail-Adresse deiner Organisation an.';
   }
   if (result.status === 'blocked') {
-    return `Für diesen Eintrag wurden bereits mehrere Links angefordert. Bitte versuchen Sie es in ${result.retryDays} Tagen erneut.`;
+    return `Für diesen Eintrag wurden bereits mehrere Links angefordert. Bitte versuche es in ${result.retryDays} Tagen erneut.`;
   }
   if (result.status === 'no_email') {
-    return 'Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktieren Sie Law Clinics Deutschland.';
+    return 'Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktiere Law Clinics Deutschland.';
   }
   return GENERIC_ERROR;
 }
@@ -283,10 +288,10 @@ function VerifyStage({ clinic, maskedEmail }: { clinic: DirectoryMatch; maskedEm
 
   return (
     <Card variant="panel" className="flex flex-col gap-5">
-      <StageHeading>Prüfen Sie Ihr Postfach</StageHeading>
+      <StageHeading>Prüfe dein Postfach</StageHeading>
       <p className="text-base text-muted">
         Wir haben einen Anmeldelink an <strong className="text-foreground">{maskedEmail}</strong>{' '}
-        gesendet. Öffnen Sie den Link, um den Zugang für {clinic.name} zu aktivieren.
+        gesendet. Öffne den Link, um den Zugang für {clinic.name} zu aktivieren.
       </p>
       {status && (
         <p role="status" className="text-sm text-foreground">
@@ -305,8 +310,9 @@ function DoneStage() {
     <Card variant="panel" className="flex flex-col gap-5">
       <StageHeading>Vielen Dank!</StageHeading>
       <p className="text-base text-muted">
-        Ihre Law Clinic wurde zur Prüfung eingereicht. Das Team von Law Clinics Deutschland schaltet
-        den Eintrag frei — danach erhalten Sie den Anmeldelink an die angegebene E-Mail-Adresse.
+        Deine Law Clinic wurde zur Prüfung eingereicht. Das Team von Law Clinics Deutschland
+        schaltet den Eintrag frei — danach erhältst du den Anmeldelink an die angegebene
+        E-Mail-Adresse.
       </p>
       <BackLink href="/" />
     </Card>

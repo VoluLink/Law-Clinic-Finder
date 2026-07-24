@@ -19,52 +19,32 @@ export type PersistRunInfo = {
   outputTokens: number;
 };
 
+/**
+ * Upserts one row per entire chat. Every turn re-sends the full transcript under
+ * the same `sessionId`, so `record_conversation` accumulates the tokens and
+ * de-duplicates recommendation events server-side. A null `sessionId` (legacy
+ * client) simply inserts a fresh row, as before.
+ */
 export async function persistConversation(
   deps: PersistDeps,
   transcript: ChatMessage[],
   run: PersistRunInfo,
+  sessionId: string | null,
 ): Promise<void> {
   const outcome = await deps.redact(transcript);
   const redacted = outcome.status === 'ok' ? outcome : null;
-  const { data, error } = await deps.adminClient
-    .from('conversations')
-    .insert({
-      redacted_transcript: redacted?.transcript ?? null,
-      redaction_status: outcome.status,
-      detected_legal_area: redacted?.legalArea ?? null,
-      detected_city: redacted?.city ?? null,
-      matched_clinic_count: run.matchedClinicCount,
-      message_count: transcript.length,
-      model: run.model,
-      input_tokens: run.inputTokens,
-      output_tokens: run.outputTokens,
-    })
-    .select('id')
-    .single();
-  if (error) {
-    deps.logger.error('conversation insert failed', { reason: error.message });
-    return;
-  }
-  await recordRecommendationEvents(deps, data.id, run.recommendedClinicIds);
-}
-
-/**
- * One 'recommended' event per clinic shown, feeding the member stats tab.
- * Best-effort: a failure here must not lose the conversation, so it logs at
- * warn and returns.
- */
-async function recordRecommendationEvents(
-  deps: PersistDeps,
-  conversationId: string,
-  clinicIds: string[],
-): Promise<void> {
-  if (clinicIds.length === 0) return;
-  const { error } = await deps.adminClient.from('clinic_events').insert(
-    clinicIds.map((clinicId) => ({
-      clinic_id: clinicId,
-      kind: 'recommended',
-      conversation_id: conversationId,
-    })),
-  );
-  if (error) deps.logger.warn('recommendation events insert failed', { reason: error.message });
+  const { error } = await deps.adminClient.rpc('record_conversation', {
+    p_session_id: sessionId,
+    p_redacted_transcript: redacted?.transcript ?? null,
+    p_redaction_status: outcome.status,
+    p_detected_legal_area: redacted?.legalArea ?? null,
+    p_detected_city: redacted?.city ?? null,
+    p_matched_clinic_count: run.matchedClinicCount,
+    p_message_count: transcript.length,
+    p_model: run.model,
+    p_input_tokens: run.inputTokens,
+    p_output_tokens: run.outputTokens,
+    p_recommended_clinic_ids: run.recommendedClinicIds,
+  });
+  if (error) deps.logger.error('conversation persist failed', { reason: error.message });
 }

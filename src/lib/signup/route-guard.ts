@@ -17,7 +17,7 @@ export function guardSignupRequest(request: Request, limiter: RateLimiter): Resp
   }
   if (limiter.isLimited(clientIp(request))) {
     return Response.json(
-      { error: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.' },
+      { error: 'Zu viele Anfragen. Bitte versuche es später erneut.' },
       { status: 429 },
     );
   }

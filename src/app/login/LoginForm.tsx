@@ -33,7 +33,7 @@ export function LoginForm() {
   if (state === 'sent') {
     return (
       <p role="status" className="text-sm text-foreground">
-        Prüfen Sie Ihr E-Mail-Postfach: Wir haben Ihnen einen Anmeldelink geschickt.
+        Prüfe dein E-Mail-Postfach: Wir haben dir einen Anmeldelink geschickt.
       </p>
     );
   }
@@ -41,13 +41,13 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <Input
-        label="E-Mail-Adresse Ihrer Organisation"
+        label="E-Mail-Adresse deiner Organisation"
         type="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         error={
           state === 'error'
-            ? 'Anmeldung nicht möglich. Prüfen Sie die Adresse oder kontaktieren Sie den Admin.'
+            ? 'Anmeldung nicht möglich. Prüfe die Adresse oder kontaktiere den Admin.'
             : undefined
         }
       />

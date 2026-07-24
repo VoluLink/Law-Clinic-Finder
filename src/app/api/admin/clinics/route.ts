@@ -8,7 +8,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const ADMIN_COLUMNS =
   'id, name, description, region, contact_email, website, legal_areas, ' +
-  'target_clients, languages, requirements, is_published, updated_at';
+  'target_clients, languages, requirements, advises_clients, is_published, updated_at';
 
 export async function GET(): Promise<Response> {
   const guard = await requireAdminRoute();

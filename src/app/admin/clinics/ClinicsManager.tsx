@@ -3,14 +3,24 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { EditActions } from '@/components/clinics/EditActions';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { InfoHint } from '@/components/ui/InfoHint';
 import { Input } from '@/components/ui/Input';
 import { Panel } from '@/components/ui/Panel';
-import { SuggestInput } from '@/components/ui/SuggestInput';
+import { Select } from '@/components/ui/Select';
 import { TagCombobox } from '@/components/ui/TagCombobox';
+import { Textarea } from '@/components/ui/Textarea';
 import type { AccessState } from '@/lib/admin/clinic-access';
+import { FIELD_HELP } from '@/lib/clinics/field-help';
 import { LANGUAGES, LEGAL_AREAS, REGION_SUGGESTIONS, TARGET_GROUPS } from '@/lib/clinics/options';
+import {
+  publishBlockers,
+  PUBLISH_KEYS,
+  toRequiredLabels,
+} from '@/lib/clinics/publish-requirements';
+import { isValidEmail } from '@/lib/forms/email';
 
 export type AdminClinicRow = {
   id: string;
@@ -23,6 +33,7 @@ export type AdminClinicRow = {
   target_clients: string | null;
   languages: string | null;
   requirements: string | null;
+  advises_clients: boolean;
   is_published: boolean;
   accessState: AccessState;
   lastSignInLabel: string | null;
@@ -41,6 +52,7 @@ type EditableKey =
   | 'name'
   | 'website'
   | 'contact_email'
+  | 'advises_clients'
   | 'description'
   | 'region'
   | 'legal_areas'
@@ -48,17 +60,24 @@ type EditableKey =
   | 'languages'
   | 'requirements';
 
+type CellValue = string | boolean;
+
 /** Category columns that get the chip combobox; the rest stay free-text. */
 const MULTI_SUGGESTIONS: Partial<Record<EditableKey, readonly string[]>> = {
+  region: REGION_SUGGESTIONS,
   legal_areas: LEGAL_AREAS,
   target_clients: TARGET_GROUPS,
   languages: LANGUAGES,
 };
 
+/** Columns an admin must fill before a clinic can be published (marked with `*`). */
+const PUBLISH_REQUIRED = new Set<string>(PUBLISH_KEYS);
+
 const COLUMNS: Array<{ key: EditableKey; label: string }> = [
   { key: 'name', label: 'Name' },
   { key: 'website', label: 'Homepage' },
   { key: 'contact_email', label: 'Beratungsemail' },
+  { key: 'advises_clients', label: 'Berät individuell?' },
   { key: 'description', label: 'Beratungsarbeit' },
   { key: 'region', label: 'Region' },
   { key: 'legal_areas', label: 'Rechtsgebiet' },
@@ -91,11 +110,11 @@ function matchesFilter(clinic: AdminClinicRow, filter: Filter): boolean {
   return clinic.accessState === filter;
 }
 
-function editablePayload(row: AdminClinicRow): Record<EditableKey, string | null> {
+function editablePayload(row: AdminClinicRow): Pick<AdminClinicRow, EditableKey> {
   const keys = COLUMNS.map((column) => column.key);
-  return Object.fromEntries(keys.map((key) => [key, row[key]])) as Record<
-    EditableKey,
-    string | null
+  return Object.fromEntries(keys.map((key) => [key, row[key]])) as Pick<
+    AdminClinicRow,
+    EditableKey
   >;
 }
 
@@ -112,6 +131,7 @@ export function ClinicsManager({
   const [filter, setFilter] = useState<Filter>('all');
   const [drafts, setDrafts] = useState<Record<string, AdminClinicRow>>({});
   const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
 
   async function call(url: string, init: RequestInit, okMessage: string) {
     setStatus('');
@@ -126,8 +146,72 @@ export function ClinicsManager({
     body: JSON.stringify(body),
   });
 
-  function setCell(id: string, key: EditableKey, value: string) {
+  function setCell(id: string, key: EditableKey, value: CellValue) {
     setDrafts((current) => ({ ...current, [id]: { ...current[id], [key]: value } }));
+  }
+
+  function changedClinics(): AdminClinicRow[] {
+    return clinics.filter(
+      (c) =>
+        JSON.stringify(editablePayload(drafts[c.id] ?? c)) !== JSON.stringify(editablePayload(c)),
+    );
+  }
+
+  async function saveAll() {
+    const changed = changedClinics();
+    if (changed.length === 0) return;
+    const badEmails = changed.filter((c) => {
+      const email = (drafts[c.id] ?? c).contact_email;
+      return !!email && !isValidEmail(email);
+    });
+    if (badEmails.length > 0) {
+      setStatus(
+        `Bitte gib eine gültige E-Mail-Adresse ein: ${badEmails.map((c) => c.name).join(', ')}.`,
+      );
+      return;
+    }
+    setSaving(true);
+    setStatus('');
+    const results = await Promise.all(
+      changed.map((c) =>
+        fetch(`/api/admin/clinics/${c.id}`, patch(editablePayload(drafts[c.id] ?? c))).catch(
+          () => null,
+        ),
+      ),
+    );
+    setSaving(false);
+    const allOk = results.every((response) => response?.ok);
+    setStatus(allOk ? 'Gespeichert.' : 'Einige Änderungen konnten nicht gespeichert werden.');
+    if (allOk) {
+      setDrafts({});
+      setEditing(false);
+    }
+    router.refresh();
+  }
+
+  function cancelAll() {
+    setDrafts({});
+    setStatus('');
+    setEditing(false);
+  }
+
+  const hasChanges = editing && changedClinics().length > 0;
+
+  // Publishing is gated on completeness; hiding is always allowed. The server
+  // re-checks — this just avoids a doomed round-trip and names what's missing.
+  function togglePublish(clinic: AdminClinicRow) {
+    if (!clinic.is_published) {
+      const missing = toRequiredLabels(publishBlockers(clinic));
+      if (missing.length > 0) {
+        setStatus(`Zum Veröffentlichen fehlt noch: ${missing.join(', ')}.`);
+        return;
+      }
+    }
+    call(
+      `/api/admin/clinics/${clinic.id}`,
+      patch({ is_published: !clinic.is_published }),
+      clinic.is_published ? 'Verborgen.' : 'Veröffentlicht.',
+    );
   }
 
   const filtered = clinics.filter((c) => matchesSearch(c, search) && matchesFilter(c, filter));
@@ -169,15 +253,19 @@ export function ClinicsManager({
             </Button>
           ))}
         </div>
-        <Button
-          variant={editing ? 'primary' : 'secondary'}
-          onClick={() => {
-            if (!editing) setDrafts(Object.fromEntries(clinics.map((c) => [c.id, { ...c }])));
-            setEditing((value) => !value);
-          }}
-        >
-          {editing ? 'Fertig' : '✎ Datenbank bearbeiten'}
-        </Button>
+        {editing ? (
+          <EditActions dirty={hasChanges} busy={saving} onSave={saveAll} onCancel={cancelAll} />
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setDrafts(Object.fromEntries(clinics.map((c) => [c.id, { ...c }])));
+              setEditing(true);
+            }}
+          >
+            ✎ Datenbank bearbeiten
+          </Button>
+        )}
       </div>
 
       {status && (
@@ -191,64 +279,73 @@ export function ClinicsManager({
           <p className="text-sm text-muted">Keine Law Clinics gefunden.</p>
         </Panel>
       ) : (
-        <div className="overflow-x-auto rounded-[16px] border border-border bg-surface">
-          <table className="w-full min-w-[1500px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs font-bold tracking-wide text-muted-soft uppercase">
-                {COLUMNS.map((column) => (
-                  <th key={column.key} className="p-3 text-start font-bold">
-                    {column.label}
-                  </th>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-soft">
+            <span className="text-danger">*</span> Pflichtfeld zum Veröffentlichen
+          </p>
+          <div className="overflow-x-auto rounded-[16px] border border-border bg-surface">
+            <table className="w-full min-w-[1500px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs font-bold tracking-wide text-muted-soft uppercase">
+                  {COLUMNS.map((column) => {
+                    const help = FIELD_HELP[column.key];
+                    return (
+                      <th key={column.key} className="p-3 text-start font-bold">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>
+                            {column.label}
+                            {PUBLISH_REQUIRED.has(column.key) && (
+                              <>
+                                <span className="text-danger" aria-hidden>
+                                  {' '}
+                                  *
+                                </span>
+                                <span className="sr-only"> (Pflichtfeld)</span>
+                              </>
+                            )}
+                          </span>
+                          {help && <InfoHint text={help} label={column.label} />}
+                        </span>
+                      </th>
+                    );
+                  })}
+                  <th className="p-3 text-start font-bold">Zugang</th>
+                  <th className="p-3 text-start font-bold">Status</th>
+                  {editing && <th className="p-3 text-start font-bold">Aktionen</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((clinic) => (
+                  <ClinicRow
+                    key={clinic.id}
+                    clinic={editing ? (drafts[clinic.id] ?? clinic) : clinic}
+                    editing={editing}
+                    onCell={(key, value) => setCell(clinic.id, key, value)}
+                    onDelete={() =>
+                      window.confirm('Diese Law Clinic löschen?') &&
+                      call(`/api/admin/clinics/${clinic.id}`, { method: 'DELETE' }, 'Gelöscht.')
+                    }
+                    onTogglePublish={() => togglePublish(clinic)}
+                    onInvite={() =>
+                      call(
+                        `/api/admin/clinics/${clinic.id}/invite`,
+                        { method: 'POST' },
+                        'Einladung gesendet.',
+                      )
+                    }
+                    onRevoke={() =>
+                      window.confirm('Zugang entziehen?') &&
+                      call(
+                        `/api/admin/clinics/${clinic.id}/access`,
+                        { method: 'DELETE' },
+                        'Zugang entzogen.',
+                      )
+                    }
+                  />
                 ))}
-                <th className="p-3 text-start font-bold">Zugang</th>
-                <th className="p-3 text-start font-bold">Status</th>
-                {editing && <th className="p-3 text-start font-bold">Aktionen</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((clinic) => (
-                <ClinicRow
-                  key={clinic.id}
-                  clinic={editing ? (drafts[clinic.id] ?? clinic) : clinic}
-                  editing={editing}
-                  onCell={(key, value) => setCell(clinic.id, key, value)}
-                  onSave={() =>
-                    call(
-                      `/api/admin/clinics/${clinic.id}`,
-                      patch(editablePayload(drafts[clinic.id] ?? clinic)),
-                      'Gespeichert.',
-                    )
-                  }
-                  onDelete={() =>
-                    window.confirm('Diese Law Clinic löschen?') &&
-                    call(`/api/admin/clinics/${clinic.id}`, { method: 'DELETE' }, 'Gelöscht.')
-                  }
-                  onTogglePublish={() =>
-                    call(
-                      `/api/admin/clinics/${clinic.id}`,
-                      patch({ is_published: !clinic.is_published }),
-                      clinic.is_published ? 'Verborgen.' : 'Veröffentlicht.',
-                    )
-                  }
-                  onInvite={() =>
-                    call(
-                      `/api/admin/clinics/${clinic.id}/invite`,
-                      { method: 'POST' },
-                      'Einladung gesendet.',
-                    )
-                  }
-                  onRevoke={() =>
-                    window.confirm('Zugang entziehen?') &&
-                    call(
-                      `/api/admin/clinics/${clinic.id}/access`,
-                      { method: 'DELETE' },
-                      'Zugang entzogen.',
-                    )
-                  }
-                />
-              ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -256,8 +353,7 @@ export function ClinicsManager({
 }
 
 type RowActions = {
-  onCell: (key: EditableKey, value: string) => void;
-  onSave: () => void;
+  onCell: (key: EditableKey, value: CellValue) => void;
   onDelete: () => void;
   onTogglePublish: () => void;
   onInvite: () => void;
@@ -277,7 +373,7 @@ function ClinicRow({
             <EditCell
               columnKey={column.key}
               label={column.label}
-              value={clinic[column.key] ?? ''}
+              clinic={clinic}
               onChange={(value) => actions.onCell(column.key, value)}
             />
           ) : (
@@ -297,31 +393,43 @@ function ClinicRow({
       </td>
       {editing && (
         <td className="p-3">
-          <div className="flex flex-col gap-2">
-            <Button variant="primary" onClick={actions.onSave}>
-              Speichern
-            </Button>
-            <Button variant="danger" onClick={actions.onDelete}>
-              Zeile löschen
-            </Button>
-          </div>
+          <Button variant="danger" onClick={actions.onDelete}>
+            Zeile löschen
+          </Button>
         </td>
       )}
     </tr>
   );
 }
 
+const ADVICE_OPTIONS = [
+  { value: 'ja', label: 'Ja' },
+  { value: 'nein', label: 'Nein' },
+];
+
 function EditCell({
   columnKey,
   label,
-  value,
+  clinic,
   onChange,
 }: {
   columnKey: EditableKey;
   label: string;
-  value: string;
-  onChange: (value: string) => void;
+  clinic: AdminClinicRow;
+  onChange: (value: CellValue) => void;
 }) {
+  if (columnKey === 'advises_clients') {
+    return (
+      <Select
+        label={label}
+        labelHidden
+        options={ADVICE_OPTIONS}
+        value={clinic.advises_clients ? 'ja' : 'nein'}
+        onChange={(event) => onChange(event.target.value === 'ja')}
+      />
+    );
+  }
+  const value = (clinic[columnKey] ?? '') as string;
   const suggestions = MULTI_SUGGESTIONS[columnKey];
   if (suggestions) {
     return (
@@ -335,30 +443,32 @@ function EditCell({
       />
     );
   }
-  if (columnKey === 'region') {
+  if (columnKey === 'name' || columnKey === 'website' || columnKey === 'contact_email') {
     return (
-      <SuggestInput
+      <Input
         label={label}
         labelHidden
+        type={columnKey === 'website' ? 'url' : columnKey === 'contact_email' ? 'email' : 'text'}
         value={value}
-        onChange={onChange}
-        suggestions={REGION_SUGGESTIONS}
-        placeholder="Stadt oder „Deutschlandweit“"
+        onChange={(event) => onChange(event.target.value)}
       />
     );
   }
   return (
-    <textarea
-      aria-label={label}
+    <Textarea
+      label={label}
+      labelHidden
+      rows={2}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      rows={2}
-      className="w-full resize-y rounded-md border border-border bg-surface-tint p-2 text-sm outline-none focus:border-primary"
     />
   );
 }
 
 function ReadCell({ column, clinic }: { column: EditableKey; clinic: AdminClinicRow }) {
+  if (column === 'advises_clients') {
+    return <span className="text-foreground">{clinic.advises_clients ? 'Ja' : 'Nein'}</span>;
+  }
   const value = clinic[column];
   if (column === 'website' && value) {
     return (

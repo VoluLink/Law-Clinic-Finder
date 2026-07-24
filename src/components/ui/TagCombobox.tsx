@@ -5,6 +5,9 @@ import { useId, useState, type KeyboardEvent } from 'react';
 import { parseMultiValue, serializeMultiValue } from '@/lib/clinics/options';
 import { cn } from '@/lib/cn';
 
+import { FieldLabel } from './FieldLabel';
+import { SuggestionList } from './SuggestionList';
+
 type TagComboboxProps = {
   label: string;
   value: string;
@@ -13,6 +16,10 @@ type TagComboboxProps = {
   error?: string;
   labelHidden?: boolean;
   placeholder?: string;
+  /** Explainer shown in an info-icon tooltip beside the label. */
+  hint?: string;
+  /** Marks the field as required (visual `*` only; no native DOM validation). */
+  required?: boolean;
   /** When false, only listed suggestions can be added (default: custom allowed). */
   allowCustom?: boolean;
 };
@@ -31,6 +38,8 @@ export function TagCombobox({
   error,
   labelHidden,
   placeholder,
+  hint,
+  required,
   allowCustom = true,
 }: TagComboboxProps) {
   const id = useId();
@@ -95,12 +104,13 @@ export function TagCombobox({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
     >
-      <label
+      <FieldLabel
         htmlFor={id}
-        className={cn('text-sm font-medium text-foreground', labelHidden && 'sr-only')}
-      >
-        {label}
-      </label>
+        label={label}
+        hint={hint}
+        required={required}
+        labelHidden={labelHidden}
+      />
       <div
         className={cn(
           'flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-2',
@@ -117,6 +127,7 @@ export function TagCombobox({
           aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? `${id}-opt-${active}` : undefined}
           aria-invalid={error ? true : undefined}
+          aria-required={required ? true : undefined}
           value={query}
           placeholder={selected.length === 0 ? placeholder : undefined}
           onChange={(event) => {
@@ -164,42 +175,5 @@ function ChipList({ items, onRemove }: { items: string[]; onRemove: (item: strin
         </span>
       ))}
     </>
-  );
-}
-
-type SuggestionListProps = {
-  id: string;
-  baseId: string;
-  options: string[];
-  custom: string | null;
-  active: number;
-  onPick: (item: string) => void;
-};
-
-function SuggestionList({ id, baseId, options, custom, active, onPick }: SuggestionListProps) {
-  return (
-    <ul
-      id={id}
-      role="listbox"
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-panel"
-    >
-      {options.map((option, index) => (
-        <li
-          key={option}
-          id={`${baseId}-opt-${index}`}
-          role="option"
-          aria-selected={index === active}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => onPick(option)}
-          className={cn(
-            'cursor-pointer px-3 py-2 text-sm text-foreground hover:bg-chip',
-            index === active && 'bg-chip',
-            option === custom && 'text-primary',
-          )}
-        >
-          {option === custom ? `„${option}“ hinzufügen` : option}
-        </li>
-      ))}
-    </ul>
   );
 }

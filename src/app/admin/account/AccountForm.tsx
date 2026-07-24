@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Panel } from '@/components/ui/Panel';
+import { INVALID_EMAIL_MESSAGE, isValidEmail } from '@/lib/forms/email';
 
 type Status = 'idle' | 'saving' | 'sent' | 'error';
 
@@ -12,14 +13,17 @@ export function AccountForm({ currentEmail }: { currentEmail: string }) {
   const [email, setEmail] = useState(currentEmail);
   const [status, setStatus] = useState<Status>('idle');
 
-  const changed = email.trim().length > 0 && email.trim() !== currentEmail;
+  const trimmed = email.trim();
+  const changed = trimmed.length > 0 && trimmed !== currentEmail;
+  const invalid = trimmed.length > 0 && !isValidEmail(trimmed);
 
   async function save() {
+    if (!isValidEmail(trimmed)) return;
     setStatus('saving');
     const response = await fetch('/api/admin/account/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify({ email: trimmed }),
     }).catch(() => null);
     setStatus(response?.ok ? 'sent' : 'error');
   }
@@ -41,10 +45,11 @@ export function AccountForm({ currentEmail }: { currentEmail: string }) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="admin@law-clinics.de"
+            error={invalid ? INVALID_EMAIL_MESSAGE : undefined}
           />
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-muted">Aktuell: {currentEmail || '—'}</span>
-            <Button onClick={save} disabled={!changed || status === 'saving'}>
+            <Button onClick={save} disabled={!changed || invalid || status === 'saving'}>
               Speichern
             </Button>
           </div>

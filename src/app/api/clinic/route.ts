@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { AuthError, requireRole } from '@/lib/auth/require-role';
-import { clinicEditableSchema } from '@/lib/clinics/schema';
+import { clinicMemberSaveSchema } from '@/lib/clinics/schema';
 import { logger } from '@/lib/logger';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest): Promise<Response> {
     const profile = await requireRole(supabase, ['clinic']);
     if (!profile.clinic_id) return Response.json({ error: 'Nicht berechtigt.' }, { status: 403 });
     const body = await request.json().catch(() => null);
-    const parsed = clinicEditableSchema.safeParse(body);
+    const parsed = clinicMemberSaveSchema.safeParse(body);
     if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
     const { error } = await supabase
       .from('clinics')

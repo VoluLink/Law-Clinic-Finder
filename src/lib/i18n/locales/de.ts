@@ -56,17 +56,17 @@ export const de: Dictionary = {
     'Wende dich direkt per E-Mail oder über die Website an die Law Clinic. Die Beratung ist kostenlos und vertraulich.',
   chatPlaceholder: 'Nachricht eingeben…',
   chatSend: 'Senden',
-  chatError: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.',
-  chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuchen Sie es später erneut.',
+  chatError: 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+  chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuche es später erneut.',
   chatUnavailableTitle: 'Assistent zurzeit nicht verfügbar',
   privacyNote:
-    'Bitte geben Sie keine vollständigen Namen oder Kontaktdaten ein. Gespräche werden nur anonymisiert gespeichert.',
+    'Bitte gib keine vollständigen Namen oder Kontaktdaten ein. Gespräche werden nur anonymisiert gespeichert.',
   limitMinuteTitle: 'Zu viele Anfragen',
   limitMinuteBody:
-    'Zu viele Anfragen. Bitte warten Sie einen Moment. Um Missbrauch und Kosten zu begrenzen, sind kurzfristig nur wenige Nachrichten möglich.',
+    'Zu viele Anfragen. Bitte warte einen Moment. Um Missbrauch und Kosten zu begrenzen, sind kurzfristig nur wenige Nachrichten möglich.',
   limitDailyTitle: 'Tageslimit erreicht',
   limitDailyBody:
-    'Sie haben das Tageslimit an Nachrichten erreicht. Dieser kostenlose Dienst begrenzt die Anfragen pro Tag, um die Kosten der KI-Beratung für alle tragbar zu halten. Bitte versuchen Sie es morgen erneut oder wenden Sie sich direkt an eine Law Clinic.',
+    'Du hast das Tageslimit an Nachrichten erreicht. Dieser kostenlose Dienst begrenzt die Anfragen pro Tag, um die Kosten der KI-Beratung für alle tragbar zu halten. Bitte versuche es morgen erneut oder wende dich direkt an eine Law Clinic.',
   charWarn: 'Maximale Länge erreicht (4.000 Zeichen).',
   noMatchTitle: 'Wie es trotzdem weitergeht',
   noMatchStep1:

@@ -46,7 +46,7 @@ function sanitizeFreeText(value: string): string {
 /**
  * Runs the `search_clinics` tool query against Supabase. Only published
  * clinics are ever returned. A city filter also matches nationwide clinics
- * (region "Deutschlandweit"). Returns a JSON string for the tool result.
+ * (region "Bundesweit"). Returns a JSON string for the tool result.
  */
 export async function searchClinics(client: SupabaseClient, input: unknown): Promise<string> {
   const { query, city, legal_area, language, target_group } = searchClinicsInputSchema.parse(input);
@@ -55,7 +55,7 @@ export async function searchClinics(client: SupabaseClient, input: unknown): Pro
 
   const cityTerm = city ? sanitizeFreeText(city) : '';
   if (cityTerm) {
-    builder = builder.or(`region.ilike.*${cityTerm}*,region.ilike.*deutschlandweit*`);
+    builder = builder.or(`region.ilike.*${cityTerm}*,region.ilike.*bundesweit*`);
   }
 
   const areaTerm = legal_area ? sanitizeFreeText(legal_area) : '';

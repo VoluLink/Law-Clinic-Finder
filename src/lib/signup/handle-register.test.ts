@@ -14,6 +14,7 @@ const submission = clinicSubmissionSchema.parse({
   legal_areas: 'Mietrecht',
   target_clients: 'Studierende',
   languages: 'DE, EN',
+  advises_clients: true,
   description: null,
   requirements: null,
 });

@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Mein Eintrag – Law Clinic Finder' 
 
 const EDITABLE_COLUMNS =
   'name, description, region, contact_email, website, legal_areas, ' +
-  'target_clients, languages, requirements';
+  'target_clients, languages, requirements, advises_clients';
 
 export default async function ClinicPage() {
   const supabase = await createSupabaseServerClient();
@@ -65,7 +65,7 @@ async function ClinicEditor({ clinicId }: { clinicId: string }) {
 function AdminHint() {
   return (
     <p className="text-sm text-muted">
-      Ihr Konto ist keiner Law Clinic zugeordnet. Zur Verwaltung nutzen Sie den{' '}
+      Dein Konto ist keiner Law Clinic zugeordnet. Zur Verwaltung nutze den{' '}
       <Link href="/admin" className="text-primary underline">
         Admin-Bereich
       </Link>

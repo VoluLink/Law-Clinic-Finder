@@ -27,6 +27,22 @@ describe('chatRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts an optional uuid sessionId', () => {
+    const result = chatRequestSchema.safeParse({
+      sessionId: '3f1c2b4a-5d6e-4f70-8a91-b2c3d4e5f607',
+      messages: [validMessage],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a sessionId that is not a uuid', () => {
+    const result = chatRequestSchema.safeParse({
+      sessionId: 'not-a-uuid',
+      messages: [validMessage],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects an empty messages array', () => {
     const result = chatRequestSchema.safeParse({ messages: [] });
     expect(result.success).toBe(false);

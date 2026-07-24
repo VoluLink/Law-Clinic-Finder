@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
+import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 import type { ChatMessage } from '@/lib/chat/schema';
 
@@ -65,9 +66,7 @@ export function ConversationsPanel({ conversations }: { conversations: Conversat
               </span>
               <span className="mt-1 block truncate text-sm text-muted">{previewOf(row)}</span>
             </span>
-            <span aria-hidden className="text-muted">
-              →
-            </span>
+            <Icon name="arrow-right" className="h-3.5 w-3.5 shrink-0 text-muted" />
           </button>
         ))}
       </div>

@@ -55,7 +55,7 @@ function buildDeps(): ChatHandlerDeps {
         messages,
       );
     },
-    persist: (transcript, run) =>
+    persist: (transcript, run, sessionId) =>
       persistConversation(
         { adminClient, redact: (t) => redactTranscript(redactionModel, t), logger },
         transcript,
@@ -66,6 +66,7 @@ function buildDeps(): ChatHandlerDeps {
           inputTokens: run.inputTokens,
           outputTokens: run.outputTokens,
         },
+        sessionId,
       ),
     schedule: (task) => after(task),
   };

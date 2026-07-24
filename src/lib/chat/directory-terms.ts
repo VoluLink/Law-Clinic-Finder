@@ -9,7 +9,7 @@ const TERM_COLUMNS = 'legal_areas, region, languages, target_clients';
 const MAX_TERM_CHARS = 60;
 
 /** Nationwide sentinel; surfaced first so the model treats it as the catch-all region. */
-const NATIONWIDE = 'Deutschlandweit';
+const NATIONWIDE = 'Bundesweit';
 
 const rowSchema = z.object({
   legal_areas: z.string().nullable().default(null),

@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Law Clinics – Admin' };
 
 const ADMIN_COLUMNS =
   'id, name, description, region, contact_email, website, legal_areas, ' +
-  'target_clients, languages, requirements, is_published, profiles(user_id)';
+  'target_clients, languages, requirements, advises_clients, is_published, profiles(user_id)';
 
 const SUBMISSION_COLUMNS = 'id, name, region, legal_areas, contact_email, submitted_at';
 

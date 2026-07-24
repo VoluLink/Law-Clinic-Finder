@@ -29,4 +29,18 @@ describe('AccountForm', () => {
     );
     expect(await screen.findByText(/Bestätigungs-E-Mail/)).toBeInTheDocument();
   });
+
+  it('flags an invalid address and does not submit it', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AccountForm currentEmail="admin@example.com" />);
+    const input = screen.getByLabelText('E-Mail-Adresse');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'not-an-email');
+
+    expect(screen.getByText('Bitte gib eine gültige E-Mail-Adresse ein.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

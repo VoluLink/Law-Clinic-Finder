@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { emailValue } from '@/lib/forms/email';
 import { logger } from '@/lib/logger';
 
-const bodySchema = z.object({ email: z.email().max(200) });
+const bodySchema = z.object({ email: emailValue });
 
 // Runs on the admin's own session (not the service client): Supabase sends a
 // confirmation to the old and new address, so the change only completes after

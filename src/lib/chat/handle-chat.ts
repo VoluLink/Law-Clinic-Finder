@@ -16,7 +16,11 @@ export type ChatHandlerDeps = {
     settings: ChatSettings,
     messages: ChatMessage[],
   ) => { stream: ReadableStream<Uint8Array> | null; result: Promise<ChatRunResult> };
-  persist: (transcript: ChatMessage[], run: ChatRunResult) => Promise<void>;
+  persist: (
+    transcript: ChatMessage[],
+    run: ChatRunResult,
+    sessionId: string | null,
+  ) => Promise<void>;
   schedule: (task: () => Promise<void>) => void;
   logger: Logger;
 };
@@ -26,8 +30,8 @@ function jsonError(status: number, message: string): Response {
 }
 
 const LIMIT_MESSAGES = {
-  minute: 'Zu viele Anfragen. Bitte warten Sie einen Moment.',
-  day: 'Tageslimit erreicht. Bitte versuchen Sie es morgen erneut.',
+  minute: 'Zu viele Anfragen. Bitte warte einen Moment.',
+  day: 'Tageslimit erreicht. Bitte versuche es morgen erneut.',
 } as const;
 
 export async function handleChatRequest(
@@ -53,7 +57,8 @@ export async function handleChatRequest(
     content: redactPatterns(message.content),
   }));
   const { stream, result } = deps.run(loaded.settings, messages);
-  deps.schedule(() => finishRun(deps, messages, result));
+  const sessionId = parsed.data.sessionId ?? null;
+  deps.schedule(() => finishRun(deps, messages, result, sessionId));
   return new Response(stream, { headers: { 'Content-Type': CHAT_STREAM_CONTENT_TYPE } });
 }
 
@@ -61,10 +66,15 @@ async function finishRun(
   deps: ChatHandlerDeps,
   messages: ChatMessage[],
   result: Promise<ChatRunResult>,
+  sessionId: string | null,
 ): Promise<void> {
   try {
     const run = await result;
-    await deps.persist([...messages, { role: 'assistant', content: run.assistantText }], run);
+    await deps.persist(
+      [...messages, { role: 'assistant', content: run.assistantText }],
+      run,
+      sessionId,
+    );
   } catch (error) {
     deps.logger.error('chat run failed', {
       reason: error instanceof Error ? error.message : 'unknown',

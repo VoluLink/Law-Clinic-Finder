@@ -22,9 +22,9 @@ export default function LoginPage() {
           <div className="flex flex-col gap-2">
             <StageHeading>Anmelden</StageHeading>
             <p className="text-base text-muted">
-              Ein Zugang für Law Clinics und Administration. Ohne Passwort: Sie erhalten einen
-              Anmeldelink an Ihre hinterlegte E-Mail-Adresse und landen automatisch in dem Bereich,
-              der zu Ihrem Konto gehört.
+              Ein Zugang für Law Clinics und Administration. Ohne Passwort: Du erhältst einen
+              Anmeldelink an deine hinterlegte E-Mail-Adresse und landest automatisch in dem
+              Bereich, der zu deinem Konto gehört.
             </p>
           </div>
           <LoginForm />

@@ -120,7 +120,16 @@ describe(handleChatRequest, () => {
         { role: 'assistant', content: 'Antwort' },
       ],
       expect.objectContaining({ matchedClinicCount: 1 }),
+      null,
     );
+  });
+
+  it('forwards the client session id to persistence', async () => {
+    const deps = createDeps();
+    const sessionId = '3f1c2b4a-5d6e-4f70-8a91-b2c3d4e5f607';
+    await handleChatRequest(chatRequest({ ...validBody, sessionId }), deps);
+    await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
+    expect(deps.persist).toHaveBeenCalledWith(expect.anything(), expect.anything(), sessionId);
   });
 
   it('strips contact details before the messages reach the model', async () => {

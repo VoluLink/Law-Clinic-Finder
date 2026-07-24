@@ -67,9 +67,50 @@ describe('serializeMultiValue', () => {
   });
 });
 
+const BUNDESLAENDER = [
+  'Baden-Württemberg',
+  'Bayern',
+  'Berlin',
+  'Brandenburg',
+  'Bremen',
+  'Hamburg',
+  'Hessen',
+  'Mecklenburg-Vorpommern',
+  'Niedersachsen',
+  'Nordrhein-Westfalen',
+  'Rheinland-Pfalz',
+  'Saarland',
+  'Sachsen',
+  'Sachsen-Anhalt',
+  'Schleswig-Holstein',
+  'Thüringen',
+];
+
 describe('option catalogs', () => {
-  it('offer "Deutschlandweit" as the first region suggestion', () => {
-    expect(REGION_SUGGESTIONS[0]).toBe('Deutschlandweit');
+  it('offer "Bundesweit" as the first region suggestion', () => {
+    expect(REGION_SUGGESTIONS[0]).toBe('Bundesweit');
+  });
+
+  it('includes every one of the 16 Bundesländer', () => {
+    const offered: readonly string[] = REGION_SUGGESTIONS;
+    expect(BUNDESLAENDER.every((land) => offered.includes(land))).toBe(true);
+  });
+
+  it('lists all 19 Regierungsbezirke, each prefixed and disambiguated from cities', () => {
+    const bezirke = REGION_SUGGESTIONS.filter((entry) => entry.startsWith('Regierungsbezirk '));
+    expect(bezirke).toHaveLength(19);
+    expect(bezirke).toContain('Regierungsbezirk Köln');
+    expect(bezirke).toContain('Regierungsbezirk Oberbayern');
+  });
+
+  it('includes the smallest and a mid-list Großstadt', () => {
+    const offered: readonly string[] = REGION_SUGGESTIONS;
+    expect(offered).toContain('Kaiserslautern');
+    expect(offered).toContain('Duisburg');
+  });
+
+  it('lists a Stadtstaat exactly once despite being both Bundesland and Großstadt', () => {
+    expect(REGION_SUGGESTIONS.filter((entry) => entry === 'Berlin')).toHaveLength(1);
   });
 
   it('lists LEGAL_AREAS in German alphabetical order', () => {

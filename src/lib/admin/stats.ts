@@ -56,6 +56,23 @@ export function weeklyCounts(
     .reverse();
 }
 
+const MONTH_COLUMN_LABELS = ['1.', '8.', '15.', '22.', '29.'];
+
+/**
+ * Splits one month's conversations into five day-of-month columns for the admin
+ * bar chart. Callers pass rows already scoped to the month; a per-day chart would
+ * be too dense (28–31 bars), so days bucket by week-of-month (1–7, 8–14, …, 29+).
+ */
+export function monthWeekCounts(createdAt: string[]): Array<{ label: string; value: number }> {
+  const buckets = MONTH_COLUMN_LABELS.map(() => 0);
+  for (const iso of createdAt) {
+    const day = new Date(iso).getUTCDate();
+    const bucket = Math.min(buckets.length - 1, Math.floor((day - 1) / DAYS_PER_WEEK));
+    buckets[bucket] += 1;
+  }
+  return buckets.map((value, index) => ({ label: MONTH_COLUMN_LABELS[index], value }));
+}
+
 /** Share of conversations that ended with at least one matched clinic, as a percent. */
 export function matchRate(rows: Array<{ matched_clinic_count: number | null }>): number {
   if (rows.length === 0) return 0;

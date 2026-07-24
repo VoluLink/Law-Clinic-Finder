@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { aggregateConversationStats, matchRate, weeklyCounts } from './stats';
+import { aggregateConversationStats, matchRate, monthWeekCounts, weeklyCounts } from './stats';
 
 const rows = [
   { created_at: '2026-07-16T09:00:00Z', detected_legal_area: 'Mietrecht' },
@@ -53,6 +53,28 @@ describe(weeklyCounts, () => {
   it('ignores conversations older than the window', () => {
     const weeks = weeklyCounts(['2026-01-01T00:00:00Z'], now, 8);
     expect(weeks.reduce((sum, week) => sum + week.value, 0)).toBe(0);
+  });
+});
+
+describe(monthWeekCounts, () => {
+  it('returns five zeroed columns for no rows', () => {
+    expect(monthWeekCounts([])).toEqual([
+      { label: '1.', value: 0 },
+      { label: '8.', value: 0 },
+      { label: '15.', value: 0 },
+      { label: '22.', value: 0 },
+      { label: '29.', value: 0 },
+    ]);
+  });
+
+  it('buckets each day into its week-of-month column', () => {
+    const counts = monthWeekCounts([
+      '2026-10-03T09:00:00Z', // day 3 -> column 0
+      '2026-10-10T09:00:00Z', // day 10 -> column 1
+      '2026-10-30T09:00:00Z', // day 30 -> column 4
+      '2026-10-31T09:00:00Z', // day 31 -> column 4 (clamped)
+    ]);
+    expect(counts.map((column) => column.value)).toEqual([1, 1, 0, 0, 2]);
   });
 });
 
