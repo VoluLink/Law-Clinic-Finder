@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { InfoHint } from '@/components/ui/InfoHint';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { Panel } from '@/components/ui/Panel';
 import { Select } from '@/components/ui/Select';
 import { TagCombobox } from '@/components/ui/TagCombobox';
 import { Textarea } from '@/components/ui/Textarea';
+import { Toggle } from '@/components/ui/Toggle';
 import type { AccessState } from '@/lib/admin/clinic-access';
 import { FIELD_HELP } from '@/lib/clinics/field-help';
 import { LANGUAGES, LEGAL_AREAS, REGION_SUGGESTIONS, TARGET_GROUPS } from '@/lib/clinics/options';
@@ -20,6 +22,7 @@ import {
   PUBLISH_KEYS,
   toRequiredLabels,
 } from '@/lib/clinics/publish-requirements';
+import { cn } from '@/lib/cn';
 import { isValidEmail } from '@/lib/forms/email';
 
 export type AdminClinicRow = {
@@ -72,6 +75,16 @@ const MULTI_SUGGESTIONS: Partial<Record<EditableKey, readonly string[]>> = {
 
 /** Columns an admin must fill before a clinic can be published (marked with `*`). */
 const PUBLISH_REQUIRED = new Set<string>(PUBLISH_KEYS);
+
+// Frozen-cell classes for the wide database table: the header row stays put on
+// vertical scroll, the Name column on horizontal scroll, so the admin never loses
+// the headings or which clinic a row belongs to. bg-surface keeps frozen cells
+// opaque; z-order is corner (Name header) > header row > Name column. The wrapper
+// isolates these z-indexes from the surrounding portal chrome.
+const CELL_BORDER = 'border-b border-border group-last:border-b-0';
+const STICKY_HEAD = 'sticky top-0 z-20 bg-surface';
+const STICKY_NAME_HEAD = 'sticky top-0 left-0 z-30 border-e border-border bg-surface';
+const STICKY_NAME_CELL = 'sticky left-0 z-10 border-e border-border bg-surface';
 
 const COLUMNS: Array<{ key: EditableKey; label: string }> = [
   { key: 'name', label: 'Name' },
@@ -132,6 +145,9 @@ export function ClinicsManager({
   const [drafts, setDrafts] = useState<Record<string, AdminClinicRow>>({});
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [resetClinic, setResetClinic] = useState<AdminClinicRow | null>(null);
+  const [resettingAccess, setResettingAccess] = useState(false);
 
   async function call(url: string, init: RequestInit, okMessage: string) {
     setStatus('');
@@ -197,21 +213,29 @@ export function ClinicsManager({
 
   const hasChanges = editing && changedClinics().length > 0;
 
-  // Publishing is gated on completeness; hiding is always allowed. The server
-  // re-checks — this just avoids a doomed round-trip and names what's missing.
-  function togglePublish(clinic: AdminClinicRow) {
-    if (!clinic.is_published) {
-      const missing = toRequiredLabels(publishBlockers(clinic));
-      if (missing.length > 0) {
-        setStatus(`Zum Veröffentlichen fehlt noch: ${missing.join(', ')}.`);
-        return;
-      }
-    }
-    call(
+  // The publish switch is disabled when the saved row is incomplete (PublishToggle
+  // names what's missing), so this only runs for allowed flips; the server re-checks.
+  // publishingId disables the row's switch while the PATCH is in flight.
+  async function togglePublish(clinic: AdminClinicRow) {
+    setPublishingId(clinic.id);
+    await call(
       `/api/admin/clinics/${clinic.id}`,
       patch({ is_published: !clinic.is_published }),
-      clinic.is_published ? 'Verborgen.' : 'Veröffentlicht.',
+      clinic.is_published ? 'Auf Entwurf gesetzt.' : 'Veröffentlicht.',
     );
+    setPublishingId(null);
+  }
+
+  async function confirmAccessReset() {
+    if (!resetClinic) return;
+    setResettingAccess(true);
+    await call(
+      `/api/admin/clinics/${resetClinic.id}/access`,
+      { method: 'DELETE' },
+      'Zugang zurückgesetzt.',
+    );
+    setResettingAccess(false);
+    setResetClinic(null);
   }
 
   const filtered = clinics.filter((c) => matchesSearch(c, search) && matchesFilter(c, filter));
@@ -283,14 +307,20 @@ export function ClinicsManager({
           <p className="text-xs text-muted-soft">
             <span className="text-danger">*</span> Pflichtfeld zum Veröffentlichen
           </p>
-          <div className="overflow-x-auto rounded-[16px] border border-border bg-surface">
-            <table className="w-full min-w-[1500px] border-collapse text-sm">
+          <div className="isolate max-h-[70vh] overflow-auto rounded-[16px] border border-border bg-surface">
+            <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-sm">
               <thead>
-                <tr className="border-b border-border text-xs font-bold tracking-wide text-muted-soft uppercase">
+                <tr className="text-xs font-bold tracking-wide text-muted-soft uppercase">
                   {COLUMNS.map((column) => {
                     const help = FIELD_HELP[column.key];
                     return (
-                      <th key={column.key} className="p-3 text-start font-bold">
+                      <th
+                        key={column.key}
+                        className={cn(
+                          'border-b border-border p-3 text-start font-bold',
+                          column.key === 'name' ? STICKY_NAME_HEAD : STICKY_HEAD,
+                        )}
+                      >
                         <span className="inline-flex items-center gap-1.5">
                           <span>
                             {column.label}
@@ -309,17 +339,33 @@ export function ClinicsManager({
                       </th>
                     );
                   })}
-                  <th className="p-3 text-start font-bold">Zugang</th>
-                  <th className="p-3 text-start font-bold">Status</th>
-                  {editing && <th className="p-3 text-start font-bold">Aktionen</th>}
+                  <th
+                    className={cn('border-b border-border p-3 text-start font-bold', STICKY_HEAD)}
+                  >
+                    Zugang
+                  </th>
+                  <th
+                    className={cn('border-b border-border p-3 text-start font-bold', STICKY_HEAD)}
+                  >
+                    Status
+                  </th>
+                  {editing && (
+                    <th
+                      className={cn('border-b border-border p-3 text-start font-bold', STICKY_HEAD)}
+                    >
+                      Aktionen
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((clinic) => (
                   <ClinicRow
                     key={clinic.id}
-                    clinic={editing ? (drafts[clinic.id] ?? clinic) : clinic}
+                    clinic={clinic}
+                    draft={editing ? (drafts[clinic.id] ?? clinic) : clinic}
                     editing={editing}
+                    publishBusy={publishingId === clinic.id}
                     onCell={(key, value) => setCell(clinic.id, key, value)}
                     onDelete={() =>
                       window.confirm('Diese Law Clinic löschen?') &&
@@ -333,14 +379,7 @@ export function ClinicsManager({
                         'Einladung gesendet.',
                       )
                     }
-                    onRevoke={() =>
-                      window.confirm('Zugang entziehen?') &&
-                      call(
-                        `/api/admin/clinics/${clinic.id}/access`,
-                        { method: 'DELETE' },
-                        'Zugang entzogen.',
-                      )
-                    }
+                    onResetAccess={() => setResetClinic(clinic)}
                   />
                 ))}
               </tbody>
@@ -348,6 +387,29 @@ export function ClinicsManager({
           </div>
         </div>
       )}
+
+      <Modal
+        open={resetClinic !== null}
+        onClose={() => !resettingAccess && setResetClinic(null)}
+        title="Zugang zurücksetzen?"
+      >
+        <p className="text-sm text-muted">
+          Der Login und die Beratungsemail von {resetClinic?.name} werden entfernt. Der
+          Veröffentlichungsstatus des Eintrags bleibt unverändert.
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setResetClinic(null)}
+            disabled={resettingAccess}
+          >
+            Abbrechen
+          </Button>
+          <Button variant="danger" onClick={confirmAccessReset} disabled={resettingAccess}>
+            {resettingAccess ? 'Wird zurückgesetzt…' : 'Zugang zurücksetzen'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -357,42 +419,92 @@ type RowActions = {
   onDelete: () => void;
   onTogglePublish: () => void;
   onInvite: () => void;
-  onRevoke: () => void;
+  onResetAccess: () => void;
 };
+
+function PublishToggle({
+  clinic,
+  busy,
+  onToggle,
+}: {
+  clinic: AdminClinicRow;
+  busy: boolean;
+  onToggle: () => void;
+}) {
+  const missing = clinic.is_published ? [] : toRequiredLabels(publishBlockers(clinic));
+  const blocked = missing.length > 0;
+  const label = clinic.is_published ? 'Veröffentlicht' : 'Entwurf';
+  return (
+    <div className="flex items-center gap-2">
+      <Toggle
+        label={label}
+        // Unique per row, and keeps the visible label inside the accessible name (WCAG 2.5.3).
+        aria-label={`${label} – ${clinic.name}`}
+        checked={clinic.is_published}
+        disabled={blocked || busy}
+        onChange={onToggle}
+      />
+      {blocked && (
+        <InfoHint
+          label="Veröffentlichung"
+          text={`Zum Veröffentlichen fehlt noch: ${missing.join(', ')}.`}
+          variant="warning"
+        />
+      )}
+    </div>
+  );
+}
 
 function ClinicRow({
   clinic,
+  draft,
   editing,
+  publishBusy,
   ...actions
-}: { clinic: AdminClinicRow; editing: boolean } & RowActions) {
+}: {
+  clinic: AdminClinicRow;
+  draft: AdminClinicRow;
+  editing: boolean;
+  publishBusy: boolean;
+} & RowActions) {
+  // `draft` drives the editable cells; `clinic` (the saved row) drives publish and
+  // access, so a toggle reflects — and is gated by — persisted state, not an
+  // unsaved draft. Save first, then publish; the server validates the stored row.
   return (
-    <tr className="border-b border-border align-top last:border-0">
+    <tr className="group align-top">
       {COLUMNS.map((column) => (
-        <td key={column.key} className="min-w-[150px] p-3">
+        <td
+          key={column.key}
+          className={cn(
+            CELL_BORDER,
+            'min-w-[150px] p-3',
+            column.key === 'name' && STICKY_NAME_CELL,
+          )}
+        >
           {editing ? (
             <EditCell
               columnKey={column.key}
               label={column.label}
-              clinic={clinic}
+              clinic={draft}
               onChange={(value) => actions.onCell(column.key, value)}
             />
           ) : (
-            <ReadCell column={column.key} clinic={clinic} />
+            <ReadCell column={column.key} clinic={draft} />
           )}
         </td>
       ))}
-      <td className="min-w-[190px] p-3">
-        <ZugangCell clinic={clinic} onInvite={actions.onInvite} onRevoke={actions.onRevoke} />
+      <td className={cn(CELL_BORDER, 'min-w-[190px] p-3')}>
+        <ZugangCell
+          clinic={clinic}
+          onInvite={actions.onInvite}
+          onResetAccess={actions.onResetAccess}
+        />
       </td>
-      <td className="p-3">
-        <button type="button" onClick={actions.onTogglePublish}>
-          <Badge variant={clinic.is_published ? 'primary' : 'neutral'}>
-            {clinic.is_published ? 'Veröffentlicht' : 'Entwurf'}
-          </Badge>
-        </button>
+      <td className={cn(CELL_BORDER, 'p-3')}>
+        <PublishToggle clinic={clinic} busy={publishBusy} onToggle={actions.onTogglePublish} />
       </td>
       {editing && (
-        <td className="p-3">
+        <td className={cn(CELL_BORDER, 'p-3')}>
           <Button variant="danger" onClick={actions.onDelete}>
             Zeile löschen
           </Button>
@@ -483,11 +595,11 @@ function ReadCell({ column, clinic }: { column: EditableKey; clinic: AdminClinic
 function ZugangCell({
   clinic,
   onInvite,
-  onRevoke,
+  onResetAccess,
 }: {
   clinic: AdminClinicRow;
   onInvite: () => void;
-  onRevoke: () => void;
+  onResetAccess: () => void;
 }) {
   if (clinic.accessState === 'no_email') {
     return <span className="text-sm text-muted">Beratungsemail nötig</span>;
@@ -507,8 +619,8 @@ function ZugangCell({
           <Button variant="secondary" onClick={onInvite}>
             Erneut senden
           </Button>
-          <Button variant="ghost" onClick={onRevoke}>
-            zurücksetzen
+          <Button variant="secondary" onClick={onResetAccess}>
+            Zugang zurücksetzen
           </Button>
         </div>
       </div>
@@ -520,8 +632,8 @@ function ZugangCell({
       {clinic.lastSignInLabel && (
         <span className="text-xs text-muted-soft">zuletzt {clinic.lastSignInLabel}</span>
       )}
-      <Button variant="ghost" onClick={onRevoke}>
-        Zugang entziehen
+      <Button variant="secondary" onClick={onResetAccess}>
+        Zugang zurücksetzen
       </Button>
     </div>
   );

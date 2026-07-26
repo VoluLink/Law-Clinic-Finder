@@ -12,7 +12,7 @@ type Row = {
 };
 
 const milcc: Row = {
-  id: 'ff000000-0000-0000-0000-000000000001',
+  id: 'ff000000-0000-4000-8000-000000000001',
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Stadtgebiet Köln',
   legal_areas: 'Mietrecht',
@@ -21,7 +21,7 @@ const milcc: Row = {
 };
 
 const srk: Row = {
-  id: 'ff000000-0000-0000-0000-000000000002',
+  id: 'ff000000-0000-4000-8000-000000000002',
   name: 'Studentische Rechtsberatung Köln',
   region: 'Köln',
   legal_areas: 'Allgemeines Zivilrecht; Behördengänge',
@@ -47,9 +47,11 @@ function createSupabaseMock(rows: Row[]) {
 }
 
 const picks = [
-  { name: milcc.name, reason: 'Genau dein Rechtsgebiet.' },
-  { name: srk.name, reason: 'Hilft auch bei Formularen.' },
+  { id: milcc.id, reason: 'Genau dein Rechtsgebiet.' },
+  { id: srk.id, reason: 'Hilft auch bei Formularen.' },
 ];
+
+const unknownId = 'ff000000-0000-4000-8000-000000000099';
 
 describe('recommendClinicsInputSchema', () => {
   it('rejects an empty recommendation list', () => {
@@ -57,12 +59,22 @@ describe('recommendClinicsInputSchema', () => {
   });
 
   it('rejects a pick without a reason', () => {
-    const result = recommendClinicsInputSchema.safeParse({ clinics: [{ name: 'Eine Clinic' }] });
+    const result = recommendClinicsInputSchema.safeParse({ clinics: [{ id: milcc.id }] });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects the old name-only identifier that collapses duplicate names', () => {
+    const result = recommendClinicsInputSchema.safeParse({
+      clinics: [{ name: milcc.name, reason: 'Passt.' }],
+    });
     expect(result.success).toBe(false);
   });
 
   it('caps how many clinics one reply may recommend', () => {
-    const many = Array.from({ length: 9 }, (_, index) => ({ name: `C${index}`, reason: 'x' }));
+    const many = Array.from({ length: 9 }, (_, index) => ({
+      id: `ff000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      reason: 'x',
+    }));
     expect(recommendClinicsInputSchema.safeParse({ clinics: many }).success).toBe(false);
   });
 });
@@ -145,20 +157,33 @@ describe('recommendClinics', () => {
     expect(calls).toContainEqual(['eq', ['is_published', true]]);
   });
 
+  it('looks selected clinics up by their unique ids', async () => {
+    const { client, calls } = createSupabaseMock([milcc, srk]);
+    await recommendClinics(client as never, { clinics: picks });
+    expect(calls).toContainEqual(['in', ['id', [milcc.id, srk.id]]]);
+  });
+
   it('drops a hallucinated clinic instead of inventing a card for it', async () => {
     const { client } = createSupabaseMock([milcc]);
     const { recommendations } = await recommendClinics(client as never, {
-      clinics: [picks[0], { name: 'Erfundene Law Clinic', reason: 'existiert nicht' }],
+      clinics: [picks[0], { id: unknownId, reason: 'existiert nicht' }],
     });
     expect(recommendations.map((r) => r.name)).toEqual([milcc.name]);
   });
 
-  it('tells the model which names it made up so it can correct itself', async () => {
+  it('tells the model which ids it made up so it can correct itself', async () => {
     const { client } = createSupabaseMock([milcc]);
     const { json } = await recommendClinics(client as never, {
-      clinics: [picks[0], { name: 'Erfundene Law Clinic', reason: 'existiert nicht' }],
+      clinics: [picks[0], { id: unknownId, reason: 'existiert nicht' }],
     });
-    expect(JSON.parse(json)).toEqual({ shown: 1, unknown: ['Erfundene Law Clinic'] });
+    expect(JSON.parse(json)).toEqual({ shown: 1, unknown: [unknownId] });
+  });
+
+  it('keeps two published clinics with the exact same name distinct', async () => {
+    const sameName = { ...srk, name: milcc.name };
+    const { client } = createSupabaseMock([sameName, milcc]);
+    const { recommendations } = await recommendClinics(client as never, { clinics: picks });
+    expect(recommendations.map((clinic) => clinic.id)).toEqual([milcc.id, srk.id]);
   });
 
   it('shows at most the configured number of cards', async () => {
@@ -167,11 +192,11 @@ describe('recommendClinics', () => {
     expect(recommendations.map((r) => r.name)).toEqual([milcc.name]);
   });
 
-  it('drops unknown names before applying the cap, so real clinics are not pushed out', async () => {
+  it('drops unknown ids before applying the cap, so real clinics are not pushed out', async () => {
     const { client } = createSupabaseMock([milcc, srk]);
     const { recommendations } = await recommendClinics(
       client as never,
-      { clinics: [{ name: 'Erfundene Law Clinic', reason: 'weg' }, ...picks] },
+      { clinics: [{ id: unknownId, reason: 'weg' }, ...picks] },
       2,
     );
     expect(recommendations.map((r) => r.name)).toEqual([milcc.name, srk.name]);
@@ -180,7 +205,7 @@ describe('recommendClinics', () => {
   it('renumbers ranks contiguously after an unknown clinic is dropped', async () => {
     const { client } = createSupabaseMock([srk]);
     const { recommendations } = await recommendClinics(client as never, {
-      clinics: [{ name: 'Erfundene Law Clinic', reason: 'weg' }, picks[1]],
+      clinics: [{ id: unknownId, reason: 'weg' }, picks[1]],
     });
     expect(recommendations[0].rank).toBe(1);
   });

@@ -5,6 +5,7 @@ import { searchClinics, searchClinicsInputSchema } from './search-clinics';
 type CallLog = Array<[string, unknown[]]>;
 
 const sampleRow = {
+  id: 'ff000000-0000-0000-0000-000000000001',
   name: 'Demo Clinic',
   description: 'Beratung',
   region: 'Hamburg',
@@ -16,11 +17,15 @@ const sampleRow = {
   requirements: null,
 };
 
-function createSupabaseMock(result: { data: unknown[] | null; error: { message: string } | null }) {
+function createSupabaseMock(result: {
+  data: unknown[] | null;
+  error: { message: string } | null;
+  count?: number | null;
+}) {
   const calls: CallLog = [];
   // Minimal chainable stand-in for the Supabase query builder (thenable at the end)
   const query: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'ilike', 'contains', 'or', 'limit']) {
+  for (const method of ['select', 'eq', 'ilike', 'contains', 'or', 'limit', 'order', 'range']) {
     query[method] = (...args: unknown[]) => {
       calls.push([method, args]);
       return query;
@@ -43,6 +48,14 @@ describe('searchClinicsInputSchema', () => {
 
   it('rejects oversized query strings', () => {
     expect(searchClinicsInputSchema.safeParse({ query: 'a'.repeat(201) }).success).toBe(false);
+  });
+
+  it('accepts a non-negative page offset', () => {
+    expect(searchClinicsInputSchema.safeParse({ offset: 100 }).success).toBe(true);
+  });
+
+  it('rejects a negative page offset', () => {
+    expect(searchClinicsInputSchema.safeParse({ offset: -1 }).success).toBe(false);
   });
 });
 
@@ -131,11 +144,44 @@ describe(searchClinics, () => {
     expect(String(wildcardPayloads)).not.toMatch(/[)(%_]/);
   });
 
-  it('lets an unfiltered call reach past the whole directory', async () => {
+  it('reads the first page in a stable order', async () => {
     const { client, calls } = createSupabaseMock({ data: [], error: null });
     await searchClinics(client as never, {});
-    const limit = calls.find(([method]) => method === 'limit')?.[1][0];
-    expect(Number(limit)).toBeGreaterThan(65);
+    expect(calls).toContainEqual(['order', ['id', { ascending: true }]]);
+    expect(calls).toContainEqual(['range', [0, 99]]);
+  });
+
+  it('requests the exact total number of matching clinics', async () => {
+    const { client, calls } = createSupabaseMock({ data: [], error: null, count: 0 });
+    await searchClinics(client as never, {});
+    expect(calls).toContainEqual(['select', [expect.any(String), { count: 'exact' }]]);
+  });
+
+  it('makes overflow beyond 100 matches visible to the assistant', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...sampleRow,
+      id: `ff000000-0000-0000-0000-${String(index).padStart(12, '0')}`,
+    }));
+    const { client } = createSupabaseMock({ data: firstPage, error: null, count: 101 });
+    const result = JSON.parse(await searchClinics(client as never, {}));
+    expect(result).toMatchObject({ count: 101, offset: 0, has_more: true, next_offset: 100 });
+  });
+
+  it('returns clinic 101 when the assistant requests the next page', async () => {
+    const overflowClinic = {
+      ...sampleRow,
+      id: 'ff000000-0000-0000-0000-000000000101',
+      name: 'Clinic 101',
+    };
+    const { client, calls } = createSupabaseMock({
+      data: [overflowClinic],
+      error: null,
+      count: 101,
+    });
+    const result = JSON.parse(await searchClinics(client as never, { offset: 100 }));
+    expect(result.clinics).toEqual([overflowClinic]);
+    expect(calls).toContainEqual(['range', [100, 199]]);
+    expect(result.has_more).toBe(false);
   });
 
   it('truncates a long free-text field so a full scan cannot flood the context', async () => {
@@ -156,9 +202,15 @@ describe(searchClinics, () => {
   });
 
   it('returns the found clinics as JSON', async () => {
-    const { client } = createSupabaseMock({ data: [sampleRow], error: null });
+    const { client } = createSupabaseMock({ data: [sampleRow], error: null, count: 1 });
     const result = await searchClinics(client as never, {});
-    expect(JSON.parse(result)).toEqual({ count: 1, clinics: [sampleRow] });
+    expect(JSON.parse(result)).toEqual({
+      count: 1,
+      offset: 0,
+      has_more: false,
+      next_offset: null,
+      clinics: [sampleRow],
+    });
   });
 
   it('throws when the database returns an error', async () => {

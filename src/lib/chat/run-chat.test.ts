@@ -210,7 +210,7 @@ describe(runChat, () => {
       type: 'tool_use',
       id: 'tool-1',
       name: 'recommend_clinics',
-      input: { clinics: [{ name: card.name, reason: card.reason }] },
+      input: { clinics: [{ id: card.id, reason: card.reason }] },
     };
     const stream = vi
       .fn()
@@ -241,7 +241,7 @@ describe(runChat, () => {
       type: 'tool_use',
       id: 'tool-1',
       name: 'recommend_clinics',
-      input: { clinics: [{ name: card.name, reason: card.reason }] },
+      input: { clinics: [{ id: card.id, reason: card.reason }] },
     };
     const stream = vi
       .fn()
@@ -306,12 +306,12 @@ describe(runChat, () => {
     expect(events).toContainEqual({ t: 'nomatch' });
   });
 
-  it('emits no clinics frame when the model recommends only unknown names', async () => {
+  it('emits no clinics frame when the model recommends only unknown ids', async () => {
     const toolUse = {
       type: 'tool_use',
       id: 'tool-1',
       name: 'recommend_clinics',
-      input: { clinics: [{ name: 'Erfunden', reason: 'x' }] },
+      input: { clinics: [{ id: 'ff000000-0000-4000-8000-000000000099', reason: 'x' }] },
     };
     const stream = vi
       .fn()

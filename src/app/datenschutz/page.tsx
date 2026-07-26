@@ -13,11 +13,14 @@ export default function DatenschutzPage() {
       </p>
       <h2 className="text-lg font-medium">Chat-Assistent</h2>
       <p>
-        Deine Chat-Nachrichten werden zur Beantwortung an die Anthropic-API (Claude) übermittelt.
-        Nach Ende des Gesprächs speichern wir den Verlauf ausschließlich in anonymisierter Form:
-        Namen, Adressen, E-Mail-Adressen und Telefonnummern werden vor der Speicherung automatisiert
-        entfernt. Die anonymisierten Verläufe dienen der Verbesserung des Angebots und werden nicht
-        an Dritte weitergegeben. Bitte nenne im Chat keine vollständigen Namen oder Kontaktdaten.
+        Deine Chat-Nachrichten werden vor der Übermittlung mit lokalen, deterministischen Regeln um
+        erkennbare Namen, Anschriften, E-Mail-Adressen, Telefonnummern und IBANs bereinigt. Erst der
+        so bearbeitete Text wird zur Beantwortung an die Anthropic-API (Claude) übermittelt. Für die
+        Redaktion selbst wird keine KI-API eingesetzt. Nach Ende des Gesprächs speichern wir nur den
+        erneut lokal redigierten Verlauf. Automatische Erkennung kann Angaben außerhalb bekannter
+        Muster übersehen; bitte nenne deshalb keine vollständigen Namen oder Kontaktdaten. Die
+        redigierten Verläufe dienen der Verbesserung des Angebots und werden nicht an Dritte
+        weitergegeben.
       </p>
       <h2 className="text-lg font-medium">Hosting und Datenbank</h2>
       <p>

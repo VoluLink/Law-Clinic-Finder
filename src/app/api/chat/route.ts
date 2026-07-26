@@ -4,7 +4,7 @@ import { after, type NextRequest } from 'next/server';
 import { listDirectoryTerms } from '@/lib/chat/directory-terms';
 import { handleChatRequest, type ChatHandlerDeps } from '@/lib/chat/handle-chat';
 import { persistConversation } from '@/lib/chat/persist-conversation';
-import { createRedactionModel, redactTranscript } from '@/lib/chat/redact';
+import { redactTranscript } from '@/lib/chat/redact';
 import { recommendClinics } from '@/lib/chat/recommend-clinics';
 import { runChat } from '@/lib/chat/run-chat';
 import { searchClinics } from '@/lib/chat/search-clinics';
@@ -34,7 +34,6 @@ export async function POST(request: NextRequest): Promise<Response> {
 function buildDeps(): ChatHandlerDeps {
   const anthropic = new Anthropic();
   const adminClient = createSupabaseAdminClient();
-  const redactionModel = createRedactionModel(anthropic);
   return {
     limiter,
     logger,
@@ -57,7 +56,7 @@ function buildDeps(): ChatHandlerDeps {
     },
     persist: (transcript, run, sessionId) =>
       persistConversation(
-        { adminClient, redact: (t) => redactTranscript(redactionModel, t), logger },
+        { adminClient, redact: redactTranscript, logger },
         transcript,
         {
           matchedClinicCount: run.matchedClinicCount,

@@ -64,7 +64,7 @@ export const ku: Dictionary = {
     'Pir daxwaz. Ji kerema xwe demekê bisekine. Ji bo pêşîlêgirtina xerabikaranîn û lêçûnan, di demeke kurt de tenê çend peyam gengaz in.',
   limitDailyTitle: 'Sînorê rojane hat',
   limitDailyBody:
-    'We sînorê rojane yê peyaman kişand. Ev xizmeta belaş daxwazan rojane sînordar dike da ku lêçûna şêwirmendiya AI ji bo herkesî domdar bimîne. Ji kerema xwe sibê dîsa biceribîne an rasterast bi Law Clinic-ê re têkilî deyne.',
+    'Te sînorê rojane yê peyaman kişand. Ev xizmeta belaş daxwazan rojane sînordar dike da ku lêçûna şêwirmendiya AI ji bo herkesî domdar bimîne. Ji kerema xwe sibê dîsa biceribîne an rasterast bi Law Clinic-ê re têkilî deyne.',
   charWarn: 'Dirêjiya herî zêde hat (4.000 tîp).',
   noMatchTitle: 'Çawa dîsa jî pêş de biçe',
   noMatchStep1:

@@ -1,15 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { redactPatterns, redactTranscript } from './redact';
-
-const transcript = [
-  { role: 'user' as const, content: 'Ich bin Max Mustermann aus Berlin.' },
-  { role: 'assistant' as const, content: 'Gerne helfe ich Ihnen, Herr Mustermann.' },
-];
-
-function modelReturning(payload: unknown) {
-  return vi.fn().mockResolvedValue(JSON.stringify(payload));
-}
 
 describe(redactPatterns, () => {
   it('replaces email addresses', () => {
@@ -18,9 +9,45 @@ describe(redactPatterns, () => {
     );
   });
 
+  it('replaces a commonly obfuscated email address', () => {
+    expect(redactPatterns('Meine Mail ist anna (at) beispiel (punkt) de.')).toBe(
+      'Meine Mail ist [E-MAIL].',
+    );
+  });
+
   it('replaces German phone numbers', () => {
     expect(redactPatterns('Rufen Sie mich an: +49 30 123456 oder 0171-2345678')).toBe(
       'Rufen Sie mich an: [TELEFON] oder [TELEFON]',
+    );
+  });
+
+  it('does not mistake a date for a phone number', () => {
+    expect(redactPatterns('Die Kündigung kam am 01.07.2026.')).toBe(
+      'Die Kündigung kam am 01.07.2026.',
+    );
+  });
+
+  it.each([
+    ['Mein Name ist Max Mustermann.', 'Mein Name ist [NAME].'],
+    ['Name: Max Mustermann.', 'Name: [NAME].'],
+    ['Ich heiße Ayşe Yılmaz.', 'Ich heiße [NAME].'],
+    ['Die Vermieterin heißt Erika Muster.', 'Die Vermieterin heißt [NAME].'],
+    ['Schreiben von Herrn Dr. Max Mustermann.', 'Schreiben von [NAME].'],
+  ])('replaces a name in an explicit name context', (input, expected) => {
+    expect(redactPatterns(input)).toBe(expected);
+  });
+
+  it.each([
+    ['Ich wohne in der Musterstraße 12a in Köln.', 'Ich wohne in der [ADRESSE] in Köln.'],
+    ['Meine Anschrift ist Am Markt 5, Berlin.', 'Meine Anschrift ist [ADRESSE], Berlin.'],
+    ['Die Adresse ist Straße des 17. Juni 135, Berlin.', 'Die Adresse ist [ADRESSE], Berlin.'],
+  ])('replaces a German street address but keeps the city', (input, expected) => {
+    expect(redactPatterns(input)).toBe(expected);
+  });
+
+  it('replaces an IBAN', () => {
+    expect(redactPatterns('Mein Konto ist DE89 3704 0044 0532 0130 00.')).toBe(
+      'Mein Konto ist [IBAN].',
     );
   });
 
@@ -31,59 +58,22 @@ describe(redactPatterns, () => {
 });
 
 describe(redactTranscript, () => {
-  it('returns redacted messages plus extracted legal area and city', async () => {
-    const complete = modelReturning({
-      messages: [
-        { role: 'user', content: 'Ich bin [NAME] aus Berlin.' },
-        { role: 'assistant', content: 'Gerne helfe ich Ihnen, [NAME].' },
-      ],
-      legal_area: 'Mietrecht',
-      city: 'Berlin',
-    });
-    const outcome = await redactTranscript(complete, transcript);
-    expect(outcome).toEqual({
+  it('redacts locally and extracts controlled analytics terms', async () => {
+    const transcript = [
+      {
+        role: 'user' as const,
+        content: 'Ich bin Max Mustermann aus Berlin. Es geht um Mietrecht.',
+      },
+      { role: 'assistant' as const, content: 'Gerne helfe ich Ihnen, Herr Mustermann.' },
+    ];
+    await expect(redactTranscript(transcript)).resolves.toEqual({
       status: 'ok',
       transcript: [
-        { role: 'user', content: 'Ich bin [NAME] aus Berlin.' },
+        { role: 'user', content: 'Ich bin [NAME] aus Berlin. Es geht um Mietrecht.' },
         { role: 'assistant', content: 'Gerne helfe ich Ihnen, [NAME].' },
       ],
       legalArea: 'Mietrecht',
       city: 'Berlin',
     });
-  });
-
-  it('fails when the model returns malformed JSON', async () => {
-    const complete = vi.fn().mockResolvedValue('not json at all');
-    expect(await redactTranscript(complete, transcript)).toEqual({ status: 'failed' });
-  });
-
-  it('fails when the model drops messages', async () => {
-    const complete = modelReturning({
-      messages: [{ role: 'user', content: 'nur eine' }],
-      legal_area: null,
-      city: null,
-    });
-    expect(await redactTranscript(complete, transcript)).toEqual({ status: 'failed' });
-  });
-
-  it('fails when the model call throws', async () => {
-    const complete = vi.fn().mockRejectedValue(new Error('api down'));
-    expect(await redactTranscript(complete, transcript)).toEqual({ status: 'failed' });
-  });
-
-  it('scrubs emails the model missed', async () => {
-    const complete = modelReturning({
-      messages: [
-        { role: 'user', content: 'Kontakt: max@web.de' },
-        { role: 'assistant', content: 'Verstanden.' },
-      ],
-      legal_area: null,
-      city: null,
-    });
-    const outcome = await redactTranscript(complete, transcript);
-    expect(outcome.status).toBe('ok');
-    if (outcome.status === 'ok') {
-      expect(outcome.transcript[0].content).toBe('Kontakt: [E-MAIL]');
-    }
   });
 });
