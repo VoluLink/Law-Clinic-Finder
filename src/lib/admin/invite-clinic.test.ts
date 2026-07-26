@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createLogger } from '@/lib/logger';
 
-import { inviteClinic, type InviteDeps } from './invite-clinic';
+import { inviteClinic, reinviteClinic, type InviteDeps } from './invite-clinic';
 
 const invite = { name: 'Neue Clinic', contact_email: 'org@clinic.de' };
 
@@ -38,6 +38,34 @@ function createDeps(overrides?: {
   return { deps, clinicInsert, inviteUserByEmail, profileInsert };
 }
 
+function createReinviteDeps(lastSignInAt: string | null) {
+  const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
+  const clinic = {
+    id: 'clinic-1',
+    contact_email: invite.contact_email,
+    profiles: [{ user_id: 'user-1' }],
+  };
+  const adminClient = {
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: clinic }) }) }),
+    }),
+    auth: {
+      admin: {
+        getUserById: vi.fn().mockResolvedValue({
+          data: { user: { email: invite.contact_email, last_sign_in_at: lastSignInAt } },
+          error: null,
+        }),
+      },
+      signInWithOtp,
+    },
+  };
+  const deps: InviteDeps = {
+    adminClient: adminClient as never,
+    logger: createLogger({}, () => undefined),
+  };
+  return { deps, signInWithOtp };
+}
+
 describe(inviteClinic, () => {
   it('creates clinic, invites the user and links the profile', async () => {
     const { deps, inviteUserByEmail, profileInsert } = createDeps();
@@ -68,5 +96,28 @@ describe(inviteClinic, () => {
     const { deps } = createDeps({ profileError: true });
     const result = await inviteClinic(deps, invite);
     expect(result.status).toBe('error');
+  });
+});
+
+describe(reinviteClinic, () => {
+  it('sends a fresh login link when the invited account has never signed in', async () => {
+    const { deps, signInWithOtp } = createReinviteDeps(null);
+
+    await expect(reinviteClinic(deps, 'clinic-1')).resolves.toEqual({
+      status: 'ok',
+      clinicId: 'clinic-1',
+    });
+    expect(signInWithOtp).toHaveBeenCalledWith({
+      email: invite.contact_email,
+      options: { shouldCreateUser: false },
+    });
+  });
+
+  it('does not email an account that has already signed in', async () => {
+    const { deps, signInWithOtp } = createReinviteDeps('2026-07-26T20:00:00Z');
+    await expect(reinviteClinic(deps, 'clinic-1')).resolves.toEqual({
+      status: 'already_invited',
+    });
+    expect(signInWithOtp).not.toHaveBeenCalled();
   });
 });

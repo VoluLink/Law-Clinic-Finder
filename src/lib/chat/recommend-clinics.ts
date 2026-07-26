@@ -17,7 +17,7 @@ export const recommendClinicsInputSchema = z.object({
   clinics: z
     .array(
       z.object({
-        name: z.string().min(1).max(200),
+        id: z.string().uuid().describe('Exact clinic id returned by search_clinics.'),
         reason: z.string().min(1).max(600),
       }),
     )
@@ -50,9 +50,9 @@ export type RecommendClinicsResult = {
 /**
  * Turns the model's shortlist into cards the UI can render.
  *
- * Every field except the reason comes from the database, looked up by name —
+ * Every field except the reason comes from the database, looked up by id —
  * the model chooses *which* clinics and *why*, never what the card says about
- * them. A name that matches no published row is dropped and reported back, so
+ * them. An id that matches no published row is dropped and reported back, so
  * a hallucinated clinic can never reach the user as a real recommendation.
  */
 export async function recommendClinics(
@@ -61,39 +61,46 @@ export async function recommendClinics(
   maxCards: number = MAX_CHAT_RECOMMENDATIONS,
 ): Promise<RecommendClinicsResult> {
   const { clinics } = recommendClinicsInputSchema.parse(input);
-  const names = clinics.map((pick) => pick.name);
+  const ids = clinics.map((pick) => pick.id);
   const { data, error } = await client
     .from('clinics')
     .select(CARD_COLUMNS)
     .eq('is_published', true)
-    .in('name', names);
+    .in('id', ids);
   if (error) throw new Error('clinic lookup failed');
 
-  const byName = new Map(
-    (data ?? []).flatMap((row) => {
-      const parsed = rowSchema.safeParse(row);
-      return parsed.success ? ([[parsed.data.name, parsed.data]] as const) : [];
-    }),
-  );
-
-  const unknown = names.filter((name) => !byName.has(name));
-  const recommendations = clinics
-    .flatMap((pick) => {
-      const row = byName.get(pick.name);
-      return row ? [toCard(row, pick.reason)] : [];
-    })
-    // Trim to the configured cap only after unknown names are gone, so a
-    // hallucinated pick cannot push a real clinic off the end of the list.
-    .slice(0, maxCards);
-  // Rank after filtering so a dropped entry never leaves a gap in the numbering.
-  recommendations.forEach((card, index) => {
-    card.rank = index + 1;
-  });
+  const byId = indexRows(data ?? []);
+  const unknown = ids.filter((id) => !byId.has(id));
+  const recommendations = buildCards(clinics, byId, maxCards);
 
   return {
     json: JSON.stringify({ shown: recommendations.length, unknown }),
     recommendations,
   };
+}
+
+function indexRows(rows: unknown[]): Map<string, z.infer<typeof rowSchema>> {
+  return new Map(
+    rows.flatMap((row) => {
+      const parsed = rowSchema.safeParse(row);
+      return parsed.success ? ([[parsed.data.id, parsed.data]] as const) : [];
+    }),
+  );
+}
+
+function buildCards(
+  picks: RecommendClinicsInput['clinics'],
+  byId: Map<string, z.infer<typeof rowSchema>>,
+  maxCards: number,
+): ClinicRecommendation[] {
+  const cards = picks
+    .flatMap((pick) => {
+      const row = byId.get(pick.id);
+      return row ? [toCard(row, pick.reason)] : [];
+    })
+    .slice(0, maxCards);
+  cards.forEach((card, index) => (card.rank = index + 1));
+  return cards;
 }
 
 function toCard(row: z.infer<typeof rowSchema>, reason: string): ClinicRecommendation {

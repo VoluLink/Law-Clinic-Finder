@@ -49,9 +49,8 @@ export async function handleChatRequest(
   const loaded = await deps.loadSettings();
   if (!loaded.ok) return jsonError(503, 'Der Chat ist derzeit nicht konfiguriert.');
   if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
-  // Strip contact details before the text leaves the server, not just before it
-  // is stored: the model does not need an email or phone number to name a
-  // clinic, so there is no reason to send them to the API at all.
+  // Apply the same deterministic PII boundary before API transit and storage;
+  // the chat model never acts as the redactor and never needs the matched data.
   const messages = parsed.data.messages.map((message) => ({
     role: message.role,
     content: redactPatterns(message.content),

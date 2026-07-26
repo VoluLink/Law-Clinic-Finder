@@ -43,7 +43,13 @@ export default async function Home() {
     <div className="flex flex-1 flex-col">
       <Nav dict={dict} lang={lang} />
       <main className="flex-1">
-        <Hero dict={dict} rtl={isRtl(lang)} available={chat.available} greeting={chat.greeting} />
+        <Hero
+          dict={dict}
+          lang={lang}
+          rtl={isRtl(lang)}
+          available={chat.available}
+          greeting={chat.greeting}
+        />
         <StepsSection dict={dict} />
         <FaqSection dict={dict} />
       </main>
@@ -83,11 +89,13 @@ function Nav({ dict, lang }: { dict: Dictionary; lang: Lang }) {
 
 function Hero({
   dict,
+  lang,
   rtl,
   available,
   greeting,
 }: {
   dict: Dictionary;
+  lang: Lang;
   rtl: boolean;
   available: boolean;
   greeting: string;
@@ -108,7 +116,7 @@ function Hero({
         </div>
         <div className="mt-10">
           {available ? (
-            <FinderChat dict={dict} rtl={rtl} greeting={greeting} />
+            <FinderChat dict={dict} lang={lang} rtl={rtl} greeting={greeting} />
           ) : (
             <ChatUnavailable dict={dict} />
           )}

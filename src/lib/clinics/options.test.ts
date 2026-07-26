@@ -131,6 +131,12 @@ describe('option catalogs', () => {
     expect(officialUnLanguages.every((lang) => offered.includes(lang))).toBe(true);
   });
 
+  it('offers Hindi and Panjabi (both appear in the clinic directory)', () => {
+    const offered: readonly string[] = LANGUAGES;
+    expect(offered).toContain('Hindi');
+    expect(offered).toContain('Panjabi');
+  });
+
   it('lists the world languages after the curated head in alphabetical order', () => {
     const offered: readonly string[] = LANGUAGES;
     const tail = offered.slice(offered.indexOf('Polnisch') + 1);

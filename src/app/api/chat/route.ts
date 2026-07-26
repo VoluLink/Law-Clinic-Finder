@@ -4,7 +4,7 @@ import { after, type NextRequest } from 'next/server';
 import { listDirectoryTerms } from '@/lib/chat/directory-terms';
 import { handleChatRequest, type ChatHandlerDeps } from '@/lib/chat/handle-chat';
 import { persistConversation } from '@/lib/chat/persist-conversation';
-import { createRedactionModel, redactTranscript } from '@/lib/chat/redact';
+import { redactTranscript } from '@/lib/chat/redact';
 import { recommendClinics } from '@/lib/chat/recommend-clinics';
 import { runChat } from '@/lib/chat/run-chat';
 import { searchClinics } from '@/lib/chat/search-clinics';
@@ -34,17 +34,14 @@ export async function POST(request: NextRequest): Promise<Response> {
 function buildDeps(): ChatHandlerDeps {
   const anthropic = new Anthropic();
   const adminClient = createSupabaseAdminClient();
-  const redactionModel = createRedactionModel(anthropic);
   return {
     limiter,
     logger,
     loadSettings: () => loadChatSettings(adminClient),
     run: (settings, messages) => {
-      // Service-role, because `anon` no longer holds SELECT on contact_email
-      // (20260720120000_lockdown_grants) and the assistant needs to be able to
-      // give that address out. RLS is therefore bypassed here: the
-      // `is_published` filter inside searchClinics is the only row guard, and
-      // it is covered by a regression test.
+      // Service-role remains server-only: search_clinics filters published rows
+      // and never exposes contact_email to the model; recommendation cards load
+      // a selected clinic's address only after the ID lookup succeeds.
       const executeSearchClinics = (input: unknown) => searchClinics(adminClient, input ?? {});
       const executeRecommendClinics = (input: unknown) =>
         recommendClinics(adminClient, input ?? {}, settings.chat_max_recommendations);
@@ -57,7 +54,7 @@ function buildDeps(): ChatHandlerDeps {
     },
     persist: (transcript, run, sessionId) =>
       persistConversation(
-        { adminClient, redact: (t) => redactTranscript(redactionModel, t), logger },
+        { adminClient, redact: redactTranscript, logger },
         transcript,
         {
           matchedClinicCount: run.matchedClinicCount,

@@ -13,7 +13,10 @@ export async function DELETE(): Promise<Response> {
   try {
     const profile = await requireRole(supabase, ['clinic']);
     if (!profile.clinic_id) return Response.json({ error: 'Nicht berechtigt.' }, { status: 403 });
-    await revokeClinicAccess(createSupabaseAdminClient(), profile.clinic_id, { unpublish: true });
+    await revokeClinicAccess(createSupabaseAdminClient(), profile.clinic_id, {
+      unpublish: true,
+      clearContactEmail: false,
+    });
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof AuthError) {

@@ -31,8 +31,8 @@ export function AccountForm({ currentEmail }: { currentEmail: string }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-xl text-sm text-muted">
-        Verwalte den Zugang des Admin-Teams. Die E-Mail-Adresse wird für die Anmeldung und für
-        interne Benachrichtigungen verwendet.
+        Übertrage den bestehenden Admin-Zugang auf eine neue E-Mail-Adresse. Die Admin-Rolle bleibt
+        dabei mit demselben Konto verknüpft.
       </p>
       <Panel
         title="Admin-E-Mail-Adresse"
@@ -55,8 +55,8 @@ export function AccountForm({ currentEmail }: { currentEmail: string }) {
           </div>
           {status === 'sent' && (
             <p role="status" className="text-sm text-muted">
-              Bestätigungs-E-Mail an die alte und neue Adresse gesendet. Die Änderung wird erst nach
-              Bestätigung wirksam.
+              Bestätigungs-E-Mail an die alte und neue Adresse gesendet. Nach der Bestätigung wird
+              derselbe Admin-Zugang auf die neue Adresse übertragen.
             </p>
           )}
           {status === 'error' && (

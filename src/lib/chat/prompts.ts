@@ -1,7 +1,6 @@
 /**
  * Model-facing text that stays in code because it is coupled to the tool schemas
- * and is never edited by admins: the four tool descriptions and the redaction
- * prompt below.
+ * and is never edited by admins: the four tool descriptions below.
  *
  * The assistant's role and procedure (Rolle/Ablauf) do NOT live here. They live
  * only in the `settings` table (`chat_system_prompt` / `chat_skill`), seeded by a
@@ -38,12 +37,12 @@ export const PROMPT_TOOLBOX: { name: string; description: string }[] = [
   {
     name: TOOL_NAMES.searchClinics,
     description:
-      'Durchsucht das Verzeichnis der veröffentlichten Law Clinics nach Ort, Rechtsgebiet, Sprache und Zielgruppe. Ein Stadtfilter liefert auch bundesweite Angebote; ohne Filter kommt das gesamte Verzeichnis zurück.',
+      'Durchsucht das Verzeichnis der veröffentlichten Law Clinics nach Ort, Rechtsgebiet, Sprache und Zielgruppe. Ein Stadtfilter liefert auch bundesweite Angebote; mehr als 100 Treffer sind über next_offset vollständig paginiert abrufbar.',
   },
   {
     name: TOOL_NAMES.recommendClinics,
     description:
-      'Zeigt die ausgewählten Law Clinics den Ratsuchenden als Karten an (Name, Region, Rechtsgebiete, Kontakt). Erst dieser Aufruf bringt Empfehlungen sichtbar auf die Seite.',
+      'Zeigt per eindeutiger Verzeichnis-ID ausgewählte Law Clinics als Karten an (Name, Region, Rechtsgebiete, Kontakt). Erst dieser Aufruf bringt Empfehlungen sichtbar auf die Seite.',
   },
   {
     name: TOOL_NAMES.reportNoMatch,
@@ -56,17 +55,10 @@ export const PROMPT_TOOLBOX: { name: string; description: string }[] = [
  * Tool descriptions. These steer WHEN the model reaches for a tool, while the
  * skill (stored in settings) steers the overall flow.
  */
-export const SEARCH_CLINICS_DESCRIPTION = `Searches the directory of published German law clinics. Filter by city, legal area (German term, e.g. "Mietrecht"), language, target group, and/or a free-text query. Matching is a case-insensitive substring match, so take the filter values from list_directory_terms rather than inventing synonyms that will not match. A city filter also returns nationwide clinics. Called without any filter it returns the whole directory, so you can search through it yourself. Returns matching clinics as JSON.`;
+export const SEARCH_CLINICS_DESCRIPTION = `Searches the directory of published German law clinics. Filter by city, legal area (German term, e.g. "Mietrecht"), language, target group, and/or a free-text query. Matching is a case-insensitive substring match, so take the filter values from list_directory_terms rather than inventing synonyms that will not match. A city filter also returns nationwide clinics. Results are stable pages of up to 100 clinics. The JSON count is the total number of matches. If next_offset is a number, more matches exist: call search_clinics again with the same filters and offset set to that next_offset until it is null whenever you need to inspect the complete result set.`;
 
 export const LIST_DIRECTORY_TERMS_DESCRIPTION = `Returns the legal areas, regions, languages and target groups that actually appear in the published directory, as JSON lists. The directory is inconsistent free text, so call this BEFORE searching and pick your search_clinics filter values (legal_area, city, language, target_group) from these lists — a synonym that is not in the directory will not match. The lists reflect the current directory; call it once per conversation and reuse the result.`;
 
-export const RECOMMEND_CLINICS_DESCRIPTION = `Presents the chosen law clinics to the user as ranked cards in the page, with name, region, legal areas and contact buttons rendered by the website. Call this once you know which clinics fit, listing them best-first and giving a short reason per clinic. Use the exact clinic name from search_clinics — names that do not match the directory are dropped. The cards already show the details, so keep the message around them short and do not repeat the list in prose.`;
+export const RECOMMEND_CLINICS_DESCRIPTION = `Presents the chosen law clinics to the user as ranked cards in the page, with name, region, legal areas and contact buttons rendered by the website. Call this once you know which clinics fit, listing them best-first and giving a short reason per clinic. Use the exact clinic id from search_clinics — ids that do not match a published directory row are dropped. The cards already show the details, so keep the message around them short and do not repeat the list in prose.`;
 
 export const REPORT_NO_MATCH_DESCRIPTION = `Call this when you have concluded that no suitable law clinic can be offered — after a broadened second search_clinics still returns nothing that fits. First write a short, kind apology in the user's language; then call this tool once. It displays the standard "ways forward" card (broaden the search, start over, apply for Beratungshilfe at the local court), so do not list those steps in your own text. Never invent a clinic instead of calling this.`;
-
-/**
- * Drives the second, separate model call that anonymises a finished transcript
- * before it is stored. Not admin-editable: the output shape is parsed by zod in
- * `redact.ts`, so a loose edit would silently fail every redaction.
- */
-export const REDACTION_SYSTEM_PROMPT = `You anonymise German legal-advice chat transcripts. Input: JSON {"messages": [{"role", "content"}]}. Reply with ONLY JSON, no prose: {"messages": [...], "legal_area": string|null, "city": string|null}. Rules: keep the same number of messages, same roles, same order. In every content, replace personal names with [NAME], street addresses with [ADRESSE], email addresses with [E-MAIL] and phone numbers with [TELEFON]. City names stay. Leave all other wording unchanged. legal_area: the German legal area of the user's issue (e.g. "Mietrecht"), null if unclear. city: the city the user seeks help in, null if unclear.`;

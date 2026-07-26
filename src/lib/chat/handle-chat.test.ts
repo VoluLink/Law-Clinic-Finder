@@ -132,14 +132,23 @@ describe(handleChatRequest, () => {
     expect(deps.persist).toHaveBeenCalledWith(expect.anything(), expect.anything(), sessionId);
   });
 
-  it('strips contact details before the messages reach the model', async () => {
+  it('strips sensitive details before the messages reach the model', async () => {
     const deps = createDeps();
     const body = {
-      messages: [{ role: 'user', content: 'Schreiben Sie an anna@example.de oder 0221 4567890.' }],
+      messages: [
+        {
+          role: 'user',
+          content:
+            'Ich heiße Anna Beispiel, wohne in der Musterstraße 12 und bin unter 0221 4567890 erreichbar.',
+        },
+      ],
     };
     await handleChatRequest(chatRequest(body), deps);
     expect(deps.run).toHaveBeenCalledWith(settings, [
-      { role: 'user', content: 'Schreiben Sie an [E-MAIL] oder [TELEFON].' },
+      {
+        role: 'user',
+        content: 'Ich heiße [NAME], wohne in der [ADRESSE] und bin unter [TELEFON] erreichbar.',
+      },
     ]);
   });
 

@@ -6,7 +6,7 @@ import type { createSupabaseAdminClient } from '@/lib/supabase/admin';
 // under test take their client as a parameter or are pure.
 vi.mock('server-only', () => ({}));
 
-import { autoPublishClinic, autoPublishTarget } from './route';
+import { autoPublishClinic, autoPublishTarget, markAccessActivated } from './route';
 
 const COMPLETE = {
   name: 'Clinic',
@@ -33,15 +33,31 @@ function stubClient(row: Record<string, unknown> | null, onUpdate = vi.fn()) {
 
 describe('autoPublishTarget', () => {
   it('returns the clinic id on a clinic invite acceptance', () => {
-    expect(autoPublishTarget('invite', { role: 'clinic', clinic_id: 'c1' })).toBe('c1');
+    expect(
+      autoPublishTarget('invite', { role: 'clinic', clinic_id: 'c1', activated_at: null }),
+    ).toBe('c1');
+  });
+
+  it('treats a resent magic link as first activation while access is still pending', () => {
+    expect(
+      autoPublishTarget('magiclink', { role: 'clinic', clinic_id: 'c1', activated_at: null }),
+    ).toBe('c1');
   });
 
   it('ignores later magiclink logins so a hidden clinic is not re-published', () => {
-    expect(autoPublishTarget('magiclink', { role: 'clinic', clinic_id: 'c1' })).toBeNull();
+    expect(
+      autoPublishTarget('magiclink', {
+        role: 'clinic',
+        clinic_id: 'c1',
+        activated_at: '2026-07-26T20:00:00Z',
+      }),
+    ).toBeNull();
   });
 
   it('ignores admins and clinic-less profiles', () => {
-    expect(autoPublishTarget('invite', { role: 'admin', clinic_id: null })).toBeNull();
+    expect(
+      autoPublishTarget('invite', { role: 'admin', clinic_id: null, activated_at: null }),
+    ).toBeNull();
     expect(autoPublishTarget('invite', null)).toBeNull();
   });
 });
@@ -63,5 +79,21 @@ describe('autoPublishClinic', () => {
     );
     expect(published).toBe(false);
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe(markAccessActivated, () => {
+  it('records first access activation for the verified profile', async () => {
+    const update = vi.fn(() => ({
+      eq: vi.fn(() => ({ is: vi.fn().mockResolvedValue({ error: null }) })),
+    }));
+    const client = { from: vi.fn(() => ({ update })) } as unknown as ReturnType<
+      typeof createSupabaseAdminClient
+    >;
+
+    await expect(markAccessActivated(client, 'u1', new Date('2026-07-26T20:00:00Z'))).resolves.toBe(
+      true,
+    );
+    expect(update).toHaveBeenCalledWith({ activated_at: '2026-07-26T20:00:00.000Z' });
   });
 });

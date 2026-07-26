@@ -7,20 +7,24 @@ export const searchClinicsInputSchema = z.object({
   legal_area: z.string().max(100).optional(),
   language: z.string().max(100).optional(),
   target_group: z.string().max(100).optional(),
+  offset: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Zero-based offset from a previous response's next_offset."),
 });
 
 export type SearchClinicsInput = z.infer<typeof searchClinicsInputSchema>;
 
 const CLINIC_COLUMNS =
-  'name, description, region, contact_email, website, legal_areas, ' +
+  'id, name, description, region, website, legal_areas, ' +
   'target_clients, languages, requirements';
 /**
- * High enough that an unfiltered call returns the whole directory (59 rows
- * today), so the model can scan everything itself rather than being handed a
- * pre-truncated shortlist. The token cost of that is paid by TRUNCATED_FIELDS
- * below instead of by hiding rows.
+ * Bounded pages keep a large directory from exhausting the model context. The
+ * response exposes the exact total and next offset, so no later row is hidden.
  */
-const MAX_RESULTS = 100;
+const RESULTS_PER_PAGE = 100;
 
 /**
  * Free-text columns are capped per row before the result reaches the model:
@@ -29,6 +33,11 @@ const MAX_RESULTS = 100;
  * judge fit; the card and the clinic's own site carry the full text.
  */
 const TRUNCATED_FIELDS = ['description', 'requirements', 'target_clients'] as const;
+const FILTER_COLUMNS = [
+  ['legal_areas', 'legal_area'],
+  ['languages', 'language'],
+  ['target_clients', 'target_group'],
+] as const;
 const MAX_FIELD_CHARS = 400;
 
 /**
@@ -49,41 +58,61 @@ function sanitizeFreeText(value: string): string {
  * (region "Bundesweit"). Returns a JSON string for the tool result.
  */
 export async function searchClinics(client: SupabaseClient, input: unknown): Promise<string> {
-  const { query, city, legal_area, language, target_group } = searchClinicsInputSchema.parse(input);
+  const filters = searchClinicsInputSchema.parse(input);
+  const { data, error, count } = await buildSearchQuery(client, filters).range(
+    filters.offset,
+    filters.offset + RESULTS_PER_PAGE - 1,
+  );
+  if (error) throw new Error('clinic search failed');
 
-  let builder = client.from('clinics').select(CLINIC_COLUMNS).eq('is_published', true);
+  const rows = data ?? [];
+  const clinics = rows.map((row) => toToolClinic(row as unknown as ClinicRow));
+  const total = count ?? filters.offset + clinics.length;
+  const hasMore =
+    count == null ? clinics.length === RESULTS_PER_PAGE : total > filters.offset + clinics.length;
+  return JSON.stringify({
+    count: total,
+    offset: filters.offset,
+    has_more: hasMore,
+    next_offset: hasMore ? filters.offset + clinics.length : null,
+    clinics,
+  });
+}
 
-  const cityTerm = city ? sanitizeFreeText(city) : '';
+function buildSearchQuery(client: SupabaseClient, input: SearchClinicsInput) {
+  let builder = client
+    .from('clinics')
+    .select(CLINIC_COLUMNS, { count: 'exact' })
+    .eq('is_published', true);
+
+  const cityTerm = input.city ? sanitizeFreeText(input.city) : '';
   if (cityTerm) {
     builder = builder.or(`region.ilike.*${cityTerm}*,region.ilike.*bundesweit*`);
   }
 
-  const areaTerm = legal_area ? sanitizeFreeText(legal_area) : '';
-  if (areaTerm) builder = builder.ilike('legal_areas', `%${areaTerm}%`);
+  for (const [column, inputKey] of FILTER_COLUMNS) {
+    const value = input[inputKey];
+    const term = value ? sanitizeFreeText(value) : '';
+    if (term) builder = builder.ilike(column, `%${term}%`);
+  }
 
-  const languageTerm = language ? sanitizeFreeText(language) : '';
-  if (languageTerm) builder = builder.ilike('languages', `%${languageTerm}%`);
-
-  const clientTerm = target_group ? sanitizeFreeText(target_group) : '';
-  if (clientTerm) builder = builder.ilike('target_clients', `%${clientTerm}%`);
-
-  const queryTerm = query ? sanitizeFreeText(query) : '';
+  const queryTerm = input.query ? sanitizeFreeText(input.query) : '';
   if (queryTerm) {
     builder = builder.or(
       `name.ilike.*${queryTerm}*,description.ilike.*${queryTerm}*,` +
         `legal_areas.ilike.*${queryTerm}*,target_clients.ilike.*${queryTerm}*`,
     );
   }
-
-  const { data, error } = await builder.limit(MAX_RESULTS);
-  if (error) throw new Error('clinic search failed');
-
-  // `select` with a string projection is untyped, so the row shape is unknown here.
-  const clinics = (data ?? []).map((row) => truncateLongFields(row as unknown as ClinicRow));
-  return JSON.stringify({ count: clinics.length, clinics });
+  return builder.order('id', { ascending: true });
 }
 
 type ClinicRow = Record<string, unknown>;
+
+function toToolClinic(row: ClinicRow): ClinicRow {
+  const publicFields = { ...row };
+  delete publicFields.contact_email;
+  return truncateLongFields(publicFields);
+}
 
 function truncateLongFields(row: ClinicRow): ClinicRow {
   const trimmed = { ...row };

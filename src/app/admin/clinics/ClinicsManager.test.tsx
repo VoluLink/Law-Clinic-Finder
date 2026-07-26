@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -61,8 +61,18 @@ describe('ClinicsManager', () => {
   it('renders the pending panel and per-state Zugang controls', () => {
     renderManager();
     expect(screen.getByText('Neue Einträge zur Prüfung')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zugang entziehen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zugang zurücksetzen' })).toBeInTheDocument();
     expect(screen.getByText('Beratungsemail nötig')).toBeInTheDocument();
+  });
+
+  it('freezes the header row and the Name column for scrolling', () => {
+    renderManager();
+    const scroller = screen.getByRole('table').parentElement;
+    expect(scroller).toHaveClass('overflow-auto', 'max-h-[70vh]');
+    // The first column header (Name) is pinned both vertically and horizontally.
+    const nameHeader = screen.getAllByRole('columnheader')[0];
+    expect(nameHeader.className).toContain('sticky');
+    expect(nameHeader.className).toContain('left-0');
   });
 
   it('filters to clinics without access', async () => {
@@ -102,17 +112,23 @@ describe('ClinicsManager', () => {
     expect((advice[0] as HTMLSelectElement).value).toBe('ja');
   });
 
-  it('blocks publishing an incomplete draft and names the missing fields', async () => {
+  it('disables the publish switch for an incomplete draft and explains why', () => {
     const fetchMock = renderManager();
     // Asyl Clinic (draft) is missing Mandant:innen and Sprache.
-    await userEvent.click(screen.getByRole('button', { name: 'Entwurf' }));
+    expect(screen.getByRole('checkbox', { name: /Entwurf/ })).toBeDisabled();
     expect(
       screen.getByText(/Zum Veröffentlichen fehlt noch:.*Mandant:innen.*Sprache/),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('publishes a complete draft through the API', async () => {
+  it('marks a blocked publish switch with the Font Awesome warning triangle', () => {
+    renderManager();
+    const warning = screen.getByRole('button', { name: 'Erklärung zu Veröffentlichung' });
+    expect(warning.querySelector('svg')).toHaveAttribute('viewBox', '0 0 640 640');
+  });
+
+  it('publishes a complete draft when its switch is toggled on', async () => {
     const complete = clinic({
       id: 'c9',
       name: 'Voll Clinic',
@@ -123,11 +139,63 @@ describe('ClinicsManager', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     render(<ClinicsManager clinics={[complete]} pending={[]} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Entwurf' }));
+    const toggle = screen.getByRole('checkbox', { name: /Entwurf/ });
+    expect(toggle).toBeEnabled();
+    await userEvent.click(toggle);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/admin/clinics/c9',
       expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ is_published: true }) }),
     );
+  });
+
+  it('hides a published clinic when its switch is toggled off', async () => {
+    const published = clinic({ id: 'c8', name: 'Sichtbar Clinic', is_published: true });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ClinicsManager clinics={[published]} pending={[]} />);
+    const toggle = screen.getByRole('checkbox', { name: /Veröffentlicht/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/clinics/c8',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ is_published: false }) }),
+    );
+  });
+
+  it('lets the admin unpublish a clinic while the database is in edit mode', async () => {
+    const published = clinic({ id: 'c8', name: 'Sichtbar Clinic', is_published: true });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ClinicsManager clinics={[published]} pending={[]} />);
+    await userEvent.click(screen.getByRole('button', { name: /Datenbank bearbeiten/ }));
+    const toggle = screen.getByRole('checkbox', { name: /Veröffentlicht/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/clinics/c8',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ is_published: false }) }),
+    );
+  });
+
+  it('gates the edit-mode publish switch on the saved row, not unsaved draft edits', async () => {
+    // Only "Homepage" is missing, so publishing stays blocked until it is saved.
+    const onlyWebsiteMissing = clinic({
+      id: 'c7',
+      name: 'Fast Clinic',
+      is_published: false,
+      website: null,
+      target_clients: 'Studierende',
+      languages: 'Deutsch',
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+    render(<ClinicsManager clinics={[onlyWebsiteMissing]} pending={[]} />);
+    await userEvent.click(screen.getByRole('button', { name: /Datenbank bearbeiten/ }));
+    const toggle = screen.getByRole('checkbox', { name: /Entwurf/ });
+    expect(toggle).toBeDisabled();
+    // Filling Homepage in the draft must NOT enable publishing — the server
+    // validates the stored row, which stays incomplete until Speichern.
+    await userEvent.type(screen.getByRole('textbox', { name: 'Homepage' }), 'https://neu.de');
+    expect(toggle).toBeDisabled();
   });
 
   it('renders guided chip and suggestion controls for category cells in edit mode', async () => {
@@ -147,10 +215,18 @@ describe('ClinicsManager', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/submissions/p1', { method: 'POST' });
   });
 
-  it('revokes access after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('opens a confirmation dialog before resetting access', async () => {
     const fetchMock = renderManager();
-    await userEvent.click(screen.getByRole('button', { name: 'Zugang entziehen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Zugang zurücksetzen' }));
+    expect(screen.getByRole('dialog', { name: 'Zugang zurücksetzen?' })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('resets access after confirmation in the dialog', async () => {
+    const fetchMock = renderManager();
+    await userEvent.click(screen.getByRole('button', { name: 'Zugang zurücksetzen' }));
+    const dialog = screen.getByRole('dialog', { name: 'Zugang zurücksetzen?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Zugang zurücksetzen' }));
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/clinics/c1/access', { method: 'DELETE' });
   });
 

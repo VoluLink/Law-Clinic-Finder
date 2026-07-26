@@ -16,17 +16,37 @@ const paramsSchema = z.object({
   type: z.enum(['email', 'magiclink', 'invite', 'email_change']),
 });
 
-type ConfirmProfile = { role?: string | null; clinic_id?: string | null } | null;
+type ConfirmProfile = {
+  role?: string | null;
+  clinic_id?: string | null;
+  activated_at?: string | null;
+} | null;
 
 /**
- * The clinic to auto-publish, or null. Only the first invite acceptance counts:
- * that is the moment a clinic "registers with its email". Later magiclink logins
- * must never re-publish — otherwise an admin's "hide" would be silently undone.
+ * The clinic to auto-publish, or null. The first invite or its replacement
+ * magic link activates access. Later logins must never re-publish a clinic an
+ * admin deliberately hid.
  */
 export function autoPublishTarget(type: string, profile: ConfirmProfile): string | null {
-  if (type !== 'invite') return null;
+  if (type !== 'invite' && type !== 'magiclink') return null;
   if (profile?.role !== 'clinic' || !profile.clinic_id) return null;
+  if (profile.activated_at) return null;
   return profile.clinic_id;
+}
+
+export async function markAccessActivated(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  now = new Date(),
+): Promise<boolean> {
+  const { error } = await client
+    .from('profiles')
+    .update({ activated_at: now.toISOString() })
+    .eq('user_id', userId)
+    .is('activated_at', null);
+  if (!error) return true;
+  logger.error('clinic access activation failed', { userId, reason: error.message });
+  return false;
 }
 
 /** Publish the clinic if — and only if — its entry is already complete. */
@@ -43,10 +63,10 @@ export async function autoPublishClinic(
   if (!data || publishBlockers(data as ClinicRequirementFields).length > 0) return false;
   const { error } = await client.from('clinics').update({ is_published: true }).eq('id', clinicId);
   if (error) {
-    logger.error('auto-publish on invite failed', { clinicId, reason: error.message });
+    logger.error('auto-publish on access activation failed', { clinicId, reason: error.message });
     return false;
   }
-  logger.info('clinic auto-published on invite acceptance', { clinicId, userId });
+  logger.info('clinic auto-published on first access activation', { clinicId, userId });
   return true;
 }
 
@@ -60,12 +80,14 @@ export async function GET(request: NextRequest): Promise<Response> {
   // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, clinic_id')
+    .select('role, clinic_id, activated_at')
     .eq('user_id', verified.user.id)
     .maybeSingle();
   const clinicId = autoPublishTarget(parsed.data.type, profile);
   if (clinicId && process.env.SUPABASE_SECRET_KEY) {
-    await autoPublishClinic(createSupabaseAdminClient(), verified.user.id, clinicId);
+    const adminClient = createSupabaseAdminClient();
+    const activated = await markAccessActivated(adminClient, verified.user.id);
+    if (activated) await autoPublishClinic(adminClient, verified.user.id, clinicId);
   }
   redirect(profile?.role === 'admin' ? '/admin' : '/clinic');
 }

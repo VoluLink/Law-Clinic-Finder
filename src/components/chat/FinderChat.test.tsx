@@ -9,6 +9,7 @@ import {
   type ClinicRecommendation,
 } from '@/lib/chat/stream-protocol';
 import { de } from '@/lib/i18n/locales/de';
+import { en } from '@/lib/i18n/locales/en';
 
 import { FinderChat } from './FinderChat';
 
@@ -21,6 +22,13 @@ const card: ClinicRecommendation = {
   reason: 'Berät genau zu deinem Thema.',
   website: 'https://milcc.de/',
   email: 'kontakt@milcc.de',
+};
+
+const finalCard: ClinicRecommendation = {
+  ...card,
+  id: 'ff000000-0000-0000-0000-000000000002',
+  name: 'Final Law Clinic Cologne',
+  reason: 'Passt zu den späteren Angaben.',
 };
 
 /** Serialises frames the way the route does, optionally split across chunks. */
@@ -106,6 +114,14 @@ describe('FinderChat', () => {
     expect(await screen.findByText(de.limitDailyTitle)).toBeInTheDocument();
   });
 
+  it('uses English for a rate-limit alert after an unsupported-language request', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(limitResponse('minute')));
+    renderChat();
+    await submitQuery('Necesito ayuda con mi alquiler.');
+
+    expect(await screen.findByText(en.limitMinuteTitle)).toBeInTheDocument();
+  });
+
   it('appends the translated error message when the request fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     renderChat();
@@ -132,6 +148,73 @@ describe('FinderChat', () => {
       'href',
       `mailto:${card.email}`,
     );
+  });
+
+  it('offers the current recommendations as a PDF or plain text', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventResponse([{ t: 'clinics', v: [card] }])));
+    renderChat();
+    await submitQuery('Mietproblem in Köln');
+
+    expect(await screen.findByRole('button', { name: de.downloadPdf })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: de.copyText })).toBeInTheDocument();
+  });
+
+  it('copies the submitted details and clinic contacts when saving text', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventResponse([{ t: 'clinics', v: [card] }])));
+    renderChat();
+    await submitQuery('Mietproblem in Köln');
+    await userEvent.click(await screen.findByRole('button', { name: de.copyText }));
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining(card.email!));
+    expect(screen.getByRole('button', { name: de.copiedText })).toBeInTheDocument();
+  });
+
+  it('copies all user details with only the final recommendations', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(eventResponse([{ t: 'clinics', v: [card] }]))
+      .mockResolvedValueOnce(eventResponse([{ t: 'clinics', v: [finalCard] }]));
+    vi.stubGlobal('fetch', fetchMock);
+    renderChat();
+    await submitQuery('Ich habe eine Kündigung erhalten.');
+    await userEvent.type(await screen.findByLabelText(de.chatPlaceholder), 'Ich wohne in Köln.');
+    await userEvent.click(screen.getByRole('button', { name: de.chatSend }));
+    await userEvent.click(await screen.findByRole('button', { name: de.copyText }));
+
+    const copiedText = writeText.mock.calls[0]?.[0] as string;
+    expect({
+      details: [
+        copiedText.includes('Ich habe eine Kündigung erhalten.'),
+        copiedText.includes('Ich wohne in Köln.'),
+      ],
+      finalClinic: copiedText.includes(finalCard.name),
+      replacedClinic: copiedText.includes(card.name),
+      chatRequests: fetchMock.mock.calls.length,
+    }).toEqual({
+      details: [true, true],
+      finalClinic: true,
+      replacedClinic: false,
+      chatRequests: 2,
+    });
+  });
+
+  it('uses English export copy for an unsupported chat language without another request', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const fetchMock = vi.fn().mockResolvedValue(eventResponse([{ t: 'clinics', v: [card] }]));
+    vi.stubGlobal('fetch', fetchMock);
+    renderChat();
+    await submitQuery('Necesito ayuda con mi alquiler.');
+
+    expect(await screen.findByText(en.whyFits)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.downloadPdf })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: en.copyText }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining(en.exportTitle));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('reassembles a clinics frame that arrives split across chunks', async () => {

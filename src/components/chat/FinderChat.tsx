@@ -15,11 +15,15 @@ import { Icon } from '@/components/ui/Icon';
 import { MAX_CHAT_MESSAGE_CHARS, trimChatHistory } from '@/lib/chat/schema';
 import { decodeChatEvents, type ClinicRecommendation } from '@/lib/chat/stream-protocol';
 import { cn } from '@/lib/cn';
+import type { Lang } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/dictionary';
+import { resolveChatPresentation } from '@/lib/i18n/chat-language';
 import type { RateLimitScope } from '@/lib/rate-limit';
 
 import { ChatNoMatch } from './ChatNoMatch';
 import { ClinicRecommendations } from './ClinicRecommendations';
+import { RecommendationExport } from './RecommendationExport';
+import { collectRecommendationExport } from './recommendation-export';
 
 type Role = 'user' | 'assistant';
 type Message = {
@@ -30,14 +34,15 @@ type Message = {
 };
 
 /** Display-only opener from /admin/assistant; never sent to the model. */
-type FinderChatProps = { dict: Dictionary; rtl: boolean; greeting?: string };
+type FinderChatProps = { dict: Dictionary; lang?: Lang; rtl: boolean; greeting?: string };
 
 /**
  * The landing-page search card. The first submit seeds the conversation and
  * swaps the card into the chat view in place (locked decision: no /chat page).
  */
-export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
+export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatPresentation, setChatPresentation] = useState({ dict, lang, rtl });
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [limitScope, setLimitScope] = useState<RateLimitScope | null>(null);
@@ -46,12 +51,15 @@ export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
 
   function restart() {
     setMessages([]);
+    setChatPresentation({ dict, lang, rtl });
     setInput('');
     setLimitScope(null);
     sessionId.current = null;
   }
 
   async function send(content: string) {
+    const presentation = resolveChatPresentation(content);
+    setChatPresentation(presentation);
     const history = trimChatHistory([...messages, { role: 'user', content }]);
     sessionId.current ??= crypto.randomUUID();
     setMessages((prev) => [...prev, { role: 'user', content }]);
@@ -60,14 +68,17 @@ export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
     try {
       const outcome = await streamReply(history, setMessages, sessionId.current);
       if (outcome === 'unavailable') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: dict.chatDisabled }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: presentation.dict.chatDisabled },
+        ]);
       } else if (outcome) {
         setMessages((prev) => prev.slice(0, -1));
         setInput(content);
       }
       setLimitScope(outcome === 'unavailable' ? null : outcome);
     } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: dict.chatError }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: presentation.dict.chatError }]);
     } finally {
       setPending(false);
     }
@@ -80,7 +91,7 @@ export function FinderChat({ dict, rtl, greeting = '' }: FinderChatProps) {
     void send(content);
   }
 
-  const shared = { dict, rtl, input, setInput, pending, onSubmit: handleSubmit };
+  const shared = { ...chatPresentation, input, setInput, pending, onSubmit: handleSubmit };
   if (messages.length === 0) return <SearchCard {...shared} limitScope={limitScope} />;
   return (
     <ChatCard
@@ -148,6 +159,7 @@ async function readStream(
 
 type StageProps = {
   dict: Dictionary;
+  lang: Lang;
   rtl: boolean;
   input: string;
   setInput: (value: string) => void;
@@ -192,8 +204,9 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
 function ChatCard(
   props: StageProps & { messages: Message[]; greeting: string; onRestart: () => void },
 ) {
-  const { dict, messages, pending, limitScope, greeting, onRestart } = props;
+  const { dict, lang, messages, pending, limitScope, greeting, onRestart, rtl } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const exportData = collectRecommendationExport(messages);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -216,6 +229,9 @@ function ChatCard(
             {message.noMatch && <ChatNoMatch dict={dict} onRestart={onRestart} />}
           </div>
         ))}
+        {exportData.clinics.length > 0 && (
+          <RecommendationExport data={exportData} dict={dict} lang={lang} rtl={rtl} />
+        )}
         {awaitingReply && <TypingIndicator dict={dict} />}
       </div>
       {limitScope && <LimitBanner dict={dict} scope={limitScope} />}
@@ -242,7 +258,7 @@ function MessageBubble({ dict, message }: { dict: Dictionary; message: Message }
               : 'rounded-ee-[4px] bg-primary text-primary-foreground',
           )}
         >
-          {!isBot && <span className="sr-only">Du: </span>}
+          {!isBot && <span className="sr-only">{dict.chatYou}: </span>}
           {message.content}
         </div>
       </div>

@@ -32,21 +32,39 @@ function createAdminMock({
 describe(revokeClinicAccess, () => {
   it('deletes the linked auth user and leaves the entry published for an admin revoke', async () => {
     const { client, deleteUser, updates } = createAdminMock({ profile: { user_id: USER_ID } });
-    await revokeClinicAccess(client as never, CLINIC_ID, { unpublish: false });
+    await revokeClinicAccess(client as never, CLINIC_ID, {
+      unpublish: false,
+      clearContactEmail: false,
+    });
     expect(deleteUser).toHaveBeenCalledWith(USER_ID);
     expect(updates).toEqual([]);
   });
 
+  it('clears the contact email when an admin resets access', async () => {
+    const { client, updates } = createAdminMock({ profile: null });
+    await revokeClinicAccess(client as never, CLINIC_ID, {
+      unpublish: false,
+      clearContactEmail: true,
+    });
+    expect(updates).toEqual([{ contact_email: null }]);
+  });
+
   it('also unpublishes the entry when the clinic deletes itself', async () => {
     const { client, deleteUser, updates } = createAdminMock({ profile: { user_id: USER_ID } });
-    await revokeClinicAccess(client as never, CLINIC_ID, { unpublish: true });
+    await revokeClinicAccess(client as never, CLINIC_ID, {
+      unpublish: true,
+      clearContactEmail: false,
+    });
     expect(deleteUser).toHaveBeenCalledWith(USER_ID);
     expect(updates).toEqual([{ is_published: false }]);
   });
 
   it('still unpublishes when no login exists yet', async () => {
     const { client, deleteUser, updates } = createAdminMock({ profile: null });
-    await revokeClinicAccess(client as never, CLINIC_ID, { unpublish: true });
+    await revokeClinicAccess(client as never, CLINIC_ID, {
+      unpublish: true,
+      clearContactEmail: false,
+    });
     expect(deleteUser).not.toHaveBeenCalled();
     expect(updates).toEqual([{ is_published: false }]);
   });
@@ -57,7 +75,10 @@ describe(revokeClinicAccess, () => {
       deleteError: { message: 'auth down' },
     });
     await expect(
-      revokeClinicAccess(client as never, CLINIC_ID, { unpublish: true }),
+      revokeClinicAccess(client as never, CLINIC_ID, {
+        unpublish: true,
+        clearContactEmail: false,
+      }),
     ).rejects.toThrow('auth down');
     expect(updates).toEqual([]);
   });

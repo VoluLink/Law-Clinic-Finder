@@ -45,7 +45,6 @@ export async function claimClinic(
     .maybeSingle();
   if (!data) return { status: 'not_found' };
   const match = toDirectoryMatch(data as ClinicDirectoryRow);
-  if (match.claimed) return { status: 'already_claimed' };
   if (!match.maskedEmail) return { status: 'no_email' };
 
   const blocked = await resendBlock(deps, clinicId, now);

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSystemPrompt, PROMPT_TOOLBOX, TOOL_NAMES } from './prompts';
+import {
+  buildSystemPrompt,
+  PROMPT_TOOLBOX,
+  RECOMMEND_CLINICS_DESCRIPTION,
+  SEARCH_CLINICS_DESCRIPTION,
+  TOOL_NAMES,
+} from './prompts';
 
 describe(buildSystemPrompt, () => {
   it('wraps the role and the skill in their own tagged sections', () => {
@@ -37,5 +43,15 @@ describe('PROMPT_TOOLBOX', () => {
     for (const tool of PROMPT_TOOLBOX) {
       expect(tool.description.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('clinic tool descriptions', () => {
+  it('tells the assistant how to request every result page', () => {
+    expect(SEARCH_CLINICS_DESCRIPTION).toContain('next_offset');
+  });
+
+  it('tells the assistant to recommend clinics by exact id', () => {
+    expect(RECOMMEND_CLINICS_DESCRIPTION).toContain('exact clinic id');
   });
 });

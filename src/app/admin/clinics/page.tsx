@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
 import { deriveAccessState, loadLastSignInMap, profileUserId } from '@/lib/admin/clinic-access';
+import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -24,16 +26,21 @@ function formatDate(iso: string): string {
 
 export default async function AdminClinicsPage() {
   const supabase = await createSupabaseServerClient();
-  const admin = process.env.SUPABASE_SECRET_KEY ? createSupabaseAdminClient() : null;
+  try {
+    await requireRole(supabase, ['admin']);
+  } catch (error) {
+    if (error instanceof AuthError) redirect('/login');
+    throw error;
+  }
+  const admin = createSupabaseAdminClient();
   const [{ data }, lastSignIn, submissions] = await Promise.all([
-    supabase.from('clinics').select(ADMIN_COLUMNS).order('name'),
-    admin ? loadLastSignInMap(admin).catch(() => new Map<string, string | null>()) : null,
+    admin.from('clinics').select(ADMIN_COLUMNS).order('name'),
+    loadLastSignInMap(admin).catch(() => new Map<string, string | null>()),
     loadSubmissions(admin),
   ]);
 
-  const signInMap = lastSignIn ?? new Map<string, string | null>();
   const rows = ((data ?? []) as unknown as ClinicQueryRow[]).map((clinic) =>
-    enrich(clinic, signInMap),
+    enrich(clinic, lastSignIn),
   );
   return <ClinicsManager clinics={rows} pending={submissions} />;
 }
@@ -49,12 +56,11 @@ function enrich(clinic: ClinicQueryRow, signInMap: Map<string, string | null>): 
   };
 }
 
-// clinic_submissions has no RLS policies (service client only); the admin
-// layout already re-checked the role, so reading them here stays admin-gated.
+// clinic_submissions has no RLS policies (service client only); this page
+// re-checks the admin role before loading them.
 async function loadSubmissions(
-  admin: ReturnType<typeof createSupabaseAdminClient> | null,
+  admin: ReturnType<typeof createSupabaseAdminClient>,
 ): Promise<PendingSubmission[]> {
-  if (!admin) return [];
   const { data } = await admin
     .from('clinic_submissions')
     .select(SUBMISSION_COLUMNS)
