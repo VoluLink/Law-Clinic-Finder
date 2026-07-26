@@ -24,7 +24,7 @@ const data = {
 };
 
 describe('buildRecommendationPdfMarkup', () => {
-  it('renders every supplied chat detail as a separate list item', () => {
+  it('renders only the initial chat detail in the concern panel', () => {
     const document = new DOMParser().parseFromString(
       buildRecommendationPdfMarkup(data, de, 'de'),
       'text/html',
@@ -32,7 +32,7 @@ describe('buildRecommendationPdfMarkup', () => {
 
     expect(
       Array.from(document.querySelectorAll('[data-export-detail]'), (item) => item.textContent),
-    ).toEqual(data.details);
+    ).toEqual([data.details[0]]);
   });
 
   it('contains the same dated core information as the copied text', () => {

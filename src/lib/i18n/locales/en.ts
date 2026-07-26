@@ -72,13 +72,17 @@ export const en: Dictionary = {
   chatUnavailableTitle: 'Assistant currently unavailable',
   privacyNote:
     'Please do not enter full names or contact details. Conversations are only stored anonymised.',
-  limitMinuteTitle: 'Too many requests',
+  limitMinuteTitle: 'Request limit reached',
   limitMinuteBody:
     'Too many requests. Please wait a moment. To prevent abuse and control costs, only a few messages are allowed in a short time.',
-  limitDailyTitle: 'Daily limit reached',
+  limitDailyTitle: 'Request limit reached',
   limitDailyBody:
     'You have reached the daily message limit. This free service limits requests per day to keep the cost of AI advice sustainable for everyone. Please try again tomorrow or contact a law clinic directly.',
   charWarn: 'Maximum length reached (4,000 characters).',
+  chatCompletedTitle: 'This chat is complete',
+  chatCompletedDescription: 'You can start a fresh chat at any time for a new concern.',
+  chatCompletedBtnRestart: 'Start a new chat',
+  noMatchResultTitle: 'No law clinic found',
   noMatchTitle: 'How to move forward anyway',
   noMatchStep1:
     'Broaden your search: many law clinics advise nationwide by phone or video – regardless of where you live.',
@@ -86,5 +90,6 @@ export const en: Dictionary = {
     'Start over with different details – another region, a broader legal area or another language sometimes leads to a match after all.',
   noMatchStep3:
     'Apply for legal-aid assistance (Beratungshilfe) at your local court: you then pay only a small share for initial legal advice.',
+  noMatchBtnDirectory: 'View all law clinics',
   noMatchBtnRestart: 'Start over',
 };

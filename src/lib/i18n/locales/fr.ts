@@ -76,13 +76,18 @@ export const fr: Dictionary = {
   chatUnavailableTitle: 'Assistant momentanément indisponible',
   privacyNote:
     'Ne saisis pas de noms complets ni de coordonnées. Les conversations sont enregistrées uniquement de façon anonyme.',
-  limitMinuteTitle: 'Trop de requêtes',
+  limitMinuteTitle: 'Limite de requêtes atteinte',
   limitMinuteBody:
     'Trop de requêtes. Patiente un instant. Pour éviter les abus et limiter les coûts, seuls quelques messages sont autorisés sur une courte période.',
-  limitDailyTitle: 'Limite quotidienne atteinte',
+  limitDailyTitle: 'Limite de requêtes atteinte',
   limitDailyBody:
     'Tu as atteint la limite quotidienne de messages. Ce service gratuit limite les requêtes par jour pour que le coût du conseil par IA reste soutenable pour tous. Réessaie demain ou contacte directement une law clinic.',
   charWarn: 'Longueur maximale atteinte (4 000 caractères).',
+  chatCompletedTitle: 'Ce chat est terminé',
+  chatCompletedDescription:
+    'Tu peux commencer un nouveau chat à tout moment pour une nouvelle demande.',
+  chatCompletedBtnRestart: 'Commencer un nouveau chat',
+  noMatchResultTitle: 'Aucune law clinic trouvée',
   noMatchTitle: 'Comment avancer malgré tout',
   noMatchStep1:
     'Élargis ta recherche : de nombreuses law clinics conseillent dans toute l’Allemagne par téléphone ou visioconférence – quel que soit ton lieu de résidence.',
@@ -90,5 +95,6 @@ export const fr: Dictionary = {
     'Recommence le chat avec d’autres informations – une autre région, un domaine juridique plus large ou une autre langue mène parfois à un résultat.',
   noMatchStep3:
     'Demande une aide à la consultation (Beratungshilfe) auprès du tribunal d’instance : tu ne paies alors qu’une faible participation pour une première consultation juridique.',
+  noMatchBtnDirectory: 'Voir toutes les law clinics',
   noMatchBtnRestart: 'Recommencer le chat',
 };

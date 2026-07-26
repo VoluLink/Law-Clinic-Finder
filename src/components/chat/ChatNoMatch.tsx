@@ -1,5 +1,7 @@
-import { Button } from '@/components/ui/Button';
+import { Button, buttonClasses } from '@/components/ui/Button';
 import type { Dictionary } from '@/lib/i18n/dictionary';
+
+import { ChatRestartIcon, ChatTerminalCard } from './ChatTerminalCard';
 
 const ICON_PROPS = {
   viewBox: '0 0 24 24',
@@ -17,22 +19,23 @@ const SearchEmptyIcon = (
   </svg>
 );
 
-const RestartIcon = (
-  <svg {...ICON_PROPS} width={15} height={15} strokeWidth={2.2} aria-hidden>
-    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-    <path d="M3 3v5h5" />
-  </svg>
-);
-
 /**
  * Shown when the assistant reports — via the `report_no_match` tool — that no
  * clinic fits. Its copy is app-owned: the concrete next steps, including the
  * Beratungshilfe hint, are ours to control and never the model's to invent.
  */
-export function ChatNoMatch({ dict, onRestart }: { dict: Dictionary; onRestart: () => void }) {
+export function ChatNoMatch({
+  dict,
+  onRestart,
+  restartDisabled,
+}: {
+  dict: Dictionary;
+  onRestart: () => void;
+  restartDisabled: boolean;
+}) {
   const steps = [dict.noMatchStep1, dict.noMatchStep2, dict.noMatchStep3];
   return (
-    <div className="animate-[chat-in_0.3s_ease] rounded-xl border border-border bg-surface p-5 text-start">
+    <ChatTerminalCard>
       <div className="flex items-center gap-3.5">
         <span
           aria-hidden
@@ -40,7 +43,10 @@ export function ChatNoMatch({ dict, onRestart }: { dict: Dictionary; onRestart: 
         >
           {SearchEmptyIcon}
         </span>
-        <h3 className="text-[15px] font-extrabold text-primary">{dict.noMatchTitle}</h3>
+        <div>
+          <h2 className="text-lg font-extrabold text-primary">{dict.noMatchResultTitle}</h2>
+          <p className="mt-0.5 text-sm font-bold text-primary">{dict.noMatchTitle}</p>
+        </div>
       </div>
       <ol className="mt-3.5 flex flex-col gap-2.5">
         {steps.map((text, index) => (
@@ -56,15 +62,24 @@ export function ChatNoMatch({ dict, onRestart }: { dict: Dictionary; onRestart: 
         ))}
       </ol>
       <div className="mt-4 flex flex-wrap gap-2.5 border-t border-border pt-3.5">
+        <a
+          href="https://law-clinics.de/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonClasses('primary', 'default', 'px-4 py-2.5 text-sm font-bold')}
+        >
+          {dict.noMatchBtnDirectory}
+        </a>
         <Button
           variant="accent"
+          disabled={restartDisabled}
           onClick={onRestart}
           className="gap-2 px-4 py-2.5 text-sm font-bold"
         >
-          {RestartIcon}
+          <ChatRestartIcon />
           {dict.noMatchBtnRestart}
         </Button>
       </div>
-    </div>
+    </ChatTerminalCard>
   );
 }

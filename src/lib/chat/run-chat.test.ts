@@ -108,6 +108,39 @@ describe(runChat, () => {
     });
   });
 
+  it('separates text generated before and after a tool call', async () => {
+    const toolUse = { type: 'tool_use', id: 'search-1', name: 'search_clinics', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(
+        fakeTurn([textDelta('Ich suche jetzt nach passenden Clinics.')], {
+          content: [toolUse],
+          stop_reason: 'tool_use',
+        }),
+      )
+      .mockReturnValueOnce(
+        fakeTurn([textDelta('Ich habe einen passenden Treffer gefunden.')], {
+          content: [{ type: 'text', text: 'Ich habe einen passenden Treffer gefunden.' }],
+          stop_reason: 'end_turn',
+        }),
+      );
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+      executeSearchClinics: vi.fn().mockResolvedValue(JSON.stringify({ count: 1, clinics: [] })),
+    };
+
+    const run = runChat(deps, settings, [userMessage]);
+
+    expect(await readText(run.stream)).toBe(
+      'Ich suche jetzt nach passenden Clinics. Ich habe einen passenden Treffer gefunden.',
+    );
+    await expect(run.result).resolves.toMatchObject({
+      assistantText:
+        'Ich suche jetzt nach passenden Clinics. Ich habe einen passenden Treffer gefunden.',
+    });
+  });
+
   it('executes the search tool and continues the conversation', async () => {
     const toolUse = {
       type: 'tool_use',

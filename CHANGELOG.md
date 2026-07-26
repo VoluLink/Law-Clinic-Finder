@@ -9,6 +9,10 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Abschluss- und Kein-Treffer-Zustände im Finder-Chat:** Eine strukturierte Empfehlung schließt
+  den Chat mit Neustart-Aktion ab. Bei `report_no_match` erscheint „Keine Law Clinic gefunden" mit
+  festen nächsten Schritten und Link zum Gesamtverzeichnis; der Nachrichteneingang bleibt in beiden
+  Fällen geschlossen.
 - **Umfassende Region-Vorschläge:** Das Feld „Region / Stadt" schlägt jetzt „Bundesweit", alle 16
   Bundesländer, alle 19 Regierungsbezirke (präfigiert, z. B. „Regierungsbezirk Köln") und alle 79
   deutschen Großstädte vor. Die Liste ist die einzige Quelle für Mitglieder-, Admin- und
@@ -58,6 +62,13 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **Anfragelimit sperrt neue Chats sichtbar:** Die 429-Meldung heißt jetzt „Anfragelimit erreicht"
+  und deaktiviert Eingabe sowie Startaktionen. Ein Minutenlimit wird nach dem Serverfenster wieder
+  freigegeben, ein Tageslimit bleibt gesperrt.
+- **Empfehlungs-PDF im Finder:** Der Download folgt wieder dem kompakten einseitigen Layout mit
+  Wortmarke, Anliegen-Karte, schlanken Empfehlungskarten und QR-Footer. In der Anliegen-Karte steht
+  ausschließlich die erste Nachricht der ratsuchenden Person; der Text-Export behält weiterhin alle
+  eingegebenen Angaben.
 - **Chatbot strikt an das Verzeichnis gebunden:** Eine verpflichtende, per RLS auch vor direkten
   authentifizierten Admin-Schreibzugriffen geschützte DB-Einstellung untersagt Tatsachen aus
   vortrainiertem Modellwissen. Der Server
@@ -126,6 +137,8 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **Lesbare Chat-Antworten über Tool-Aufrufe hinweg:** Antwortteile vor und nach einer
+  Datenbanksuche werden beim Streamen nun mit einem Leerzeichen verbunden statt zusammenzukleben.
 - **Einladungslink kann tatsächlich erneut gesendet werden:** Solange der verknüpfte Auth-User noch
   nie angemeldet war, verschickt „Link erneut senden" jetzt einen frischen Magic Link statt den
   Eintrag allein wegen des bereits angelegten Profils als aktiv abzulehnen. Die erste erfolgreiche

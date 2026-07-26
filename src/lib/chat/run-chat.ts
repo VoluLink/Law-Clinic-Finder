@@ -171,9 +171,13 @@ async function driveConversation(
     outputTokens: 0,
   };
   for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
+    let startsNewTurn = true;
     const final = await streamTurn(deps, settings, history, (t) => {
-      state.text += t;
+      const separator = startsNewTurn ? textBoundary(state.text, t) : '';
+      state.text += `${separator}${t}`;
+      if (separator) emit({ t: 'text', v: separator });
       emit({ t: 'text', v: t });
+      startsNewTurn = false;
     });
     addUsage(state, final);
     const toolUses = collectToolUses(final);
@@ -192,6 +196,11 @@ async function driveConversation(
     inputTokens: state.inputTokens,
     outputTokens: state.outputTokens,
   };
+}
+
+function textBoundary(previous: string, next: string): string {
+  if (!previous || !next || /\s$/.test(previous) || /^\s/.test(next)) return '';
+  return ' ';
 }
 
 async function streamTurn(

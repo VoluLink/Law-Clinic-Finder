@@ -74,13 +74,17 @@ export const tr: Dictionary = {
   chatUnavailableTitle: 'Asistan şu anda kullanılamıyor',
   privacyNote:
     'Lütfen tam ad veya iletişim bilgisi girme. Görüşmeler yalnızca anonim olarak saklanır.',
-  limitMinuteTitle: 'Çok fazla istek',
+  limitMinuteTitle: 'İstek sınırına ulaşıldı',
   limitMinuteBody:
     'Çok fazla istek. Lütfen bir an bekle. Kötüye kullanımı önlemek ve maliyetleri sınırlamak için kısa sürede yalnızca birkaç mesaja izin verilir.',
-  limitDailyTitle: 'Günlük sınıra ulaşıldı',
+  limitDailyTitle: 'İstek sınırına ulaşıldı',
   limitDailyBody:
     'Günlük mesaj sınırına ulaştın. Bu ücretsiz hizmet, yapay zekâ danışmanlığının maliyetini herkes için sürdürülebilir tutmak amacıyla günlük istekleri sınırlar. Lütfen yarın tekrar dene veya doğrudan bir hukuk kliniğiyle iletişime geç.',
   charWarn: 'Maksimum uzunluğa ulaşıldı (4.000 karakter).',
+  chatCompletedTitle: 'Bu sohbet tamamlandı',
+  chatCompletedDescription: 'Yeni bir konu için istediğin zaman yeni bir sohbet başlatabilirsin.',
+  chatCompletedBtnRestart: 'Yeni sohbet başlat',
+  noMatchResultTitle: 'Hukuk kliniği bulunamadı',
   noMatchTitle: 'Yine de nasıl devam edilir',
   noMatchStep1:
     'Aramanı genişlet: Birçok hukuk kliniği, oturduğun yerden bağımsız olarak ülke genelinde telefon veya video ile danışmanlık verir.',
@@ -88,5 +92,6 @@ export const tr: Dictionary = {
     'Sohbeti farklı bilgilerle yeniden başlat – başka bir bölge, daha geniş bir hukuk alanı veya başka bir dil bazen yine de bir sonuca götürür.',
   noMatchStep3:
     'Sulh hukuk mahkemesinden danışma yardımı (Beratungshilfe) başvurusu yap: İlk hukuki danışma için yalnızca küçük bir katılım payı ödersin.',
+  noMatchBtnDirectory: 'Tüm hukuk kliniklerini gör',
   noMatchBtnRestart: 'Sohbeti yeniden başlat',
 };

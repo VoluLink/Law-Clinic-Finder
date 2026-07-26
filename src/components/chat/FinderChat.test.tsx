@@ -105,6 +105,8 @@ describe('FinderChat', () => {
 
     expect(await screen.findByText(de.limitMinuteTitle)).toBeInTheDocument();
     expect(screen.getByLabelText(de.searchLabel)).toHaveValue('Zu schnell getippt');
+    expect(screen.getByLabelText(de.searchLabel)).toBeDisabled();
+    expect(screen.getByRole('button', { name: de.searchBtn })).toBeDisabled();
   });
 
   it('shows the daily limit banner on a day-scope 429', async () => {
@@ -150,6 +152,18 @@ describe('FinderChat', () => {
     );
   });
 
+  it('closes the chat after a recommendation and offers a fresh chat', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventResponse([{ t: 'clinics', v: [card] }])));
+    renderChat();
+    await submitQuery('Mietproblem in Köln');
+
+    expect(await screen.findByText(de.chatCompletedTitle)).toBeInTheDocument();
+    expect(screen.queryByLabelText(de.chatPlaceholder)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: de.chatCompletedBtnRestart }));
+    expect(screen.getByLabelText(de.searchLabel)).toBeInTheDocument();
+  });
+
   it('offers the current recommendations as a PDF or plain text', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventResponse([{ t: 'clinics', v: [card] }])));
     renderChat();
@@ -171,7 +185,7 @@ describe('FinderChat', () => {
     expect(screen.getByRole('button', { name: de.copiedText })).toBeInTheDocument();
   });
 
-  it('copies all user details with only the final recommendations', async () => {
+  it('starts a fresh export after a completed recommendation', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     const fetchMock = vi
@@ -181,21 +195,20 @@ describe('FinderChat', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderChat();
     await submitQuery('Ich habe eine Kündigung erhalten.');
-    await userEvent.type(await screen.findByLabelText(de.chatPlaceholder), 'Ich wohne in Köln.');
-    await userEvent.click(screen.getByRole('button', { name: de.chatSend }));
+    await userEvent.click(await screen.findByRole('button', { name: de.chatCompletedBtnRestart }));
+    await submitQuery('Ich wohne in Köln.');
     await userEvent.click(await screen.findByRole('button', { name: de.copyText }));
 
     const copiedText = writeText.mock.calls[0]?.[0] as string;
     expect({
-      details: [
-        copiedText.includes('Ich habe eine Kündigung erhalten.'),
-        copiedText.includes('Ich wohne in Köln.'),
-      ],
+      previousChatExcluded: !copiedText.includes('Ich habe eine Kündigung erhalten.'),
+      currentChatIncluded: copiedText.includes('Ich wohne in Köln.'),
       finalClinic: copiedText.includes(finalCard.name),
       replacedClinic: copiedText.includes(card.name),
       chatRequests: fetchMock.mock.calls.length,
     }).toEqual({
-      details: [true, true],
+      previousChatExcluded: true,
+      currentChatIncluded: true,
       finalClinic: true,
       replacedClinic: false,
       chatRequests: 2,
@@ -256,7 +269,7 @@ describe('FinderChat', () => {
     expect(body.messages).toEqual([{ role: 'user', content: 'Meine Frage' }]);
   });
 
-  it('renders the no-match card and returns to the search card on restart', async () => {
+  it('renders the no-match conclusion and returns to the search card on restart', async () => {
     vi.stubGlobal(
       'fetch',
       vi
@@ -271,7 +284,13 @@ describe('FinderChat', () => {
     renderChat();
     await submitQuery('Sehr spezielles Anliegen ohne Treffer');
 
+    expect(await screen.findByText(de.noMatchResultTitle)).toBeInTheDocument();
     expect(await screen.findByText(de.noMatchTitle)).toBeInTheDocument();
+    expect(screen.queryByLabelText(de.chatPlaceholder)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: de.noMatchBtnDirectory })).toHaveAttribute(
+      'href',
+      'https://law-clinics.de/',
+    );
     await userEvent.click(screen.getByRole('button', { name: new RegExp(de.noMatchBtnRestart) }));
 
     expect(screen.queryByText(de.noMatchTitle)).not.toBeInTheDocument();

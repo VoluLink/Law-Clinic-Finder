@@ -81,10 +81,15 @@ export type Dictionary = {
   limitDailyTitle: string;
   limitDailyBody: string;
   charWarn: string;
+  chatCompletedTitle: string;
+  chatCompletedDescription: string;
+  chatCompletedBtnRestart: string;
+  noMatchResultTitle: string;
   noMatchTitle: string;
   noMatchStep1: string;
   noMatchStep2: string;
   noMatchStep3: string;
+  noMatchBtnDirectory: string;
   noMatchBtnRestart: string;
 };
 

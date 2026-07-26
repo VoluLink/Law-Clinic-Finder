@@ -18,8 +18,9 @@ import { cn } from '@/lib/cn';
 import type { Lang } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/dictionary';
 import { resolveChatPresentation } from '@/lib/i18n/chat-language';
-import type { RateLimitScope } from '@/lib/rate-limit';
+import { CHAT_RATE_LIMIT, type RateLimitScope } from '@/lib/rate-limit';
 
+import { ChatCompleted } from './ChatCompleted';
 import { ChatNoMatch } from './ChatNoMatch';
 import { ClinicRecommendations } from './ClinicRecommendations';
 import { RecommendationExport } from './RecommendationExport';
@@ -53,9 +54,14 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
     setMessages([]);
     setChatPresentation({ dict, lang, rtl });
     setInput('');
-    setLimitScope(null);
     sessionId.current = null;
   }
+
+  useEffect(() => {
+    if (limitScope !== 'minute') return;
+    const timeout = window.setTimeout(() => setLimitScope(null), CHAT_RATE_LIMIT.windowMs);
+    return () => window.clearTimeout(timeout);
+  }, [limitScope]);
 
   async function send(content: string) {
     const presentation = resolveChatPresentation(content);
@@ -87,7 +93,7 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const content = input.trim();
-    if (!content || pending) return;
+    if (!content || pending || limitScope) return;
     void send(content);
   }
 
@@ -169,6 +175,7 @@ type StageProps = {
 };
 
 function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope }: StageProps) {
+  const blocked = Boolean(limitScope);
   return (
     <form
       onSubmit={onSubmit}
@@ -183,6 +190,7 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
         onChange={(event) => setInput(event.target.value)}
         placeholder={dict.searchPlaceholder}
         maxLength={MAX_CHAT_MESSAGE_CHARS}
+        disabled={pending || blocked}
         className="min-h-[140px] w-full resize-y rounded-xl border-[1.5px] border-primary/20 bg-surface-tint px-4 py-4 text-[17px] leading-normal outline-none focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary/10"
       />
       <p className="mt-3 text-sm leading-normal text-muted">{dict.privacyNote}</p>
@@ -190,7 +198,7 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
       <div className="mt-5">
         <Button
           type="submit"
-          disabled={pending}
+          disabled={pending || blocked}
           className="gap-2.5 px-7 py-4 text-[17px] font-bold"
         >
           {dict.searchBtn}
@@ -207,6 +215,7 @@ function ChatCard(
   const { dict, lang, messages, pending, limitScope, greeting, onRestart, rtl } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const exportData = collectRecommendationExport(messages);
+  const terminalState = pending ? null : chatTerminalState(messages);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -226,18 +235,32 @@ function ChatCard(
             {message.recommendations && (
               <ClinicRecommendations dict={dict} items={message.recommendations} />
             )}
-            {message.noMatch && <ChatNoMatch dict={dict} onRestart={onRestart} />}
           </div>
         ))}
         {exportData.clinics.length > 0 && (
           <RecommendationExport data={exportData} dict={dict} lang={lang} rtl={rtl} />
         )}
+        {terminalState === 'recommendation' && (
+          <ChatCompleted dict={dict} onRestart={onRestart} restartDisabled={Boolean(limitScope)} />
+        )}
+        {terminalState === 'no-match' && (
+          <ChatNoMatch dict={dict} onRestart={onRestart} restartDisabled={Boolean(limitScope)} />
+        )}
         {awaitingReply && <TypingIndicator dict={dict} />}
       </div>
       {limitScope && <LimitBanner dict={dict} scope={limitScope} />}
-      <InputDock {...props} />
+      {!terminalState && !limitScope && <InputDock {...props} />}
     </div>
   );
+}
+
+type ChatTerminalState = 'recommendation' | 'no-match' | null;
+
+function chatTerminalState(messages: Message[]): ChatTerminalState {
+  const lastMessage = messages.at(-1);
+  if (!lastMessage || lastMessage.role !== 'assistant') return null;
+  if (lastMessage.noMatch) return 'no-match';
+  return lastMessage.recommendations?.length ? 'recommendation' : null;
 }
 
 function MessageBubble({ dict, message }: { dict: Dictionary; message: Message }) {
@@ -305,7 +328,7 @@ function LimitBanner({ dict, scope }: { dict: Dictionary; scope: RateLimitScope 
   );
 }
 
-function InputDock({ dict, input, setInput, pending, onSubmit }: StageProps) {
+function InputDock({ dict, input, setInput, pending, onSubmit, limitScope }: StageProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -342,7 +365,7 @@ function InputDock({ dict, input, setInput, pending, onSubmit }: StageProps) {
         <Button
           type="submit"
           aria-label={dict.chatSend}
-          disabled={pending || !input.trim()}
+          disabled={pending || Boolean(limitScope) || !input.trim()}
           className="size-11 shrink-0 rounded-xl p-0 text-[19px]"
         >
           <span aria-hidden>↑</span>
