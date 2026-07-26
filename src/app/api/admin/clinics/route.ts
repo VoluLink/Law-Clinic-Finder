@@ -13,7 +13,10 @@ const ADMIN_COLUMNS =
 export async function GET(): Promise<Response> {
   const guard = await requireAdminRoute();
   if ('response' in guard) return guard.response;
-  const { data, error } = await guard.supabase.from('clinics').select(ADMIN_COLUMNS).order('name');
+  const { data, error } = await createSupabaseAdminClient()
+    .from('clinics')
+    .select(ADMIN_COLUMNS)
+    .order('name');
   if (error) {
     logger.error('admin clinic list failed', { reason: error.message });
     return Response.json({ error: 'Laden fehlgeschlagen.' }, { status: 500 });

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { AuthError, requireRole, type Profile } from '@/lib/auth/require-role';
 import { clinicEditableSchema } from '@/lib/clinics/schema';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 import { ClinicForm } from './ClinicForm';
@@ -32,8 +33,7 @@ export default async function ClinicPage() {
 }
 
 async function ClinicEditor({ clinicId }: { clinicId: string }) {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  const { data } = await createSupabaseAdminClient()
     .from('clinics')
     .select(EDITABLE_COLUMNS)
     .eq('id', clinicId)

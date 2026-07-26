@@ -18,7 +18,7 @@ export const searchClinicsInputSchema = z.object({
 export type SearchClinicsInput = z.infer<typeof searchClinicsInputSchema>;
 
 const CLINIC_COLUMNS =
-  'id, name, description, region, contact_email, website, legal_areas, ' +
+  'id, name, description, region, website, legal_areas, ' +
   'target_clients, languages, requirements';
 /**
  * Bounded pages keep a large directory from exhausting the model context. The
@@ -66,7 +66,7 @@ export async function searchClinics(client: SupabaseClient, input: unknown): Pro
   if (error) throw new Error('clinic search failed');
 
   const rows = data ?? [];
-  const clinics = rows.map((row) => truncateLongFields(row as unknown as ClinicRow));
+  const clinics = rows.map((row) => toToolClinic(row as unknown as ClinicRow));
   const total = count ?? filters.offset + clinics.length;
   const hasMore =
     count == null ? clinics.length === RESULTS_PER_PAGE : total > filters.offset + clinics.length;
@@ -107,6 +107,12 @@ function buildSearchQuery(client: SupabaseClient, input: SearchClinicsInput) {
 }
 
 type ClinicRow = Record<string, unknown>;
+
+function toToolClinic(row: ClinicRow): ClinicRow {
+  const publicFields = { ...row };
+  delete publicFields.contact_email;
+  return truncateLongFields(publicFields);
+}
 
 function truncateLongFields(row: ClinicRow): ClinicRow {
   const trimmed = { ...row };

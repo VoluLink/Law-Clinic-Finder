@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { redirect } from 'next/navigation';
 
 import { BarChart } from '@/components/ui/BarChart';
 import { MeterList } from '@/components/ui/MeterList';
@@ -7,6 +7,7 @@ import { Panel } from '@/components/ui/Panel';
 import { StatCard } from '@/components/ui/StatCard';
 import { MonthStepper } from '@/components/admin/MonthStepper';
 import { deriveAccessState, loadLastSignInMap } from '@/lib/admin/clinic-access';
+import { AuthError, requireRole } from '@/lib/auth/require-role';
 import {
   clampMonthKey,
   currentMonthKey,
@@ -58,51 +59,42 @@ function fmt(value: number): string {
   return value.toLocaleString('de-DE');
 }
 
-function adminClientOrNull(): SupabaseClient | null {
-  try {
-    return createSupabaseAdminClient();
-  } catch {
-    return null;
-  }
-}
-
-async function loadDashboard(monthParam: string | undefined) {
-  const supabase = await createSupabaseServerClient();
+async function loadDashboard(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  monthParam: string | undefined,
+) {
   const now = Date.now();
   const month = clampMonthKey(monthParam ?? currentMonthKey(now), now);
   const { startIso, endIso } = monthRange(month);
   const [clinicsRes, monthRows, monthCount, listRes, costRes] = await Promise.all([
-    supabase.from('clinics').select('is_published, contact_email, profiles(user_id)'),
+    admin.from('clinics').select('is_published, contact_email, profiles(user_id)'),
     // Chat-derived widgets are scoped to the selected month; the stepper pages
     // through the retained 12-month window.
-    supabase
+    admin
       .from('conversations')
       .select('created_at, detected_legal_area, matched_clinic_count')
       .gte('created_at', startIso)
       .lt('created_at', endIso),
-    supabase
+    admin
       .from('conversations')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startIso)
       .lt('created_at', endIso),
     // The "Anonymisierte Gespräche" list stays newest-first (not month-scoped) and
     // always sits inside the newest-200 transcript cap, so it always has a verlauf.
-    supabase
+    admin
       .from('conversations')
       .select(CONV_LIST_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(CONV_LIST_LIMIT),
-    supabase
+    admin
       .from('conversations')
       .select('input_tokens, output_tokens, model')
       .gte('created_at', startIso)
       .lt('created_at', endIso),
   ]);
 
-  const admin = adminClientOrNull();
-  const lastSignIn = admin
-    ? await loadLastSignInMap(admin).catch(() => new Map<string, string | null>())
-    : new Map<string, string | null>();
+  const lastSignIn = await loadLastSignInMap(admin).catch(() => new Map<string, string | null>());
 
   const clinics = (clinicsRes.data ?? []) as unknown as ClinicAccessRow[];
   const windowRows = (monthRows.data ?? []) as unknown as WindowRow[];
@@ -140,7 +132,14 @@ export default async function AdminDashboardPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const { month } = await searchParams;
-  const data = await loadDashboard(month);
+  const supabase = await createSupabaseServerClient();
+  try {
+    await requireRole(supabase, ['admin']);
+  } catch (error) {
+    if (error instanceof AuthError) redirect('/login');
+    throw error;
+  }
+  const data = await loadDashboard(createSupabaseAdminClient(), month);
   const monthLabel = formatMonthLabel(data.month);
   return (
     <div className="flex flex-col gap-[18px]">

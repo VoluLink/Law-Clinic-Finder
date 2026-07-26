@@ -157,6 +157,14 @@ describe(searchClinics, () => {
     expect(calls).toContainEqual(['select', [expect.any(String), { count: 'exact' }]]);
   });
 
+  it('never gives clinic contact emails to the model', async () => {
+    const { client, calls } = createSupabaseMock({ data: [sampleRow], error: null });
+    const result = JSON.parse(await searchClinics(client as never, {}));
+    const select = calls.find(([method]) => method === 'select');
+    expect(select?.[1][0]).not.toContain('contact_email');
+    expect(result.clinics[0]).not.toHaveProperty('contact_email');
+  });
+
   it('makes overflow beyond 100 matches visible to the assistant', async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => ({
       ...sampleRow,
@@ -179,7 +187,9 @@ describe(searchClinics, () => {
       count: 101,
     });
     const result = JSON.parse(await searchClinics(client as never, { offset: 100 }));
-    expect(result.clinics).toEqual([overflowClinic]);
+    const expectedClinic: Record<string, unknown> = { ...overflowClinic };
+    delete expectedClinic.contact_email;
+    expect(result.clinics).toEqual([expectedClinic]);
     expect(calls).toContainEqual(['range', [100, 199]]);
     expect(result.has_more).toBe(false);
   });
@@ -209,7 +219,19 @@ describe(searchClinics, () => {
       offset: 0,
       has_more: false,
       next_offset: null,
-      clinics: [sampleRow],
+      clinics: [
+        {
+          id: sampleRow.id,
+          name: sampleRow.name,
+          description: sampleRow.description,
+          region: sampleRow.region,
+          website: sampleRow.website,
+          legal_areas: sampleRow.legal_areas,
+          target_clients: sampleRow.target_clients,
+          languages: sampleRow.languages,
+          requirements: sampleRow.requirements,
+        },
+      ],
     });
   });
 

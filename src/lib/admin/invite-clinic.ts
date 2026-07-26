@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ClinicInvite } from '@/lib/clinics/schema';
 import type { Logger } from '@/lib/logger';
 
+import { profileUserId } from './clinic-access';
+
 export type InviteDeps = { adminClient: SupabaseClient; logger: Logger };
 
 export type InviteResult =
@@ -29,15 +31,40 @@ export async function inviteClinic(deps: InviteDeps, invite: ClinicInvite): Prom
   return linkInvitedUser(deps, clinic.id, invite.contact_email);
 }
 
-/** Re-sends the invite for an existing clinic row (e.g. after SMTP failure). */
+/** Sends an initial invite or a fresh magic link for an existing pending account. */
 export async function reinviteClinic(deps: InviteDeps, clinicId: string): Promise<InviteResult> {
   const { data: clinic } = await deps.adminClient
     .from('clinics')
-    .select('id, contact_email')
+    .select('id, contact_email, profiles(user_id)')
     .eq('id', clinicId)
     .maybeSingle();
   if (!clinic?.contact_email) return { status: 'error', reason: 'clinic has no contact email' };
+  const userId = profileUserId(clinic.profiles);
+  if (userId) return sendPendingLoginLink(deps, clinicId, userId, clinic.contact_email);
   return linkInvitedUser(deps, clinicId, clinic.contact_email);
+}
+
+async function sendPendingLoginLink(
+  deps: InviteDeps,
+  clinicId: string,
+  userId: string,
+  email: string,
+): Promise<InviteResult> {
+  const { data, error } = await deps.adminClient.auth.admin.getUserById(userId);
+  if (error || !data.user) return { status: 'error', reason: 'invited user lookup failed' };
+  if (data.user.last_sign_in_at) return { status: 'already_invited' };
+  if (data.user.email?.toLowerCase() !== email.toLowerCase()) {
+    return { status: 'error', reason: 'clinic email does not match invited user' };
+  }
+  const sent = await deps.adminClient.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (sent.error) {
+    deps.logger.warn('clinic login link failed', { clinicId, reason: sent.error.message });
+    return { status: 'invite_failed', clinicId };
+  }
+  return { status: 'ok', clinicId };
 }
 
 async function linkInvitedUser(

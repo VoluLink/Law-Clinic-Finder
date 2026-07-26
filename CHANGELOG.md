@@ -58,6 +58,19 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **KI- und Datenbankgrenzen gehärtet:** Das Suchwerkzeug des Chat-Modells erhält keine
+  Beratungsemail-Adressen mehr; diese werden nur bei einer konkreten, serverseitig geprüften
+  Empfehlungskarte ausgegeben. Eine neue Supabase-Migration entzieht `clinics.contact_email` auch
+  angemeldeten REST-Clients, vergibt Tabellen- und Funktionsrechte nach dem Least-Privilege-Prinzip
+  explizit und schützt die privilegierten Aufräum- und Gesprächsfunktionen vor Search-Path-Hijacking.
+  Der ältere Snapshot `clinics_backup_20260726` ist zusätzlich vollständig von Web- und
+  Service-Rollen abgeschottet und erzwingt RLS ohne Richtlinie.
+- **Next.js-Sicherheitsupdate:** Next.js und `eslint-config-next` wurden auf `16.2.12` aktualisiert,
+  den aktuell verfügbaren Patchstand der verwendeten 16.2-Reihe.
+- **Admin-E-Mail-Wechsel als sichere Zugangsübertragung:** Die Kontoansicht erklärt jetzt, dass
+  derselbe Auth-User samt Admin-Rolle nach Bestätigung auf die neue Adresse übertragen wird. Der
+  bestehende Dual-Confirmation-Aufruf ist durch einen API-Routentest abgesichert.
+
 - **Deterministische Chat-Redaktion ohne KI-Aufruf:** Personenbezogene Angaben werden jetzt lokal
   vor dem Chat-Modell und erneut vor dem Speichern redigiert. Die Regeln erkennen zusätzlich Namen
   in eindeutigen Kontexten, deutsche Straßenanschriften und IBANs; die bisherige separate
@@ -104,6 +117,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Der Next.js-Dev-Indikator (das „N" unten links) ist per `devIndicators: false` ausgeblendet.
 
 ### Behoben
+
+- **Einladungslink kann tatsächlich erneut gesendet werden:** Solange der verknüpfte Auth-User noch
+  nie angemeldet war, verschickt „Link erneut senden" jetzt einen frischen Magic Link statt den
+  Eintrag allein wegen des bereits angelegten Profils als aktiv abzulehnen. Die erste erfolgreiche
+  Einladung oder ihr Ersatzlink setzt `profiles.activated_at` und darf eine vollständige Clinic
+  genau einmal automatisch veröffentlichen; spätere Logins veröffentlichen verborgene Clinics nie.
 
 - Der Chatbot kann Verzeichnisse mit mehr als 100 veröffentlichten Law Clinics vollständig
   durchsuchen: `search_clinics` liefert stabil sortierte Seiten samt Gesamtzahl und `next_offset`.

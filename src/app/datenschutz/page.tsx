@@ -20,7 +20,8 @@ export default function DatenschutzPage() {
         erneut lokal redigierten Verlauf. Automatische Erkennung kann Angaben außerhalb bekannter
         Muster übersehen; bitte nenne deshalb keine vollständigen Namen oder Kontaktdaten. Die
         redigierten Verläufe dienen der Verbesserung des Angebots und werden nicht an Dritte
-        weitergegeben.
+        weitergegeben. Beratungsemail-Adressen aus dem Verzeichnis werden dem Modell nicht
+        bereitgestellt; sie erscheinen nur auf einer vom Server geprüften Empfehlungskarte.
       </p>
       <h2 className="text-lg font-medium">Hosting und Datenbank</h2>
       <p>

@@ -39,11 +39,9 @@ function buildDeps(): ChatHandlerDeps {
     logger,
     loadSettings: () => loadChatSettings(adminClient),
     run: (settings, messages) => {
-      // Service-role, because `anon` no longer holds SELECT on contact_email
-      // (20260720120000_lockdown_grants) and the assistant needs to be able to
-      // give that address out. RLS is therefore bypassed here: the
-      // `is_published` filter inside searchClinics is the only row guard, and
-      // it is covered by a regression test.
+      // Service-role remains server-only: search_clinics filters published rows
+      // and never exposes contact_email to the model; recommendation cards load
+      // a selected clinic's address only after the ID lookup succeeds.
       const executeSearchClinics = (input: unknown) => searchClinics(adminClient, input ?? {});
       const executeRecommendClinics = (input: unknown) =>
         recommendClinics(adminClient, input ?? {}, settings.chat_max_recommendations);

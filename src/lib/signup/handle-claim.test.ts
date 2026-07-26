@@ -45,11 +45,27 @@ describe(claimClinic, () => {
     expect(mock.calls).toContainEqual(['insert', [{ clinic_id: CLINIC_ID }]]);
   });
 
-  it('rejects clinics that already have an account', async () => {
+  it('reports a linked clinic as claimed when its access helper finds an active account', async () => {
     const row = { ...unclaimedRow, profiles: [{ user_id: 'user-1' }] };
-    const { deps } = createDeps([{ data: row, error: null }]);
+    const invite = vi.fn().mockResolvedValue({ status: 'already_invited' });
+    const { deps } = createDeps([{ data: row, error: null }], { invite });
     expect(await claimClinic(deps, CLINIC_ID, NOW)).toEqual({ status: 'already_claimed' });
-    expect(deps.invite).not.toHaveBeenCalled();
+    expect(invite).toHaveBeenCalledWith(CLINIC_ID);
+  });
+
+  it('resends and records a link for a linked account that is still pending', async () => {
+    const row = { ...unclaimedRow, profiles: [{ user_id: 'user-1' }] };
+    const { deps, mock } = createDeps([
+      { data: row, error: null },
+      { data: [{ sent_at: new Date(NOW - MS_PER_DAY).toISOString() }], error: null },
+      { data: null, error: null },
+    ]);
+
+    expect(await claimClinic(deps, CLINIC_ID, NOW)).toEqual({
+      status: 'sent',
+      maskedEmail: 'k****t@milcc.de',
+    });
+    expect(mock.calls).toContainEqual(['insert', [{ clinic_id: CLINIC_ID }]]);
   });
 
   it('reports clinics without an on-file address', async () => {

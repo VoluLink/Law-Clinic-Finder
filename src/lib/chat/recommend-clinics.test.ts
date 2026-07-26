@@ -179,6 +179,15 @@ describe('recommendClinics', () => {
     expect(JSON.parse(json)).toEqual({ shown: 1, unknown: [unknownId] });
   });
 
+  it('keeps a selected clinic email out of the model tool result', async () => {
+    const { client } = createSupabaseMock([milcc]);
+    const { json, recommendations } = await recommendClinics(client as never, {
+      clinics: [picks[0]],
+    });
+    expect(json).not.toContain(milcc.contact_email);
+    expect(recommendations[0].email).toBe(milcc.contact_email);
+  });
+
   it('keeps two published clinics with the exact same name distinct', async () => {
     const sameName = { ...srk, name: milcc.name };
     const { client } = createSupabaseMock([sameName, milcc]);
