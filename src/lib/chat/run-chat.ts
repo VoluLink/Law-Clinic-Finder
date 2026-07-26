@@ -106,6 +106,8 @@ type RunState = {
   text: string;
   toolCalls: number;
   matched: number | null;
+  successfulSearches: number;
+  searchedClinicIds: Set<string>;
   recommendations: ClinicRecommendation[];
   /** Every distinct clinic id recommended, kept across multiple tool calls. */
   recommendedIds: Set<string>;
@@ -161,6 +163,8 @@ async function driveConversation(
     text: '',
     toolCalls: 0,
     matched: null,
+    successfulSearches: 0,
+    searchedClinicIds: new Set(),
     recommendations: [],
     recommendedIds: new Set(),
     inputTokens: 0,
@@ -200,13 +204,17 @@ async function streamTurn(
     model: settings.chat_model,
     max_tokens: settings.chat_max_tokens,
     temperature: settings.chat_temperature,
-    system: buildSystemPrompt(settings.chat_system_prompt, settings.chat_skill),
+    system: buildSystemPrompt(
+      settings.chat_system_prompt,
+      settings.chat_grounding_policy,
+      settings.chat_skill,
+    ),
     messages: history,
     tools: [
+      LIST_DIRECTORY_TERMS_TOOL,
       SEARCH_CLINICS_TOOL,
       RECOMMEND_CLINICS_TOOL,
       REPORT_NO_MATCH_TOOL,
-      LIST_DIRECTORY_TERMS_TOOL,
     ],
   });
   for await (const event of stream) {
@@ -248,13 +256,13 @@ async function runTool(
     return {
       type: 'tool_result',
       tool_use_id: block.id,
-      content: 'Die Suche ist fehlgeschlagen.',
+      content: 'Das Werkzeug ist fehlgeschlagen.',
       is_error: true,
     };
   }
 }
 
-/** Routes a tool call to its executor. Search is the default (most frequent) branch. */
+/** Routes only registered tool names; unknown names never reach a database executor. */
 function dispatchTool(
   deps: RunChatDeps,
   block: z.infer<typeof toolUseBlockSchema>,
@@ -262,27 +270,33 @@ function dispatchTool(
   emit: (event: ChatEvent) => void,
 ): Promise<string> | string {
   switch (block.name) {
+    case SEARCH_CLINICS_TOOL.name:
+      return runSearch(deps, block.input, state);
     case RECOMMEND_CLINICS_TOOL.name:
       return runRecommend(deps, block.input, state, emit);
     case REPORT_NO_MATCH_TOOL.name:
-      return runNoMatch(emit);
+      return runNoMatch(state, emit);
     case LIST_DIRECTORY_TERMS_TOOL.name:
       return deps.executeListDirectoryTerms();
     default:
-      return runSearch(deps, block.input, state);
+      throw new Error('unknown chat tool');
   }
 }
 
 /** Signals the "no clinic fits" card to the UI; its copy is app-owned, so the
  *  frame carries no payload and the model gets a plain acknowledgement back. */
-function runNoMatch(emit: (event: ChatEvent) => void): string {
+function runNoMatch(state: RunState, emit: (event: ChatEvent) => void): string {
+  if (state.successfulSearches < 2) throw new Error('no-match requires two database searches');
   emit({ t: 'nomatch' });
   return JSON.stringify({ displayed: true });
 }
 
 async function runSearch(deps: RunChatDeps, input: unknown, state: RunState): Promise<string> {
   const json = await deps.executeSearchClinics(input);
-  state.matched = extractMatchedCount(json) ?? state.matched;
+  const result = extractSearchResult(json);
+  if (result) state.successfulSearches += 1;
+  state.matched = result?.count ?? state.matched;
+  for (const id of result?.clinicIds ?? []) state.searchedClinicIds.add(id);
   return json;
 }
 
@@ -293,6 +307,10 @@ async function runRecommend(
   state: RunState,
   emit: (event: ChatEvent) => void,
 ): Promise<string> {
+  const inputValue = recommendClinicsInputSchema.parse(input);
+  if (inputValue.clinics.some((clinic) => !state.searchedClinicIds.has(clinic.id))) {
+    throw new Error('recommendation id was not returned by search');
+  }
   const { json, recommendations } = await deps.executeRecommendClinics(input);
   if (recommendations.length > 0) {
     state.recommendations = recommendations;
@@ -302,12 +320,15 @@ async function runRecommend(
   return json;
 }
 
-function extractMatchedCount(json: string): number | null {
+function extractSearchResult(json: string): { count: number; clinicIds: string[] } | null {
   try {
-    const parsed = z.object({ count: z.number() }).safeParse(JSON.parse(json));
-    return parsed.success ? parsed.data.count : null;
+    const parsed = z
+      .object({ count: z.number(), clinics: z.array(z.object({ id: z.string().uuid() })) })
+      .safeParse(JSON.parse(json));
+    return parsed.success
+      ? { count: parsed.data.count, clinicIds: parsed.data.clinics.map((clinic) => clinic.id) }
+      : null;
   } catch {
-    // Tool output was not JSON; count is simply unknown.
     return null;
   }
 }

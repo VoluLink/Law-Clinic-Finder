@@ -10,21 +10,24 @@ import {
 
 describe(buildSystemPrompt, () => {
   it('wraps the role and the skill in their own tagged sections', () => {
-    const prompt = buildSystemPrompt('WER ICH BIN', 'WAS ICH TUE');
+    const prompt = buildSystemPrompt('WER ICH BIN', 'NUR DATENBANK', 'WAS ICH TUE');
     expect(prompt).toContain('<role>\nWER ICH BIN\n</role>');
+    expect(prompt).toContain('<grounding>\nNUR DATENBANK\n</grounding>');
     expect(prompt).toContain('<skill name="clinic-consultation">\nWAS ICH TUE\n</skill>');
   });
 
-  it('puts the role before the skill so identity frames the procedure', () => {
-    const prompt = buildSystemPrompt('ROLLE', 'ABLAUF');
-    expect(prompt.indexOf('ROLLE')).toBeLessThan(prompt.indexOf('ABLAUF'));
+  it('puts the non-editable grounding policy before the editable procedure', () => {
+    const prompt = buildSystemPrompt('ROLLE', 'DATENQUELLE', 'ABLAUF');
+    expect(prompt.indexOf('DATENQUELLE')).toBeLessThan(prompt.indexOf('ABLAUF'));
   });
 
-  it('composes the given text verbatim, without dropping either part', () => {
+  it('composes the given text verbatim, without dropping any part', () => {
     const role = 'Eine Rolle mit <Zeichen>, & Umlauten äöü.';
+    const grounding = 'Nur aktuelle Datenbankwerte.';
     const skill = 'Ein Ablauf.\nMit Zeilenumbruch.';
-    const prompt = buildSystemPrompt(role, skill);
+    const prompt = buildSystemPrompt(role, grounding, skill);
     expect(prompt).toContain(role);
+    expect(prompt).toContain(grounding);
     expect(prompt).toContain(skill);
   });
 });

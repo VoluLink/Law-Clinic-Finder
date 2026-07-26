@@ -22,7 +22,7 @@ type FormStatus = 'idle' | 'pending' | 'saved' | 'error';
  *  on save, so an incomplete form cannot be persisted. */
 type FormState = Omit<
   ChatSettings,
-  'chat_max_tokens' | 'chat_temperature' | 'chat_max_recommendations'
+  'chat_max_tokens' | 'chat_temperature' | 'chat_max_recommendations' | 'chat_grounding_policy'
 > & {
   chat_max_tokens: number | '';
   chat_temperature: number | '';

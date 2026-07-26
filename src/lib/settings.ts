@@ -10,6 +10,8 @@ export type ChatSettings = {
   chat_system_prompt: string;
   /** HOW it works a conversation — composed into the system prompt as <skill>. */
   chat_skill: string;
+  /** Non-editable evidence boundary, loaded from the DB and composed as <grounding>. */
+  chat_grounding_policy: string;
   /** Shown as a first assistant bubble; empty means no greeting. */
   chat_greeting: string;
   chat_max_recommendations: number;
@@ -32,10 +34,11 @@ const SKILL_DEFAULT_KEY = 'chat_skill_default';
 export type SettingRow = { key: string; value: unknown };
 
 /**
- * One schema per setting — the single source both the admin update payload and
- * the runtime read validate against, so the two can never drift.
+ * Editable settings share one shape between the admin payload and runtime read.
+ * The grounding policy extends only the runtime shape, so admin writes cannot
+ * weaken the database evidence boundary.
  */
-const chatSettingsShape = {
+const editableChatSettingsShape = {
   chat_model: z.string().min(1).max(100),
   chat_enabled: z.boolean(),
   chat_max_tokens: z.number().int().positive().max(MAX_CHAT_MAX_TOKENS),
@@ -46,10 +49,15 @@ const chatSettingsShape = {
   chat_max_recommendations: z.number().int().min(1).max(MAX_CHAT_RECOMMENDATIONS),
 } as const;
 
+const chatSettingsShape = {
+  ...editableChatSettingsShape,
+  chat_grounding_policy: z.string().min(1).max(20_000),
+} as const;
+
 const CHAT_SETTINGS_KEYS = Object.keys(chatSettingsShape) as (keyof ChatSettings)[];
 
 /** Admin settings editor payload. */
-export const chatSettingsUpdateSchema = z.object(chatSettingsShape);
+export const chatSettingsUpdateSchema = z.object(editableChatSettingsShape);
 
 export type ChatSettingsResult =
   { ok: true; settings: ChatSettings } | { ok: false; missing: string[] };

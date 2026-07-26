@@ -12,6 +12,7 @@ export function makeChatSettings(overrides: Partial<ChatSettings> = {}): ChatSet
     chat_temperature: 0.3,
     chat_system_prompt: 'Test-Rolle',
     chat_skill: 'Test-Ablauf',
+    chat_grounding_policy: 'Nutze nur Datenbankergebnisse.',
     chat_greeting: '',
     chat_max_recommendations: 8,
     ...overrides,

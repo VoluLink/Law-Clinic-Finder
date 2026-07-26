@@ -48,7 +48,7 @@ async function readText(stream: ReadableStream<Uint8Array>): Promise<string> {
 const userMessage = { role: 'user' as const, content: 'Mietrecht in Berlin?' };
 
 const card: ClinicRecommendation = {
-  id: 'ff000000-0000-0000-0000-000000000001',
+  id: 'ff000000-0000-4000-8000-000000000001',
   rank: 1,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Köln',
@@ -68,6 +68,24 @@ function unusedTools() {
 }
 
 describe(runChat, () => {
+  it('offers exactly the four registered database workflow tools to the model', async () => {
+    const stream = vi.fn().mockReturnValue(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+    };
+
+    const run = runChat(deps, settings, [userMessage]);
+    await readEvents(run.stream);
+
+    expect(stream.mock.calls[0][0].tools.map((tool: { name: string }) => tool.name)).toEqual([
+      'list_directory_terms',
+      'search_clinics',
+      'recommend_clinics',
+      'report_no_match',
+    ]);
+  });
+
   it('streams plain text and resolves the run result', async () => {
     const stream = vi.fn().mockReturnValue(
       fakeTurn([textDelta('Hallo'), textDelta(' Welt')], {
@@ -185,6 +203,60 @@ describe(runChat, () => {
     expect(secondCall.messages[2].content[0]).toMatchObject({ is_error: true });
   });
 
+  it('rejects an unregistered tool name without running a database query', async () => {
+    const toolUse = { type: 'tool_use', id: 'tool-1', name: 'read_everything', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
+    const tools = unusedTools();
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...tools,
+    };
+
+    await readEvents(runChat(deps, settings, [userMessage]).stream);
+
+    expect(tools.executeSearchClinics).not.toHaveBeenCalled();
+    expect(tools.executeRecommendClinics).not.toHaveBeenCalled();
+    expect(tools.executeListDirectoryTerms).not.toHaveBeenCalled();
+    expect(stream.mock.calls[1][0].messages[2].content[0]).toMatchObject({ is_error: true });
+  });
+
+  it('rejects a recommendation id that was not returned by a search in this run', async () => {
+    const searchUse = { type: 'tool_use', id: 'search-1', name: 'search_clinics', input: {} };
+    const recommendUse = {
+      type: 'tool_use',
+      id: 'recommend-1',
+      name: 'recommend_clinics',
+      input: {
+        clinics: [{ id: 'ff000000-0000-4000-8000-000000000099', reason: 'Nicht aus der Suche.' }],
+      },
+    };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(fakeTurn([], { content: [searchUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [recommendUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
+    const executeRecommendClinics = vi.fn();
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+      executeSearchClinics: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          count: 1,
+          clinics: [{ id: card.id }],
+        }),
+      ),
+      executeRecommendClinics,
+    };
+
+    await readEvents(runChat(deps, settings, [userMessage]).stream);
+
+    expect(executeRecommendClinics).not.toHaveBeenCalled();
+    expect(stream.mock.calls[2][0].messages[4].content[0]).toMatchObject({ is_error: true });
+  });
+
   it('stops after the tool iteration cap', async () => {
     const toolUse = { type: 'tool_use', id: 'tool-1', name: 'search_clinics', input: {} };
     const stream = vi
@@ -206,15 +278,17 @@ describe(runChat, () => {
   });
 
   it('streams the chosen clinics as a structured frame the UI can render', async () => {
-    const toolUse = {
+    const searchUse = { type: 'tool_use', id: 'search-1', name: 'search_clinics', input: {} };
+    const recommendUse = {
       type: 'tool_use',
-      id: 'tool-1',
+      id: 'recommend-1',
       name: 'recommend_clinics',
       input: { clinics: [{ id: card.id, reason: card.reason }] },
     };
     const stream = vi
       .fn()
-      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [searchUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [recommendUse], stop_reason: 'tool_use' }))
       .mockReturnValueOnce(
         fakeTurn([textDelta('Das passt zu dir:')], {
           content: [{ type: 'text', text: 'Das passt zu dir:' }],
@@ -227,6 +301,9 @@ describe(runChat, () => {
     const deps = {
       anthropic: { messages: { stream } } as unknown as AnthropicLike,
       ...unusedTools(),
+      executeSearchClinics: vi
+        .fn()
+        .mockResolvedValue(JSON.stringify({ count: 1, clinics: [{ id: card.id }] })),
       executeRecommendClinics,
     };
 
@@ -237,15 +314,17 @@ describe(runChat, () => {
   });
 
   it('routes each tool call to its own executor', async () => {
-    const toolUse = {
+    const searchUse = { type: 'tool_use', id: 'search-1', name: 'search_clinics', input: {} };
+    const recommendUse = {
       type: 'tool_use',
-      id: 'tool-1',
+      id: 'recommend-1',
       name: 'recommend_clinics',
       input: { clinics: [{ id: card.id, reason: card.reason }] },
     };
     const stream = vi
       .fn()
-      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [searchUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [recommendUse], stop_reason: 'tool_use' }))
       .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
     const executeRecommendClinics = vi
       .fn()
@@ -254,12 +333,15 @@ describe(runChat, () => {
     const deps = {
       anthropic: { messages: { stream } } as unknown as AnthropicLike,
       ...tools,
+      executeSearchClinics: vi
+        .fn()
+        .mockResolvedValue(JSON.stringify({ count: 1, clinics: [{ id: card.id }] })),
       executeRecommendClinics,
     };
 
     await readEvents(runChat(deps, settings, [userMessage]).stream);
     expect(executeRecommendClinics).toHaveBeenCalledTimes(1);
-    expect(tools.executeSearchClinics).not.toHaveBeenCalled();
+    expect(deps.executeSearchClinics).toHaveBeenCalledTimes(1);
   });
 
   it('sums token usage across every turn of the run', async () => {
@@ -292,10 +374,40 @@ describe(runChat, () => {
   });
 
   it('emits a nomatch frame when the model reports it cannot help', async () => {
-    const toolUse = { type: 'tool_use', id: 'tool-1', name: 'report_no_match', input: {} };
+    const firstSearch = { type: 'tool_use', id: 'search-1', name: 'search_clinics', input: {} };
+    const secondSearch = {
+      type: 'tool_use',
+      id: 'search-2',
+      name: 'search_clinics',
+      input: { query: 'weiter gefasst' },
+    };
+    const noMatch = { type: 'tool_use', id: 'nomatch-1', name: 'report_no_match', input: {} };
     const stream = vi
       .fn()
-      .mockReturnValueOnce(fakeTurn([], { content: [toolUse], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [firstSearch], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [secondSearch], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [noMatch], stop_reason: 'tool_use' }))
+      .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
+    const deps = {
+      anthropic: { messages: { stream } } as unknown as AnthropicLike,
+      ...unusedTools(),
+      executeSearchClinics: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          count: 0,
+          clinics: [],
+        }),
+      ),
+    };
+
+    const events = await readEvents(runChat(deps, settings, [userMessage]).stream);
+    expect(events).toContainEqual({ t: 'nomatch' });
+  });
+
+  it('rejects a no-match conclusion before two database searches', async () => {
+    const noMatch = { type: 'tool_use', id: 'nomatch-1', name: 'report_no_match', input: {} };
+    const stream = vi
+      .fn()
+      .mockReturnValueOnce(fakeTurn([], { content: [noMatch], stop_reason: 'tool_use' }))
       .mockReturnValueOnce(fakeTurn([], { content: [], stop_reason: 'end_turn' }));
     const deps = {
       anthropic: { messages: { stream } } as unknown as AnthropicLike,
@@ -303,7 +415,9 @@ describe(runChat, () => {
     };
 
     const events = await readEvents(runChat(deps, settings, [userMessage]).stream);
-    expect(events).toContainEqual({ t: 'nomatch' });
+
+    expect(events).not.toContainEqual({ t: 'nomatch' });
+    expect(stream.mock.calls[1][0].messages[2].content[0]).toMatchObject({ is_error: true });
   });
 
   it('emits no clinics frame when the model recommends only unknown ids', async () => {

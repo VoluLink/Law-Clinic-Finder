@@ -115,14 +115,19 @@ lokale Begriffslisten erkannt. Freitext-Anonymisierung kann Angaben außerhalb d
 nicht garantiert erkennen, deshalb bleibt der Hinweis bestehen, keine vollständigen Namen oder
 Kontaktdaten einzugeben.
 
-**Chat-Werkzeuge:** Das Modell hat zwei Tools. `search_clinics` liest das Verzeichnis in stabil
-sortierten Seiten mit je 100 Einträgen; `count` und `next_offset` machen auch größere Verzeichnisse
-vollständig abrufbar, lange Freitextfelder werden pro Zeile gekürzt — ohne Beratungsemail.
-`recommend_clinics` nimmt die
-eindeutigen Clinic-IDs samt Begründung entgegen — der Server schlägt jede ID in der Datenbank nach
-und sendet daraus die Karten. Alles außer der Begründung stammt damit aus der Datenbank; erfundene
-IDs fallen heraus und gleichnamige Clinics bleiben getrennt. Die E-Mail-Adresse verlässt diesen
-Server-Schritt nur als Teil der fertigen Empfehlungskarte, nie als Tool-Ergebnis für das Modell.
+**Chat-Werkzeuge:** Das Modell hat genau vier serverseitig registrierte Tools.
+`list_directory_terms` liest die tatsächlich vorhandenen Suchbegriffe aus veröffentlichten
+Verzeichniseinträgen. `search_clinics` liest das Verzeichnis in stabil sortierten Seiten mit je 100
+Einträgen; `count` und `next_offset` machen auch größere Verzeichnisse vollständig abrufbar, lange
+Freitextfelder werden pro Zeile gekürzt — ohne Beratungsemail. `recommend_clinics` akzeptiert nur
+eindeutige Clinic-IDs, die eine Suche im selben Gespräch geliefert hat; der Server schlägt jede ID
+erneut in der Datenbank nach und sendet daraus die Karten. `report_no_match` zeigt ausschließlich
+die feste Hilfe-Karte der Website und wird erst nach zwei erfolgreichen Datenbanksuchen akzeptiert.
+Unbekannte Tool-Namen werden abgewiesen und führen niemals
+ersatzweise eine Datenbankabfrage aus. Alles außer der kurzen Empfehlungsbegründung stammt damit aus
+der Datenbank; erfundene oder nicht zuvor gelesene IDs fallen heraus. Die E-Mail-Adresse verlässt
+diesen Server-Schritt nur als Teil der fertigen Empfehlungskarte, nie als Tool-Ergebnis für das
+Modell.
 
 **Pro-Clinic-Statistik:** Jede Empfehlung schreibt beim Speichern des Gesprächs ein
 `recommended`-Event nach `public.clinic_events`; Klicks auf Website/E-Mail meldet ein Beacon der
@@ -133,12 +138,14 @@ Zahlen, nicht für Admins**. Löscht ein Gespräch (DSGVO), bleibt der Zähler e
 (`conversation_id … on delete set null`). `clinic_events` wird nach 12 Monaten bereinigt (siehe
 _Datenaufbewahrung_), die Mitglieder-Statistik ist also rollierend über ein Jahr.
 
-**System-Prompt = Rolle + Ablauf:** Der System-Prompt wird zur Laufzeit aus zwei Texten
-zusammengesetzt (`buildSystemPrompt` in `src/lib/chat/prompts.ts`): `<role>` (wer der Assistent
-ist, feste Grenzen) und `<skill>` (der nummerierte Gesprächsablauf). Beide Texte leben nur in der
-Tabelle `settings` (`chat_system_prompt`/`chat_skill`) und sind unter `/admin/assistant` editierbar;
-`prompts.ts` enthält nur noch die code-seitigen Tool-Beschreibungen und die Toolbox-Referenz für das
-Admin-Panel.
+**System-Prompt = Rolle + Datengrundlage + Ablauf:** Der System-Prompt wird zur Laufzeit aus drei
+DB-Texten zusammengesetzt (`buildSystemPrompt` in `src/lib/chat/prompts.ts`): `<role>` (wer der
+Assistent ist), `<grounding>` (verbindliche Beschränkung auf aktuelle Datenbank-Tool-Ergebnisse) und
+`<skill>` (der Gesprächsablauf). Rolle und Ablauf sind unter `/admin/assistant` editierbar; die
+Grounding-Regel (`chat_grounding_policy`) wird ausschließlich per versionierter Migration gepflegt
+und kann weder im Admin-Formular noch durch einen direkten authentifizierten Supabase-Schreibzugriff
+überschrieben oder gelöscht werden. Fehlt einer der drei Werte, bleibt der Chat deaktiviert statt
+auf einen Code- oder Modellwissen-Fallback auszuweichen.
 
 **Grenzwerte des Chats** (Konstante → Datei → Wert):
 
@@ -234,7 +241,8 @@ die echte Client-IP setzen (`X-Forwarded-For`).
   Ablauf · Darstellung: Begrüßung, max. Empfehlungen). **`settings` ist die einzige Quelle — es gibt
   keinen Code-Fallback.** Die Chat-Route liest sie pro Anfrage (`parseChatSettings`), ein
   Admin-Speichern schreibt jede Zeile per Upsert, und die Änderung gilt sofort für alle Ratsuchenden.
-  Rolle und Ablauf leben nur in der DB (`chat_system_prompt`/`chat_skill`); ihre eingefrorene
+  Rolle, Ablauf und die nicht editierbare Datengrundlage leben nur in der DB
+  (`chat_system_prompt`/`chat_skill`/`chat_grounding_policy`); die eingefrorene
   Standardfassung liegt daneben (`chat_system_prompt_default`/`chat_skill_default`) und ist im Tab per
   „Auf Standard zurücksetzen" wiederherstellbar. Beide Texte werden per versionierter
   Supabase-Migration gesät; eine Code-seitige Änderung liefert eine neue Migration aus, die die

@@ -58,6 +58,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **Chatbot strikt an das Verzeichnis gebunden:** Eine verpflichtende, per RLS auch vor direkten
+  authentifizierten Admin-Schreibzugriffen geschützte DB-Einstellung untersagt Tatsachen aus
+  vortrainiertem Modellwissen. Der Server
+  bietet genau die vier dokumentierten Tools an, weist unbekannte Tool-Namen ab und akzeptiert für
+  Empfehlungen nur Clinic-IDs, die `search_clinics` im selben Gespräch tatsächlich geliefert hat;
+  die „kein Treffer"-Karte setzt zwei erfolgreiche Datenbanksuchen voraus.
 - **KI- und Datenbankgrenzen gehärtet:** Das Suchwerkzeug des Chat-Modells erhält keine
   Beratungsemail-Adressen mehr; diese werden nur bei einer konkreten, serverseitig geprüften
   Empfehlungskarte ausgegeben. Eine neue Supabase-Migration entzieht `clinics.contact_email` auch
@@ -66,7 +72,9 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   Der ältere Snapshot `clinics_backup_20260726` ist zusätzlich vollständig von Web- und
   Service-Rollen abgeschottet und erzwingt RLS ohne Richtlinie.
 - **Next.js-Sicherheitsupdate:** Next.js und `eslint-config-next` wurden auf `16.2.12` aktualisiert,
-  den aktuell verfügbaren Patchstand der verwendeten 16.2-Reihe.
+  den aktuell verfügbaren Patchstand der verwendeten 16.2-Reihe. Gepinnte transitive
+  Sicherheitsupdates für PostCSS und Sharp schließen die von Next.js noch gebündelten
+  Runtime-Schwachstellen, bis Next.js diese Versionen selbst bezieht.
 - **Admin-E-Mail-Wechsel als sichere Zugangsübertragung:** Die Kontoansicht erklärt jetzt, dass
   derselbe Auth-User samt Admin-Rolle nach Bestätigung auf die neue Adresse übertragen wird. Der
   bestehende Dual-Confirmation-Aufruf ist durch einen API-Routentest abgesichert.

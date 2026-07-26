@@ -29,6 +29,11 @@ describe(parseChatSettings, () => {
     expect(parseChatSettings(rows)).toEqual({ ok: false, missing: ['chat_system_prompt'] });
   });
 
+  it('treats a missing grounding policy as unconfigured', () => {
+    const rows = rowsFrom(makeChatSettings()).filter((row) => row.key !== 'chat_grounding_policy');
+    expect(parseChatSettings(rows)).toEqual({ ok: false, missing: ['chat_grounding_policy'] });
+  });
+
   it('treats an invalid value as unconfigured, not substituting a default', () => {
     expect(parseChatSettings(rowsWith('chat_max_tokens', 'not-a-number'))).toEqual({
       ok: false,
@@ -88,6 +93,11 @@ describe(readAssistantFormView, () => {
 });
 
 describe('chatSettingsUpdateSchema', () => {
+  it('does not let the admin form overwrite the database grounding policy', () => {
+    const parsed = chatSettingsUpdateSchema.parse(makeChatSettings());
+    expect(parsed).not.toHaveProperty('chat_grounding_policy');
+  });
+
   it('rejects max_tokens above the cost cap', () => {
     const result = chatSettingsUpdateSchema.safeParse(
       makeChatSettings({ chat_max_tokens: MAX_CHAT_MAX_TOKENS + 1 }),

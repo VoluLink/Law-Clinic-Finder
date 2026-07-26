@@ -4,14 +4,14 @@
  *
  * The assistant's role and procedure (Rolle/Ablauf) do NOT live here. They live
  * only in the `settings` table (`chat_system_prompt` / `chat_skill`), seeded by a
- * migration and edited by admins at /admin/assistant. The chat route reads them on
- * every request; if either is missing the chat is shown as unavailable rather than
- * falling back to code. To change them from the code side, ship a migration that
- * upserts those settings rows — there is no code copy to edit.
+ * migration and edited by admins at /admin/assistant. A third database row,
+ * `chat_grounding_policy`, is not admin-editable and keeps factual claims bound to
+ * current tool results. The chat route reads all three on every request; if any is
+ * missing the chat is unavailable rather than falling back to code.
  */
 
-export function buildSystemPrompt(role: string, skill: string): string {
-  return `<role>\n${role}\n</role>\n\n<skill name="clinic-consultation">\n${skill}\n</skill>`;
+export function buildSystemPrompt(role: string, grounding: string, skill: string): string {
+  return `<role>\n${role}\n</role>\n\n<grounding>\n${grounding}\n</grounding>\n\n<skill name="clinic-consultation">\n${skill}\n</skill>`;
 }
 
 /** The tool identifiers the assistant drives. Single source for the tool
