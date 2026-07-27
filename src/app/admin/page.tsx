@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 
 import { BarChart } from '@/components/ui/BarChart';
 import { MeterList } from '@/components/ui/MeterList';
@@ -16,12 +17,17 @@ import {
 } from '@/lib/admin/month-window';
 import { aggregateConversationStats, matchRate, monthWeekCounts } from '@/lib/admin/stats';
 import { formatEngagement, loadGaMetrics } from '@/lib/analytics/ga-metrics';
+import { parseMultiValue } from '@/lib/clinics/options';
 import { estimateCostUsd, formatUsd } from '@/lib/chat/usage';
 import { cn } from '@/lib/cn';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-import { ConversationsPanel, type ConversationRow } from './ConversationsPanel';
+import {
+  ConversationsPanel,
+  type ConversationRecommendation,
+  type ConversationRow,
+} from './ConversationsPanel';
 
 export const metadata: Metadata = { title: 'Dashboard – Admin' };
 
@@ -42,6 +48,19 @@ type WindowRow = {
   matched_clinic_count: number | null;
 };
 type CostRow = { input_tokens: number; output_tokens: number; model: string };
+type StoredConversationRow = Omit<ConversationRow, 'recommendations'>;
+const recommendationClinicSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  region: z.string().nullable(),
+  legal_areas: z.string().nullable(),
+  website: z.string().nullable(),
+});
+const recommendationEventSchema = z.object({
+  conversation_id: z.string().nullable(),
+  clinics: z.union([recommendationClinicSchema, z.array(recommendationClinicSchema), z.null()]),
+});
+type RecommendationEventRow = z.infer<typeof recommendationEventSchema>;
 
 function sumCostUsd(rows: CostRow[]): number {
   return rows.reduce(
@@ -94,7 +113,11 @@ async function loadDashboard(
       .lt('created_at', endIso),
   ]);
 
-  const lastSignIn = await loadLastSignInMap(admin).catch(() => new Map<string, string | null>());
+  const storedConversations = (listRes.data ?? []) as unknown as StoredConversationRow[];
+  const [lastSignIn, conversations] = await Promise.all([
+    loadLastSignInMap(admin).catch(() => new Map<string, string | null>()),
+    loadConversationRecommendations(admin, storedConversations),
+  ]);
 
   const clinics = (clinicsRes.data ?? []) as unknown as ClinicAccessRow[];
   const windowRows = (monthRows.data ?? []) as unknown as WindowRow[];
@@ -113,8 +136,56 @@ async function loadDashboard(
     matchRate: matchRate(windowRows),
     chart: monthWeekCounts(windowRows.map((row) => row.created_at)),
     areas: topAreas(windowRows),
-    conversations: (listRes.data ?? []) as unknown as ConversationRow[],
+    conversations,
   };
+}
+
+async function loadConversationRecommendations(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  conversations: StoredConversationRow[],
+): Promise<ConversationRow[]> {
+  const ids = conversations.map((row) => row.id);
+  if (ids.length === 0) return [];
+  const { data, error } = await admin
+    .from('clinic_events')
+    .select(
+      'conversation_id, clinics!clinic_events_clinic_id_fkey(id, name, region, legal_areas, website)',
+    )
+    .eq('kind', 'recommended')
+    .in('conversation_id', ids);
+  if (error) throw new Error('recommendation lookup failed');
+  const events = (data ?? []).flatMap((row) => {
+    const parsed = recommendationEventSchema.safeParse(row);
+    return parsed.success ? [parsed.data] : [];
+  });
+  const recommendations = recommendationCards(events);
+  return conversations.map((row) => ({
+    ...row,
+    recommendations: recommendations.get(row.id) ?? [],
+  }));
+}
+
+function recommendationCards(
+  rows: RecommendationEventRow[],
+): Map<string, ConversationRecommendation[]> {
+  const cards = new Map<string, ConversationRecommendation[]>();
+  for (const row of rows) {
+    if (!row.conversation_id) continue;
+    const clinics = Array.isArray(row.clinics) ? row.clinics : row.clinics ? [row.clinics] : [];
+    const clinic = clinics[0];
+    if (!clinic) continue;
+    cards.set(row.conversation_id, [
+      ...(cards.get(row.conversation_id) ?? []),
+      {
+        id: clinic.id,
+        name: clinic.name,
+        region: clinic.region,
+        legalAreas: parseMultiValue(clinic.legal_areas),
+        website: clinic.website,
+      },
+    ]);
+  }
+  return cards;
 }
 
 function topAreas(rows: WindowRow[]) {

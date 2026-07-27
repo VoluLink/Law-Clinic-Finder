@@ -146,7 +146,7 @@ describe(runChat, () => {
       type: 'tool_use',
       id: 'tool-1',
       name: 'search_clinics',
-      input: { city: 'Berlin' },
+      input: { city: 'Berlin', legal_area: 'Mietrecht' },
     };
     const stream = vi
       .fn()
@@ -168,8 +168,12 @@ describe(runChat, () => {
 
     const run = runChat(deps, settings, [userMessage]);
     expect(await readText(run.stream)).toBe('Gefunden!');
-    expect(executeSearchClinics).toHaveBeenCalledWith({ city: 'Berlin' });
-    await expect(run.result).resolves.toMatchObject({ toolCallCount: 1, matchedClinicCount: 2 });
+    expect(executeSearchClinics).toHaveBeenCalledWith({ city: 'Berlin', legal_area: 'Mietrecht' });
+    await expect(run.result).resolves.toMatchObject({
+      toolCallCount: 1,
+      matchedClinicCount: 2,
+      detectedLegalArea: 'Mietrecht',
+    });
 
     const secondCall = stream.mock.calls[1][0];
     expect(secondCall.messages).toHaveLength(3);

@@ -58,6 +58,7 @@ function buildDeps(): ChatHandlerDeps {
         transcript,
         {
           matchedClinicCount: run.matchedClinicCount,
+          detectedLegalArea: run.detectedLegalArea,
           recommendedClinicIds: run.recommendedClinicIds,
           model: run.model,
           inputTokens: run.inputTokens,

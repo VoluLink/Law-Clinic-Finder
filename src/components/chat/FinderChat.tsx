@@ -22,6 +22,7 @@ import { CHAT_RATE_LIMIT, type RateLimitScope } from '@/lib/rate-limit';
 
 import { ChatCompleted } from './ChatCompleted';
 import { ChatNoMatch } from './ChatNoMatch';
+import { ChatText } from './ChatText';
 import { ClinicRecommendations } from './ClinicRecommendations';
 import { RecommendationExport } from './RecommendationExport';
 import { collectRecommendationExport } from './recommendation-export';
@@ -282,7 +283,7 @@ function MessageBubble({ dict, message }: { dict: Dictionary; message: Message }
           )}
         >
           {!isBot && <span className="sr-only">{dict.chatYou}: </span>}
-          {message.content}
+          {isBot ? <ChatText>{message.content}</ChatText> : message.content}
         </div>
       </div>
     </div>

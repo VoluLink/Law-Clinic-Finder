@@ -19,6 +19,22 @@ const convo: ConversationRow = {
   matched_clinic_count: 1,
   message_count: 2,
   model: 'claude-haiku-4-5',
+  recommendations: [
+    {
+      id: 'clinic-1',
+      name: 'Mietrecht Law Clinic',
+      region: 'Köln',
+      legalAreas: ['Mietrecht', 'Zivilrecht'],
+      website: 'https://milcc.de/',
+    },
+    {
+      id: 'clinic-2',
+      name: 'Studentische Rechtsberatung Köln',
+      region: null,
+      legalAreas: [],
+      website: null,
+    },
+  ],
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -40,6 +56,40 @@ describe('ConversationsPanel', () => {
     await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
     expect(screen.getByRole('dialog', { name: 'Gesprächsverlauf' })).toBeInTheDocument();
     expect(screen.getByText('Ich empfehle die Mietrecht Law Clinic.')).toBeInTheDocument();
+  });
+
+  it('shows which clinics were recommended in the conversation', async () => {
+    render(<ConversationsPanel conversations={[convo]} />);
+    await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
+    expect(screen.getByText('Empfohlene Law Clinics')).toBeInTheDocument();
+    expect(screen.getByText('Mietrecht Law Clinic')).toBeInTheDocument();
+    expect(screen.getByText('Studentische Rechtsberatung Köln')).toBeInTheDocument();
+  });
+
+  it('places the recommended clinic cards after the transcript', async () => {
+    render(<ConversationsPanel conversations={[convo]} />);
+    await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
+
+    const transcript = screen.getByText('Ich empfehle die Mietrecht Law Clinic.');
+    const cards = screen.getByRole('list', { name: 'Empfohlene Law Clinics' });
+    expect(transcript.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('renders assistant emphasis in the anonymized transcript', async () => {
+    const emphasized = {
+      ...convo,
+      redacted_transcript: [
+        { role: 'user' as const, content: 'Aufenthaltsrecht in München' },
+        { role: 'assistant' as const, content: 'Die **Refugee Law Clinic Munich** passt.' },
+      ],
+    };
+
+    render(<ConversationsPanel conversations={[emphasized]} />);
+    await userEvent.click(screen.getByText('Aufenthaltsrecht in München'));
+
+    expect(screen.getByText('Refugee Law Clinic Munich')).toHaveProperty('tagName', 'STRONG');
   });
 
   it('deletes the conversation after confirmation', async () => {

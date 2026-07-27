@@ -61,7 +61,7 @@ Einstiegspunkte: `src/app/layout.tsx` (Root-Layout), `src/proxy.ts` (Rollen-Gati
 | `src/app/signup/`            | Selbstregistrierung: Verzeichnis durchsuchen → Eintrag beanspruchen oder neu                                                                                                                                                                                                                                          |
 | `src/app/auth/confirm/`      | OTP-Verifikation via `token_hash`; aktiviert den Zugang einmalig und veröffentlicht eine vollständige Clinic bei erster Einladung bzw. deren Ersatz-Magic-Link automatisch                                                                                                                                            |
 | `src/app/clinic/`            | Clinic-Bereich (Teal-Sidebar-Shell): Mein Eintrag, Statistiken (Empfehlungen/Klicks), Konto (Selbst-Löschung)                                                                                                                                                                                                         |
-| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                                                                                                                                 |
+| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer mit empfohlenen Clinic-Karten), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                                                                                                   |
 | `src/app/api/chat/`          | Streamender Claude-Tool-Use-Loop; speichert redigierte Konversationen + Empfehlungs-Events                                                                                                                                                                                                                            |
 | `src/app/api/clinic/`        | Clinic-Self-Service: eigenen Eintrag bearbeiten (`PATCH`), Konto löschen (`DELETE /account`: unpublish + Login weg)                                                                                                                                                                                                   |
 | `src/app/api/clinic-events/` | Öffentlicher Klick-Beacon (Website/E-Mail); same-origin, rate-limitiert, nur veröffentlichte Clinics, PII-frei                                                                                                                                                                                                        |
@@ -91,7 +91,8 @@ Einstiegspunkte: `src/app/layout.tsx` (Root-Layout), `src/proxy.ts` (Rollen-Gati
 **Datenfluss:** Browser → API-Route (Zod-Validierung, `requireRole`) → Supabase (Postgres + RLS)
 → Antwort. Beim Chat redigiert `/api/chat` alle Nachrichten mit lokalen, deterministischen Regeln,
 bevor die Texte die Anthropic-API erreichen. Nach Streamende redigiert `after()` das vollständige
-Transkript nochmals lokal und legt es mit deterministisch erkannten Kennzahlen ab. Das
+Transkript nochmals lokal und legt es mit Kennzahlen ab; das nachgefragte Rechtsgebiet stammt
+vorrangig aus dem validierten `search_clinics`-Filter, mit lokaler Texterkennung als Fallback. Das
 `search_clinics`-Werkzeug gibt dem Modell ausschließlich Verzeichnisdaten ohne Beratungsemails;
 eine E-Mail-Adresse wird erst für eine konkret serverseitig geprüfte Empfehlungskarte an den Browser
 gegeben.
@@ -137,6 +138,8 @@ Nutzerdaten (nur Clinic-ID, Art, Zeitstempel). Der Statistik-Tab der Clinic lies
 Zahlen, nicht für Admins**. Löscht ein Gespräch (DSGVO), bleibt der Zähler erhalten
 (`conversation_id … on delete set null`). `clinic_events` wird nach 12 Monaten bereinigt (siehe
 _Datenaufbewahrung_), die Mitglieder-Statistik ist also rollierend über ein Jahr.
+Das Admin-Dashboard liest die verknüpften `recommended`-Events zusätzlich, um im anonymisierten
+Gespräch am Ende des Verlaufs die aktuellen Karten der tatsächlich empfohlenen Clinics zu zeigen.
 
 **System-Prompt = Rolle + Datengrundlage + Ablauf:** Der System-Prompt wird zur Laufzeit aus drei
 DB-Texten zusammengesetzt (`buildSystemPrompt` in `src/lib/chat/prompts.ts`): `<role>` (wer der
@@ -232,10 +235,16 @@ die echte Client-IP setzen (`X-Forwarded-For`).
   gesucht wird. Passt eine Clinic inhaltlich, führt aber die Sprache nicht auf, wird sie trotzdem
   empfohlen — mit dem Hinweis, die Sprache direkt zu klären. Diese Regeln leben im `chat_skill`-Text
   (DB `settings`), nicht im Code.
+- **Chat-Kontext und Sucherweiterung:** Für die Empfehlung klärt der Assistent Aufenthaltsort,
+  ratsuchende Person und rechtliches Anliegen mit höchstens einer Rückfrage pro Nachricht. Erst wenn
+  die inhaltliche Suche keine passende Clinic liefert, sucht er ein zweites Mal mit weiter gefassten
+  Kriterien. Diese Regeln leben ebenfalls im DB-`chat_skill`.
 - **Chat-Stream ist NDJSON, kein Klartext.** `/api/chat` sendet eine JSON-Zeile pro Frame
   (`{"t":"text"}` bzw. `{"t":"clinics"}`, siehe `src/lib/chat/stream-protocol.ts`). Wer den Stream
   liest, muss Teilzeilen puffern — ein Frame kann über zwei Chunks brechen. Unbekannte oder
   ungültige Frames werden übersprungen, damit ein neuer Frame-Typ ältere Clients nicht bricht.
+- **Assistententext unterstützt sichere Hervorhebung.** `ChatText` rendert ausschließlich gepaarte
+  `**…**`-Marker als Fettschrift; HTML und alle anderen Markdown-Funktionen bleiben normaler Text.
 - **Abschlusszustände im Chat:** Ein `clinics`-Frame beendet die Unterhaltung erst nach dem
   Streamende und zeigt „Dieser Chat ist abgeschlossen" samt Neustart. Ein `nomatch`-Frame zeigt
   „Keine Law Clinic gefunden", die festen nächsten Schritte und den Link zum Gesamtverzeichnis.

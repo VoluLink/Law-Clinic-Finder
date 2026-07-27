@@ -91,6 +91,21 @@ describe('FinderChat', () => {
     expect(body.messages).toEqual([{ role: 'user', content: 'Ärger mit dem Vermieter in Köln' }]);
   });
 
+  it('renders assistant Markdown emphasis without showing its markers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(streamResponse('Die **Refugee Law Clinic Munich** passt.')),
+    );
+
+    renderChat();
+    await submitQuery('Ich brauche Hilfe in München');
+
+    expect(await screen.findByText('Refugee Law Clinic Munich')).toHaveProperty(
+      'tagName',
+      'STRONG',
+    );
+  });
+
   it('shows the chat input dock after the first message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
     renderChat();

@@ -3,12 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { ChatText } from '@/components/chat/ChatText';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 import type { ChatMessage } from '@/lib/chat/schema';
+
+export type ConversationRecommendation = {
+  id: string;
+  name: string;
+  region: string | null;
+  legalAreas: string[];
+  website: string | null;
+};
 
 export type ConversationRow = {
   id: string;
@@ -20,6 +30,7 @@ export type ConversationRow = {
   matched_clinic_count: number | null;
   message_count: number;
   model: string;
+  recommendations: ConversationRecommendation[];
 };
 
 function formatDate(iso: string): string {
@@ -102,6 +113,7 @@ function ConversationDetail({ row, onDelete }: { row: ConversationRow; onDelete:
           <p className="text-sm text-muted">Für dieses Gespräch wurde kein Verlauf gespeichert.</p>
         )}
       </div>
+      <RecommendationList items={row.recommendations} />
       <p className="text-xs text-muted-soft">
         Pseudonymisiert – personenbezogene Angaben werden automatisch entfernt.
       </p>
@@ -109,6 +121,84 @@ function ConversationDetail({ row, onDelete }: { row: ConversationRow; onDelete:
         Löschen
       </Button>
     </div>
+  );
+}
+
+function RecommendationList({ items }: { items: ConversationRecommendation[] }) {
+  if (items.length === 0) return null;
+  return (
+    <section className="border-t border-border pt-4" aria-labelledby="conversation-recommendations">
+      <h3 id="conversation-recommendations" className="mb-3 text-sm font-bold text-foreground">
+        Empfohlene Law Clinics
+      </h3>
+      <ol aria-label="Empfohlene Law Clinics" className="flex flex-col gap-3">
+        {items.map((clinic, index) => (
+          <RecommendationCard key={clinic.id} clinic={clinic} rank={index + 1} />
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function RecommendationCard({
+  clinic,
+  rank,
+}: {
+  clinic: ConversationRecommendation;
+  rank: number;
+}) {
+  return (
+    <li>
+      <Card className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground"
+        >
+          {rank}
+        </span>
+        <RecommendationSummary clinic={clinic} />
+      </Card>
+    </li>
+  );
+}
+
+function RecommendationSummary({ clinic }: { clinic: ConversationRecommendation }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h4 className="font-extrabold text-primary">{clinic.name}</h4>
+        {clinic.region && <span className="text-sm text-muted-soft">{clinic.region}</span>}
+      </div>
+      <RecommendationAreas areas={clinic.legalAreas} />
+      <RecommendationWebsite website={clinic.website} />
+    </div>
+  );
+}
+
+function RecommendationAreas({ areas }: { areas: string[] }) {
+  if (areas.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {areas.map((area) => (
+        <Badge key={area} variant="neutral">
+          {area}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function RecommendationWebsite({ website }: { website: string | null }) {
+  if (!website) return null;
+  return (
+    <a
+      href={website}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 inline-flex text-sm font-bold text-primary hover:text-primary-hover"
+    >
+      Zur Website <Icon name="arrow-right" className="ms-1 mt-0.5 h-3.5 w-3.5" />
+    </a>
   );
 }
 
@@ -127,7 +217,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             : 'rounded-es-[4px] border border-border bg-surface text-foreground',
         )}
       >
-        {message.content}
+        {isUser ? message.content : <ChatText>{message.content}</ChatText>}
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ const transcript = [
 ];
 const run = {
   matchedClinicCount: 2,
+  detectedLegalArea: 'Arbeitsrecht',
   recommendedClinicIds: [] as string[],
   model: 'claude-haiku-4-5-20251001',
   inputTokens: 1200,
@@ -45,7 +46,7 @@ describe(persistConversation, () => {
       p_session_id: sessionId,
       p_redacted_transcript: transcript,
       p_redaction_status: 'ok',
-      p_detected_legal_area: 'Mietrecht',
+      p_detected_legal_area: 'Arbeitsrecht',
       p_detected_city: 'Berlin',
       p_matched_clinic_count: 2,
       p_message_count: 2,
@@ -85,6 +86,15 @@ describe(persistConversation, () => {
     expect(rpc).toHaveBeenCalledWith(
       'record_conversation',
       expect.objectContaining({ p_recommended_clinic_ids: ['a1', 'b2'] }),
+    );
+  });
+
+  it('falls back to the locally detected area when no search area was captured', async () => {
+    const { deps, rpc } = createDeps();
+    await persistConversation(deps, transcript, { ...run, detectedLegalArea: null }, sessionId);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_conversation',
+      expect.objectContaining({ p_detected_legal_area: 'Mietrecht' }),
     );
   });
 

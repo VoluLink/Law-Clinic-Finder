@@ -54,6 +54,7 @@ export type RunChatDeps = {
 export type ChatRunResult = {
   assistantText: string;
   matchedClinicCount: number | null;
+  detectedLegalArea: string | null;
   toolCallCount: number;
   recommendations: ClinicRecommendation[];
   /** Distinct directory ids recommended across the whole run — for stats. */
@@ -106,6 +107,7 @@ type RunState = {
   text: string;
   toolCalls: number;
   matched: number | null;
+  detectedLegalArea: string | null;
   successfulSearches: number;
   searchedClinicIds: Set<string>;
   recommendations: ClinicRecommendation[];
@@ -163,6 +165,7 @@ async function driveConversation(
     text: '',
     toolCalls: 0,
     matched: null,
+    detectedLegalArea: null,
     successfulSearches: 0,
     searchedClinicIds: new Set(),
     recommendations: [],
@@ -189,6 +192,7 @@ async function driveConversation(
   return {
     assistantText: state.text,
     matchedClinicCount: state.matched,
+    detectedLegalArea: state.detectedLegalArea,
     toolCallCount: state.toolCalls,
     recommendations: state.recommendations,
     recommendedClinicIds: [...state.recommendedIds],
@@ -305,8 +309,16 @@ async function runSearch(deps: RunChatDeps, input: unknown, state: RunState): Pr
   const result = extractSearchResult(json);
   if (result) state.successfulSearches += 1;
   state.matched = result?.count ?? state.matched;
+  captureLegalArea(input, result !== null, state);
   for (const id of result?.clinicIds ?? []) state.searchedClinicIds.add(id);
   return json;
+}
+
+function captureLegalArea(input: unknown, searchSucceeded: boolean, state: RunState): void {
+  if (!searchSucceeded || state.detectedLegalArea) return;
+  const parsed = searchClinicsInputSchema.safeParse(input);
+  const legalArea = parsed.success ? parsed.data.legal_area?.trim() : undefined;
+  if (legalArea) state.detectedLegalArea = legalArea;
 }
 
 /** Emits the cards mid-stream, so they appear with the reply rather than after it. */

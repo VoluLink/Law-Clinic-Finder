@@ -13,6 +13,7 @@ export type PersistDeps = {
 
 export type PersistRunInfo = {
   matchedClinicCount: number | null;
+  detectedLegalArea: string | null;
   recommendedClinicIds: string[];
   model: string;
   inputTokens: number;
@@ -37,7 +38,7 @@ export async function persistConversation(
     p_session_id: sessionId,
     p_redacted_transcript: redacted?.transcript ?? null,
     p_redaction_status: outcome.status,
-    p_detected_legal_area: redacted?.legalArea ?? null,
+    p_detected_legal_area: run.detectedLegalArea ?? redacted?.legalArea ?? null,
     p_detected_city: redacted?.city ?? null,
     p_matched_clinic_count: run.matchedClinicCount,
     p_message_count: transcript.length,

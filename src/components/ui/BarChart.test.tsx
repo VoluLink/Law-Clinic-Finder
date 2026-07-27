@@ -20,6 +20,12 @@ describe('BarChart', () => {
     expect(screen.getByLabelText('W1: 2')).toHaveStyle({ height: `${(2 / 6) * 100}%` });
   });
 
+  it('renders every count as visible text', () => {
+    render(<BarChart bars={bars} />);
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
+  });
+
   it('paints the most recent bar in the primary petrol', () => {
     render(<BarChart bars={bars} />);
     expect(screen.getByLabelText('W2: 6')).toHaveClass('bg-primary');
