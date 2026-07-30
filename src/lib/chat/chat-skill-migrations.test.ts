@@ -6,6 +6,10 @@ const BROADER_SEARCH_MIGRATION =
   'supabase/migrations/20260727183000_broaden_chat_legal_area_search.sql';
 const REPLACEMENT_INSTRUCTIONS_MIGRATION =
   'supabase/migrations/20260727200000_replace_chat_instructions.sql';
+const LEGAL_AREA_FIT_MIGRATION =
+  'supabase/migrations/20260730120000_calibrate_chat_legal_area_fit.sql';
+const LANGUAGE_INQUIRY_REMOVAL_MIGRATION =
+  'supabase/migrations/20260730123000_remove_language_person_inquiry.sql';
 
 const EXPECTED_ROLE = `Du bist Assistent beim Dachverband aller Studentischen Rechtsberatungen ("Law Clinics") in Deutschland ("Law Clinics Deutschland e.V."). Law Clinics sind Vereine, in denen Jurastudenten kostenlose Rechtsberatung für Menschen anbieten. Die Jurastudenten werden dabei immer von Rechtsanwälten unterstützt.
 Der Dachverband hat eine Webseite eingerichtet auf der Hilfesuchende ("Mandanten") in einem Chatbot ihr Problem beschreiben können. Ein AI Chatbot schlägt dann passende Law Clinics vor, mit denen sich der Hilfesuchende in Verbindung setzen kann.
@@ -81,6 +85,88 @@ describe('replacement chat instructions migration', () => {
         "'chat_skill'",
         "'chat_skill_default'",
       ],
+    });
+  });
+});
+
+describe('legal-area fit calibration migration', () => {
+  function readUpdatedPrompt(tag: 'role' | 'skill'): string | undefined {
+    return extractPrompt(readFileSync(LEGAL_AREA_FIT_MIGRATION, 'utf8'), tag);
+  }
+
+  it('updates all live and reset-baseline instructions', () => {
+    const migration = readFileSync(LEGAL_AREA_FIT_MIGRATION, 'utf8');
+    expect(migration.match(/'chat_(?:system_prompt|skill)(?:_default)?'/g)).toEqual([
+      "'chat_system_prompt'",
+      "'chat_system_prompt_default'",
+      "'chat_skill'",
+      "'chat_skill_default'",
+    ]);
+  });
+
+  it('requires broad legal areas without illustrative classifications', () => {
+    const skill = readUpdatedPrompt('skill');
+    expect({
+      hasBroadMappingRule: skill?.match(
+        /allgemeinen, etablierten Rechtsgebieten[\s\S]*keine neue, engere Bezeichnung/,
+      )?.[0],
+      hasIllustrativeClassification: /z\.\s*B\.|zum Beispiel|Sportverein/i.test(skill ?? ''),
+    }).toEqual({
+      hasBroadMappingRule: expect.any(String),
+      hasIllustrativeClassification: false,
+    });
+  });
+
+  it('recommends clinics with low or medium legal-area doubt but not high doubt', () => {
+    const skill = readUpdatedPrompt('skill');
+    expect(skill).toMatch(
+      /Bei geringen oder mittleren Zweifeln[^.]*empfiehlst du die Clinic[\s\S]*Bei hohen Zweifeln[^.]*empfiehlst du sie nicht/,
+    );
+  });
+
+  it('limits the doubt scale to legal-area fit', () => {
+    const skill = readUpdatedPrompt('skill');
+    expect(skill).toContain(
+      'Diese Zweifelsskala gilt AUSSCHLIESSLICH für die Rechtsgebiet-Passung.',
+    );
+  });
+
+  it('allows a no-match result when no directory legal area fits', () => {
+    const skill = readUpdatedPrompt('skill');
+    expect(skill).toContain(
+      'Keines der im Verzeichnis vorhandenen Rechtsgebiete passt mit geringen oder mittleren Zweifeln',
+    );
+  });
+
+  it('narrows the general no-recommendation language', () => {
+    const role = readUpdatedPrompt('role');
+    expect({
+      hasScopedRule: role?.includes(
+        'Für die inhaltliche Rechtsgebiet-Passung gelten ausschließlich die Zweifel-Regeln im Ablauf.',
+      ),
+      hasBlanketRule: role?.includes(
+        'Lieber gibst du keine als schlechte oder nur unvollständige Vorschläge ab.',
+      ),
+    }).toEqual({ hasScopedRule: true, hasBlanketRule: false });
+  });
+});
+
+describe('language inquiry removal migration', () => {
+  it('removes the other-person language inquiry from live and reset-baseline instructions', () => {
+    const migration = readFileSync(LANGUAGE_INQUIRY_REMOVAL_MIGRATION, 'utf8');
+    expect({
+      keys: migration.match(/'chat_(?:system_prompt|skill)(?:_default)?'/g),
+      removedRule: migration.includes(
+        'Nur wenn erkennbar für eine andere Person gefragt wird, deren Sprache abweichen könnte,',
+      ),
+    }).toEqual({
+      keys: [
+        "'chat_system_prompt'",
+        "'chat_system_prompt_default'",
+        "'chat_skill'",
+        "'chat_skill_default'",
+      ],
+      removedRule: true,
     });
   });
 });

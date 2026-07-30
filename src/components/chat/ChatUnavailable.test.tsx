@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { de } from '@/lib/i18n/locales/de';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 import { ChatUnavailable } from './ChatUnavailable';
+
+const de = getDictionary('de');
 
 describe('ChatUnavailable', () => {
   it('shows the unavailable title and the try-again body', () => {

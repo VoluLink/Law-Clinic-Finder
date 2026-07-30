@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Dictionary } from '../dictionary';
-import { de } from './de';
+import { getDictionary } from '../dictionary';
 import { fa } from './fa';
 import { fr } from './fr';
 import { ku } from './ku';
@@ -10,7 +9,7 @@ import { tr } from './tr';
 import { uk } from './uk';
 
 type RegisterGuard = {
-  dict: Dictionary;
+  strings: Record<string, string>;
   // Formal second-person pronouns/possessives that must never appear.
   formalWords: string[];
   // Optional formal verb/possessive suffixes (Turkish -ınız / -siniz family).
@@ -25,13 +24,14 @@ type RegisterGuard = {
 // English have no such pronoun split and are therefore not guarded here.
 const GUARDS: Record<string, RegisterGuard> = {
   de: {
-    dict: de,
+    // The German-only landing copy ships to every locale, so it is guarded here.
+    strings: getDictionary('de'),
     formalWords: ['Sie', 'Ihr', 'Ihre', 'Ihren', 'Ihrem', 'Ihrer', 'Ihres', 'Ihnen'],
     caseSensitive: true,
   },
-  fr: { dict: fr, formalWords: ['vous', 'votre', 'vos', 'veuillez'] },
+  fr: { strings: fr, formalWords: ['vous', 'votre', 'vos', 'veuillez'] },
   ru: {
-    dict: ru,
+    strings: ru,
     formalWords: [
       'вы',
       'вас',
@@ -51,7 +51,7 @@ const GUARDS: Record<string, RegisterGuard> = {
     ],
   },
   uk: {
-    dict: uk,
+    strings: uk,
     formalWords: [
       'ви',
       'вас',
@@ -70,16 +70,16 @@ const GUARDS: Record<string, RegisterGuard> = {
     ],
   },
   tr: {
-    dict: tr,
+    strings: tr,
     formalWords: ['siz', 'sizin', 'size', 'sizi', 'sizden', 'sizler'],
     formalSuffix: /(ınız|iniz|unuz|ünüz|sınız|siniz|sunuz|sünüz)$/u,
   },
-  fa: { dict: fa, formalWords: ['شما'] },
-  ku: { dict: ku, formalWords: ['hûn', 'we', 'hûne'] },
+  fa: { strings: fa, formalWords: ['شما'] },
+  ku: { strings: ku, formalWords: ['hûn', 'we', 'hûne'] },
 };
 
-function wordsOf(dict: Dictionary, caseSensitive: boolean): string[] {
-  const joined = Object.values(dict).join(' ');
+function wordsOf(strings: Record<string, string>, caseSensitive: boolean): string[] {
+  const joined = Object.values(strings).join(' ');
   const normalized = caseSensitive ? joined : joined.toLowerCase();
   return normalized.split(/[^\p{L}]+/u).filter(Boolean);
 }
@@ -87,7 +87,7 @@ function wordsOf(dict: Dictionary, caseSensitive: boolean): string[] {
 describe('locale register: informal address only', () => {
   for (const [lang, guard] of Object.entries(GUARDS)) {
     it(`${lang} uses no formal second-person forms`, () => {
-      const words = wordsOf(guard.dict, guard.caseSensitive ?? false);
+      const words = wordsOf(guard.strings, guard.caseSensitive ?? false);
       const forbidden = new Set(guard.formalWords);
       const found = words.filter(
         (word) => forbidden.has(word) || (guard.formalSuffix?.test(word) ?? false),

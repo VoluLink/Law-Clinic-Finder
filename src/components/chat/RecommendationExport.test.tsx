@@ -3,9 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ClinicRecommendation } from '@/lib/chat/stream-protocol';
-import { de } from '@/lib/i18n/locales/de';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 import { RecommendationExport } from './RecommendationExport';
+
+const de = getDictionary('de');
 
 const pdfMocks = vi.hoisted(() => ({
   html: vi.fn().mockResolvedValue(undefined),

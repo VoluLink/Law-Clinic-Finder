@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ClinicRecommendation } from '@/lib/chat/stream-protocol';
-import { de } from '@/lib/i18n/locales/de';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 import { buildRecommendationText, collectRecommendationExport } from './recommendation-export';
+
+const de = getDictionary('de');
 
 const firstClinic: ClinicRecommendation = {
   id: 'ff000000-0000-0000-0000-000000000001',

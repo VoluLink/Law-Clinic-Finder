@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { estimateCostUsd, formatUsd } from './usage';
+import { estimateCostUsd, formatUsd, formatUsdPrecise, isPricedModel } from './usage';
 
 describe(estimateCostUsd, () => {
   it('prices Haiku by input and output tokens', () => {
@@ -17,8 +17,23 @@ describe(estimateCostUsd, () => {
   });
 });
 
+describe(isPricedModel, () => {
+  it('separates a priced model from one whose 0 only means unknown', () => {
+    expect({
+      haiku: isPricedModel('claude-haiku-4-5'),
+      unknown: isPricedModel('some-other-model'),
+    }).toEqual({ haiku: true, unknown: false });
+  });
+});
+
 describe(formatUsd, () => {
   it('formats to two decimals with a dollar sign', () => {
     expect(formatUsd(42.5)).toBe('$ 42,50');
+  });
+});
+
+describe(formatUsdPrecise, () => {
+  it('keeps a single chat below a cent readable', () => {
+    expect(formatUsdPrecise(0.0144)).toBe('$ 0,0144');
   });
 });

@@ -30,6 +30,8 @@
   /* Recommendation cards: legal-area chips and the lighter meta text on them. */
   --chip: #eef4f4;
   --muted-soft: #7a949b;
+  /* Height of the sticky landing nav; the full-height chat sizes against it. */
+  --nav-h: 78px;
 }
 
 @theme inline {

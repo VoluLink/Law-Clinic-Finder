@@ -61,7 +61,7 @@ Einstiegspunkte: `src/app/layout.tsx` (Root-Layout), `src/proxy.ts` (Rollen-Gati
 | `src/app/signup/`            | Selbstregistrierung: Verzeichnis durchsuchen → Eintrag beanspruchen oder neu                                                                                                                                                                                                                                          |
 | `src/app/auth/confirm/`      | OTP-Verifikation via `token_hash`; aktiviert den Zugang einmalig und veröffentlicht eine vollständige Clinic bei erster Einladung bzw. deren Ersatz-Magic-Link automatisch                                                                                                                                            |
 | `src/app/clinic/`            | Clinic-Bereich (Teal-Sidebar-Shell): Mein Eintrag, Statistiken (Empfehlungen/Klicks), Konto (Selbst-Löschung)                                                                                                                                                                                                         |
-| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer mit empfohlenen Clinic-Karten), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                                                                                                   |
+| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer mit API-Kosten und empfohlenen Clinic-Karten), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                                                                                    |
 | `src/app/api/chat/`          | Streamender Claude-Tool-Use-Loop; speichert redigierte Konversationen + Empfehlungs-Events                                                                                                                                                                                                                            |
 | `src/app/api/clinic/`        | Clinic-Self-Service: eigenen Eintrag bearbeiten (`PATCH`), Konto löschen (`DELETE /account`: unpublish + Login weg)                                                                                                                                                                                                   |
 | `src/app/api/clinic-events/` | Öffentlicher Klick-Beacon (Website/E-Mail); same-origin, rate-limitiert, nur veröffentlichte Clinics, PII-frei                                                                                                                                                                                                        |
@@ -181,6 +181,12 @@ die echte Client-IP setzen (`X-Forwarded-For`).
 - **Sprachen:** Der öffentliche Bereich liefert 9 Sprachen (Standard Deutsch; RTL für `ar`/`fa`)
   aus `src/lib/i18n/`. Login, Signup, Clinic- und Admin-Bereich bleiben deutsch. Code, Bezeichner
   und Kommentare sind englisch.
+- **Nur-deutsche Landing-Texte:** Das Wörterbuch ist zweigeteilt. `Translations` sind die Schlüssel,
+  die jede Locale-Datei selbst liefert; `GermanOnly` sind die Texte, die in jeder Sprache deutsch
+  bleiben (Suchfeld-Platzhalter, KI-Hinweis, „So funktioniert diese Website", FAQ-Einträge zur
+  studentischen Rechtsberatung). Sie stehen einmal in `deOnly` (`locales/de.ts`); `getDictionary`
+  mischt sie über jede Locale. Locale-Dateien können diese Schlüssel nicht deklarieren — eine
+  Übersetzung kann die deutsche Fassung also nicht überschreiben.
 - **Datenbank-Rechte:** `anon` und `authenticated` erhalten ausschließlich explizite,
   spaltenweise Grants für die Directory-Tabelle, nie tabellenweite — ein Table-Grant hebt
   spaltenweise Revokes stillschweigend auf. `clinics.contact_email` ist für beide Rollen nicht
@@ -230,21 +236,37 @@ die echte Client-IP setzen (`X-Forwarded-For`).
   in einem eigenen Bereich (`max-h`, `overflow-auto`) mit fixierter Kopfzeile und fixierter
   Namensspalte (`position: sticky`); der Veröffentlichen-Schalter richtet sich stets nach dem
   gespeicherten Eintrag — auch im Bearbeiten-Modus, nicht nach ungespeicherten Entwürfen.
-- **Chat-Sprache:** Der Assistent fragt die Sprache der ratsuchenden Person nicht ab, sondern leitet
-  sie aus der Nachrichtensprache ab; nachgefragt wird nur, wenn erkennbar für eine andere Person
-  gesucht wird. Passt eine Clinic inhaltlich, führt aber die Sprache nicht auf, wird sie trotzdem
-  empfohlen — mit dem Hinweis, die Sprache direkt zu klären. Diese Regeln leben im `chat_skill`-Text
-  (DB `settings`), nicht im Code.
+- **Chat-Sprache:** Der Assistent leitet die Sprache der ratsuchenden Person ausschließlich aus der
+  Nachrichtensprache ab und stellt dazu keine Rückfrage. Passt eine Clinic inhaltlich, führt aber die
+  Sprache nicht auf, wird sie trotzdem empfohlen — mit dem Hinweis, die Sprache direkt zu klären.
+  Diese Regeln leben im `chat_skill`-Text (DB `settings`), nicht im Code.
 - **Chat-Kontext und Sucherweiterung:** Für die Empfehlung klärt der Assistent Aufenthaltsort,
-  ratsuchende Person und rechtliches Anliegen mit höchstens einer Rückfrage pro Nachricht. Erst wenn
-  die inhaltliche Suche keine passende Clinic liefert, sucht er ein zweites Mal mit weiter gefassten
-  Kriterien. Diese Regeln leben ebenfalls im DB-`chat_skill`.
+  ratsuchende Person und rechtliches Anliegen mit höchstens einer Rückfrage pro Nachricht. Den
+  Sachverhalt ordnet er allgemeinen, etablierten Rechtsgebieten aus dem aktuellen Verzeichnis zu,
+  ohne aus dem Kontext neue enge Rechtsgebietsbezeichnungen zu bilden. Erst wenn die inhaltliche
+  Suche keine passende Clinic liefert, sucht er ein zweites Mal mit weiter gefassten Kriterien.
+  Geringe und mittlere Zweifel an der Rechtsgebiet-Passung führen zu einer Empfehlung (mittlere mit
+  transparentem Prüfhinweis), hohe Zweifel nicht; diese Skala gilt ausschließlich für das
+  Rechtsgebiet. Passt kein im Verzeichnis vorhandenes Rechtsgebiet ausreichend, darf der Assistent
+  dies nach den vorgeschriebenen Suchen als Kein-Treffer-Ergebnis ausgeben. Diese Regeln leben
+  ebenfalls im DB-`chat_skill`.
 - **Chat-Stream ist NDJSON, kein Klartext.** `/api/chat` sendet eine JSON-Zeile pro Frame
   (`{"t":"text"}` bzw. `{"t":"clinics"}`, siehe `src/lib/chat/stream-protocol.ts`). Wer den Stream
   liest, muss Teilzeilen puffern — ein Frame kann über zwei Chunks brechen. Unbekannte oder
   ungültige Frames werden übersprungen, damit ein neuer Frame-Typ ältere Clients nicht bricht.
 - **Assistententext unterstützt sichere Hervorhebung.** `ChatText` rendert ausschließlich gepaarte
   `**…**`-Marker als Fettschrift; HTML und alle anderen Markdown-Funktionen bleiben normaler Text.
+- **Zwei Stufen des Finder-Chats:** `FinderChat` zeigt bis zur ersten Nachricht die Suchkarte
+  (unverändert), danach ein bildschirmhohes Panel (`h-[calc(100dvh-var(--nav-h)-1.5rem)]`, Flex-Spalte,
+  Nachrichtenliste `min-h-0 flex-1`). Es zieht sich beim Öffnen per `scrollIntoView` unter die
+  klebende Navigation (`scroll-mt-[var(--nav-h)]`); Überschrift und Untertitel der Startseite bleiben
+  in voller Größe darüber stehen und sind durch Hochscrollen weiter erreichbar. Die Nav-Höhe ist der
+  Token `--nav-h` — beide Stellen lesen ihn, nie einen Rohwert.
+- **Kosten pro Gespräch im Drawer:** Neben „Rechtsgebiet" und „Treffer" steht die API-Kostenschätzung
+  dieses einen Gesprächs, gerechnet aus den auf der Zeile summierten Tokens (`input_tokens`/
+  `output_tokens`) und dem Preis des Modells. Sie zeigt vier Nachkommastellen (`formatUsdPrecise`),
+  weil ein einzelner Chat weit unter einem Cent liegt. Ist das Modell nicht in `PRICING` hinterlegt,
+  steht dort „unbekannt" statt einer erfundenen Null.
 - **Abschlusszustände im Chat:** Ein `clinics`-Frame beendet die Unterhaltung erst nach dem
   Streamende und zeigt „Dieser Chat ist abgeschlossen" samt Neustart. Ein `nomatch`-Frame zeigt
   „Keine Law Clinic gefunden", die festen nächsten Schritte und den Link zum Gesamtverzeichnis.

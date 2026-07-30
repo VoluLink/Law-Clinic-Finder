@@ -2,9 +2,11 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { ClinicRecommendation } from '@/lib/chat/stream-protocol';
-import { de } from '@/lib/i18n/locales/de';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 import { ClinicRecommendations } from './ClinicRecommendations';
+
+const de = getDictionary('de');
 
 const withEmail: ClinicRecommendation = {
   id: 'ff000000-0000-0000-0000-000000000001',

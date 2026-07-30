@@ -8,10 +8,12 @@ import {
   type ChatEvent,
   type ClinicRecommendation,
 } from '@/lib/chat/stream-protocol';
-import { de } from '@/lib/i18n/locales/de';
-import { en } from '@/lib/i18n/locales/en';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 import { FinderChat } from './FinderChat';
+
+const de = getDictionary('de');
+const en = getDictionary('en');
 
 const card: ClinicRecommendation = {
   id: 'ff000000-0000-0000-0000-000000000001',
@@ -55,7 +57,7 @@ function limitResponse(scope: 'minute' | 'day'): Response {
 }
 
 function renderChat() {
-  render(<FinderChat dict={de} rtl={false} />);
+  return render(<FinderChat dict={de} rtl={false} />);
 }
 
 async function submitQuery(text: string) {
@@ -65,6 +67,7 @@ async function submitQuery(text: string) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('FinderChat', () => {
@@ -73,6 +76,14 @@ describe('FinderChat', () => {
     expect(screen.getByLabelText(de.searchLabel)).toHaveAttribute(
       'maxlength',
       String(MAX_CHAT_MESSAGE_CHARS),
+    );
+  });
+
+  it('puts the AI disclaimer in the same row as the search button', () => {
+    renderChat();
+    const disclaimer = screen.getByText(de.aiDisclaimer);
+    expect(disclaimer.parentElement).toContainElement(
+      screen.getByRole('button', { name: de.searchBtn }),
     );
   });
 
@@ -111,6 +122,47 @@ describe('FinderChat', () => {
     renderChat();
     await submitQuery('Meine Frage');
     expect(await screen.findByLabelText(de.chatPlaceholder)).toBeInTheDocument();
+  });
+
+  it('sizes the chat panel to the viewport once the chat starts', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    const { container } = renderChat();
+    await submitQuery('Meine Frage');
+
+    await screen.findByText('Antwort');
+    expect(container.querySelector('[data-chat-active]')).toHaveClass(
+      'flex',
+      'flex-col',
+      'h-[calc(100dvh-var(--nav-h)-1.5rem)]',
+    );
+  });
+
+  it('lets the message list fill the panel instead of a fixed-height box', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    const scroller = (await screen.findByText('Antwort')).closest('.overflow-y-auto');
+    expect(scroller).toHaveClass('min-h-0', 'flex-1');
+  });
+
+  it('scrolls the chat panel under the sticky nav when it opens', async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    await screen.findByText('Antwort');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
+
+  it('titles the chat panel with the product name', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    renderChat();
+    expect(screen.queryByText('Law Clinic Finder')).not.toBeInTheDocument();
+
+    await submitQuery('Meine Frage');
+    expect(await screen.findByText('Law Clinic Finder')).toBeInTheDocument();
   });
 
   it('shows the minute limit banner and restores the message into the input', async () => {

@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { ChatUnavailable } from '@/components/chat/ChatUnavailable';
 import { FinderChat } from '@/components/chat/FinderChat';
+import { BrandLine } from '@/components/layout/BrandLine';
 import { FaqAccordion } from '@/components/layout/FaqAccordion';
 import { Footer } from '@/components/layout/Footer';
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
@@ -63,7 +64,7 @@ const CONTAINER = 'mx-auto w-full max-w-[1180px] px-5 sm:px-8';
 function Nav({ dict, lang }: { dict: Dictionary; lang: Lang }) {
   return (
     <nav className="sticky top-0 z-50 border-b border-primary/10 bg-background/90 backdrop-blur-md">
-      <div className={`${CONTAINER} flex h-[78px] items-center justify-between`}>
+      <div className={`${CONTAINER} flex h-[var(--nav-h)] items-center justify-between`}>
         <Link href="#top" aria-label="Law Clinics Deutschland">
           <Wordmark />
         </Link>
@@ -104,9 +105,7 @@ function Hero({
     <section id="top" className="pt-12 pb-10 sm:pt-[72px]">
       <div className={CONTAINER}>
         <div className="mx-auto max-w-[760px] text-center">
-          <div className="mb-4 text-sm font-bold tracking-[0.16em] text-primary/65 uppercase">
-            Law Clinic Finder
-          </div>
+          <BrandLine className="mb-4" />
           <h1 className="text-[clamp(38px,5vw,64px)] leading-[1.04] font-extrabold tracking-tight text-primary">
             {dict.heroTitle}
           </h1>
@@ -162,11 +161,13 @@ function StepsSection({ dict }: { dict: Dictionary }) {
 
 function FaqSection({ dict }: { dict: Dictionary }) {
   const items = [
-    { question: dict.faq1Q, answer: dict.faq1A },
-    { question: dict.faq2Q, answer: dict.faq2A },
-    { question: dict.faq3Q, answer: dict.faq3A },
-    { question: dict.faq4Q, answer: dict.faq4A },
-    { question: dict.faq5Q, answer: dict.faq5A },
+    { question: dict.faqWhatIsQ, answer: dict.faqWhatIsA },
+    { question: dict.faqCostQ, answer: dict.faqCostA },
+    { question: dict.faqWhoAdvisesQ, answer: dict.faqWhoAdvisesA },
+    { question: dict.faqConfidentialQ, answer: dict.faqConfidentialA },
+    { question: dict.faqCourtQ, answer: dict.faqCourtA },
+    { question: dict.faqWhyStudentsQ, answer: dict.faqWhyStudentsA },
+    { question: dict.faqWhoBenefitsQ, answer: dict.faqWhoBenefitsA },
   ];
   return (
     <section id="faq" className="py-14 sm:py-[90px]">

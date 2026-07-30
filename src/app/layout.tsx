@@ -37,7 +37,7 @@ export default async function RootLayout({
     <html
       lang={lang}
       dir={dirFor(lang)}
-      className={`${hankenGrotesk.variable} ${notoSansArabic.variable} h-full antialiased`}
+      className={`${hankenGrotesk.variable} ${notoSansArabic.variable} h-full antialiased motion-safe:scroll-smooth`}
     >
       <head>
         {fontHref && <link rel="stylesheet" href={fontHref} />}

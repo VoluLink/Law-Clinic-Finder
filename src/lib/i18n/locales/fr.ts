@@ -1,6 +1,6 @@
-import type { Dictionary } from '../dictionary';
+import type { Translations } from '../dictionary';
 
-export const fr: Dictionary = {
+export const fr: Translations = {
   navSo: 'Comment ça marche',
   navFaq: 'Questions fréquentes',
   navCta: 'Inscris ta Law Clinic',
@@ -9,41 +9,17 @@ export const fr: Dictionary = {
   heroSub:
     'Décris ton problème juridique avec tes propres mots. Nous trouvons la consultation juridique étudiante qu’il te faut – gratuite et confidentielle.',
   searchLabel: 'De quoi s’agit-il ?',
-  searchPlaceholder:
-    'Par exemple : Mon propriétaire a résilié mon bail sans préavis car j’aurais payé le loyer trop tard. Je ne sais pas si c’est permis ni quoi faire maintenant.',
   searchBtn: 'Trouver une law clinic adaptée',
-  soHeading: 'Comment fonctionnent les law clinics',
-  soIntro:
-    'Les law clinics sont des consultations juridiques étudiantes dans les universités. Des étudiants avancés en droit te conseillent – toujours encadrés par des avocats expérimentés.',
-  step1Title: 'Des étudiants te conseillent',
-  step1Text:
-    'Des étudiants avancés en droit prennent le temps d’étudier ton cas avec des connaissances juridiques actuelles.',
-  step2Title: 'Sous supervision professionnelle',
-  step2Text:
-    'Chaque consultation est vérifiée par des avocats agréés ou des enseignants – pour des informations fiables (§ 6 RDG).',
-  step3Title: 'Gratuit et confidentiel',
-  step3Text:
-    'La consultation est toujours gratuite et toutes les personnes impliquées sont tenues à la confidentialité.',
-  step4Title: 'Première orientation',
-  step4Text:
-    'Tu obtiens une première évaluation juridique et découvres tes options et prochaines étapes.',
   faqHeading: 'Questions fréquentes',
-  faqSub: 'Beaucoup se posent ces questions avant d’aller dans une law clinic.',
-  faq1Q: 'Combien coûte la consultation ?',
-  faq1A:
+  faqCostQ: 'Combien coûte la consultation ?',
+  faqCostA:
     'Rien. La consultation dans une law clinic est toujours gratuite – quel que soit ton revenu ou ta situation.',
-  faq2Q: 'Qui me conseille exactement ?',
-  faq2A:
-    'Des étudiants avancés en droit formés au conseil. Un avocat agréé ou un enseignant vérifie la consultation avant que tu ne reçoives une information contraignante.',
-  faq3Q: 'Mes informations sont-elles confidentielles ?',
-  faq3A:
+  faqConfidentialQ: 'Mes informations sont-elles confidentielles ?',
+  faqConfidentialA:
     'Oui. Toutes les personnes d’une law clinic sont tenues à la confidentialité. Tes informations ne servent qu’à ta consultation.',
-  faq4Q: 'Les law clinics peuvent-elles me représenter au tribunal ?',
-  faq4A:
+  faqCourtQ: 'Les law clinics peuvent-elles me représenter au tribunal ?',
+  faqCourtA:
     'En général non. Les law clinics donnent une première évaluation et t’aident à situer ton affaire. Si tu as besoin d’une représentation, elles t’aident à trouver les prochaines étapes.',
-  faq5Q: 'Que dois-je apporter à la consultation ?',
-  faq5A:
-    'Apporte tous les documents liés à ton affaire – lettres, contrats, résiliations ou décisions. Plus les informations sont complètes, mieux on peut t’aider.',
   footerPrivacy: 'Confidentialité',
   footerImprint: 'Mentions légales',
   footerAccount: 'Compte',
@@ -74,8 +50,6 @@ export const fr: Dictionary = {
   chatError: 'Une erreur est survenue. Réessaie.',
   chatDisabled: "L'assistant est actuellement indisponible. Réessaie plus tard.",
   chatUnavailableTitle: 'Assistant momentanément indisponible',
-  privacyNote:
-    'Ne saisis pas de noms complets ni de coordonnées. Les conversations sont enregistrées uniquement de façon anonyme.',
   limitMinuteTitle: 'Limite de requêtes atteinte',
   limitMinuteBody:
     'Trop de requêtes. Patiente un instant. Pour éviter les abus et limiter les coûts, seuls quelques messages sont autorisés sur une courte période.',

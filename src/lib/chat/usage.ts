@@ -20,6 +20,21 @@ export function estimateCostUsd(model: string, usage: TokenUsage): number {
   return (usage.inputTokens * price.input + usage.outputTokens * price.output) / TOKENS_PER_UNIT;
 }
 
+/** Distinguishes a real $0 from the 0 `estimateCostUsd` returns for an unpriced model. */
+export function isPricedModel(model: string): boolean {
+  return PRICING.some((entry) => model.startsWith(entry.prefix));
+}
+
+function formatAmount(amount: number, digits: number): string {
+  const options = { minimumFractionDigits: digits, maximumFractionDigits: digits };
+  return `$ ${amount.toLocaleString('de-DE', options)}`;
+}
+
 export function formatUsd(amount: number): string {
-  return `$ ${amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatAmount(amount, 2);
+}
+
+/** A single chat costs a fraction of a cent, which two decimals would flatten to $ 0,00. */
+export function formatUsdPrecise(amount: number): string {
+  return formatAmount(amount, 4);
 }

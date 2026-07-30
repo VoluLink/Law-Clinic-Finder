@@ -1,6 +1,6 @@
 import type { Lang } from './config';
 import { ar } from './locales/ar';
-import { de } from './locales/de';
+import { de, deOnly } from './locales/de';
 import { en } from './locales/en';
 import { fa } from './locales/fa';
 import { fr } from './locales/fr';
@@ -10,11 +10,10 @@ import { tr } from './locales/tr';
 import { uk } from './locales/uk';
 
 /**
- * All public-flow strings (landing page + chat widget). Every locale file must
- * provide every key — enforced by this type, so there is no runtime
- * completeness check.
+ * Strings every locale provides itself. Each locale file must cover all of
+ * them — enforced by this type, so there is no runtime completeness check.
  */
-export type Dictionary = {
+export type Translations = {
   navSo: string;
   navFaq: string;
   navCta: string;
@@ -22,30 +21,14 @@ export type Dictionary = {
   heroTitle: string;
   heroSub: string;
   searchLabel: string;
-  searchPlaceholder: string;
   searchBtn: string;
-  soHeading: string;
-  soIntro: string;
-  step1Title: string;
-  step1Text: string;
-  step2Title: string;
-  step2Text: string;
-  step3Title: string;
-  step3Text: string;
-  step4Title: string;
-  step4Text: string;
   faqHeading: string;
-  faqSub: string;
-  faq1Q: string;
-  faq1A: string;
-  faq2Q: string;
-  faq2A: string;
-  faq3Q: string;
-  faq3A: string;
-  faq4Q: string;
-  faq4A: string;
-  faq5Q: string;
-  faq5A: string;
+  faqCostQ: string;
+  faqCostA: string;
+  faqConfidentialQ: string;
+  faqConfidentialA: string;
+  faqCourtQ: string;
+  faqCourtA: string;
   footerPrivacy: string;
   footerImprint: string;
   footerAccount: string;
@@ -75,7 +58,6 @@ export type Dictionary = {
   chatError: string;
   chatDisabled: string;
   chatUnavailableTitle: string;
-  privacyNote: string;
   limitMinuteTitle: string;
   limitMinuteBody: string;
   limitDailyTitle: string;
@@ -93,7 +75,49 @@ export type Dictionary = {
   noMatchBtnRestart: string;
 };
 
-const DICTIONARIES: Record<Lang, Dictionary> = { de, en, ar, fr, ku, fa, ru, uk, tr };
+/**
+ * Strings that stay German in every language: the sections explaining this site
+ * and student legal advice. Locale files cannot declare them, so a translation
+ * can never silently shadow the single German wording in `deOnly`.
+ */
+export type GermanOnly = {
+  searchPlaceholder: string;
+  aiDisclaimer: string;
+  soHeading: string;
+  soIntro: string;
+  step1Title: string;
+  step1Text: string;
+  step2Title: string;
+  step2Text: string;
+  step3Title: string;
+  step3Text: string;
+  step4Title: string;
+  step4Text: string;
+  faqSub: string;
+  faqWhatIsQ: string;
+  faqWhatIsA: string;
+  faqWhoAdvisesQ: string;
+  faqWhoAdvisesA: string;
+  faqWhyStudentsQ: string;
+  faqWhyStudentsA: string;
+  faqWhoBenefitsQ: string;
+  faqWhoBenefitsA: string;
+};
+
+/** All public-flow strings (landing page + chat widget). */
+export type Dictionary = Translations & GermanOnly;
+
+const DICTIONARIES: Record<Lang, Dictionary> = {
+  de: { ...de, ...deOnly },
+  en: { ...en, ...deOnly },
+  ar: { ...ar, ...deOnly },
+  fr: { ...fr, ...deOnly },
+  ku: { ...ku, ...deOnly },
+  fa: { ...fa, ...deOnly },
+  ru: { ...ru, ...deOnly },
+  uk: { ...uk, ...deOnly },
+  tr: { ...tr, ...deOnly },
+};
 
 export function getDictionary(lang: Lang): Dictionary {
   return DICTIONARIES[lang];

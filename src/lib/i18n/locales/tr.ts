@@ -1,6 +1,6 @@
-import type { Dictionary } from '../dictionary';
+import type { Translations } from '../dictionary';
 
-export const tr: Dictionary = {
+export const tr: Translations = {
   navSo: 'Nasıl çalışır',
   navFaq: 'Sık sorulanlar',
   navCta: 'Law Clinic’ini kaydet',
@@ -9,39 +9,17 @@ export const tr: Dictionary = {
   heroSub:
     'Hukuki sorununu kendi kelimelerinle anlat. Sana uygun öğrenci hukuk danışmanlığını buluruz – ücretsiz ve gizli.',
   searchLabel: 'Konun nedir?',
-  searchPlaceholder:
-    'Örneğin: Ev sahibim, kirayı sözde geç ödediğim için sözleşmemi ihbarsız feshetti. Bunun izinli olup olmadığını ve şimdi ne yapacağımı bilmiyorum.',
   searchBtn: 'Uygun hukuk kliniğini bul',
-  soHeading: 'Hukuk klinikleri nasıl çalışır',
-  soIntro:
-    'Hukuk klinikleri, üniversitelerdeki öğrenci hukuk danışmanlıklarıdır. İleri düzey hukuk öğrencileri sana danışmanlık yapar – her zaman deneyimli avukatların gözetiminde.',
-  step1Title: 'Öğrenciler sana danışmanlık yapar',
-  step1Text: 'İleri düzey hukuk öğrencileri davana zaman ayırır ve güncel hukuki bilgi sunar.',
-  step2Title: 'Uzman gözetiminde',
-  step2Text:
-    'Her danışma, ruhsatlı avukatlar veya öğretim üyeleri tarafından denetlenir – böylece güvenilir bilgi alırsın (§ 6 RDG).',
-  step3Title: 'Ücretsiz ve gizli',
-  step3Text: 'Danışma senin için her zaman ücretsizdir ve ilgili herkes gizliliğe bağlıdır.',
-  step4Title: 'İlk yönlendirme',
-  step4Text:
-    'İlk hukuki değerlendirmeyi alırsın ve hangi seçeneklere ve sonraki adımlara sahip olduğunu öğrenirsin.',
   faqHeading: 'Sık sorulan sorular',
-  faqSub: 'Birçok kişi bir hukuk kliniğine gitmeden önce bunları merak eder.',
-  faq1Q: 'Danışma ne kadar?',
-  faq1A:
+  faqCostQ: 'Danışma ne kadar?',
+  faqCostA:
     'Hiçbir şey. Hukuk kliniğindeki danışma, gelirine veya durumuna bakılmaksızın her zaman ücretsizdir.',
-  faq2Q: 'Bana tam olarak kim danışmanlık yapar?',
-  faq2A:
-    'Danışmanlık için eğitilmiş ileri düzey hukuk öğrencileri. Bağlayıcı bilgi almadan önce ruhsatlı bir avukat veya öğretim üyesi danışmayı denetler.',
-  faq3Q: 'Bilgilerim gizli mi?',
-  faq3A:
+  faqConfidentialQ: 'Bilgilerim gizli mi?',
+  faqConfidentialA:
     'Evet. Hukuk kliniğindeki herkes gizlilikle yükümlüdür. Bilgilerin yalnızca danışmanlığın için kullanılır.',
-  faq4Q: 'Hukuk klinikleri beni mahkemede temsil edebilir mi?',
-  faq4A:
+  faqCourtQ: 'Hukuk klinikleri beni mahkemede temsil edebilir mi?',
+  faqCourtA:
     'Genellikle hayır. Hukuk klinikleri ilk değerlendirmeyi verir ve durumunu anlamana yardımcı olur. Mahkemede temsile ihtiyacın varsa, sonraki adımları bulmana yardımcı olurlar.',
-  faq5Q: 'Danışmaya ne getirmeliyim?',
-  faq5A:
-    'Davanla ilgili tüm belgeleri getir – mektuplar, sözleşmeler, fesihler veya kararlar gibi. Bilgiler ne kadar eksiksiz olursa, sana o kadar iyi yardımcı olunur.',
   footerPrivacy: 'Gizlilik',
   footerImprint: 'Künye',
   footerAccount: 'Hesap',
@@ -72,8 +50,6 @@ export const tr: Dictionary = {
   chatError: 'Bir şeyler ters gitti. Lütfen tekrar dene.',
   chatDisabled: 'Asistan şu anda kullanılamıyor. Lütfen daha sonra tekrar dene.',
   chatUnavailableTitle: 'Asistan şu anda kullanılamıyor',
-  privacyNote:
-    'Lütfen tam ad veya iletişim bilgisi girme. Görüşmeler yalnızca anonim olarak saklanır.',
   limitMinuteTitle: 'İstek sınırına ulaşıldı',
   limitMinuteBody:
     'Çok fazla istek. Lütfen bir an bekle. Kötüye kullanımı önlemek ve maliyetleri sınırlamak için kısa sürede yalnızca birkaç mesaja izin verilir.',

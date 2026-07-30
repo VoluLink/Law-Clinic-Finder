@@ -19,6 +19,8 @@ const convo: ConversationRow = {
   matched_clinic_count: 1,
   message_count: 2,
   model: 'claude-haiku-4-5',
+  input_tokens: 8_400,
+  output_tokens: 1_200,
   recommendations: [
     {
       id: 'clinic-1',
@@ -56,6 +58,22 @@ describe('ConversationsPanel', () => {
     await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
     expect(screen.getByRole('dialog', { name: 'Gesprächsverlauf' })).toBeInTheDocument();
     expect(screen.getByText('Ich empfehle die Mietrecht Law Clinic.')).toBeInTheDocument();
+  });
+
+  it('prices the conversation from its own accumulated tokens', async () => {
+    render(<ConversationsPanel conversations={[convo]} />);
+    await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
+
+    // Haiku: 8.400 in @ $1/M + 1.200 out @ $5/M = $0.0144.
+    expect(screen.getByText('API-Kosten: $ 0,0144')).toBeInTheDocument();
+  });
+
+  it('says the cost is unknown rather than zero for an unpriced model', async () => {
+    const unpriced = { ...convo, model: 'some-other-model' };
+    render(<ConversationsPanel conversations={[unpriced]} />);
+    await userEvent.click(screen.getByText('Ärger mit dem Vermieter in Köln'));
+
+    expect(screen.getByText('API-Kosten: unbekannt')).toBeInTheDocument();
   });
 
   it('shows which clinics were recommended in the conversation', async () => {

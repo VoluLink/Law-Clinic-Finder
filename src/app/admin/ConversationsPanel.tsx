@@ -11,6 +11,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 import type { ChatMessage } from '@/lib/chat/schema';
+import { estimateCostUsd, formatUsdPrecise, isPricedModel } from '@/lib/chat/usage';
 
 export type ConversationRecommendation = {
   id: string;
@@ -30,11 +31,23 @@ export type ConversationRow = {
   matched_clinic_count: number | null;
   message_count: number;
   model: string;
+  input_tokens: number;
+  output_tokens: number;
   recommendations: ConversationRecommendation[];
 };
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/**
+ * The row's tokens are the whole chat's: every turn re-sends the transcript and
+ * `record_conversation` adds it up, so this is what the chat really cost.
+ */
+function costOf(row: ConversationRow): string {
+  if (!isPricedModel(row.model)) return 'unbekannt';
+  const usage = { inputTokens: row.input_tokens, outputTokens: row.output_tokens };
+  return formatUsdPrecise(estimateCostUsd(row.model, usage));
 }
 
 function previewOf(row: ConversationRow): string {
@@ -104,6 +117,7 @@ function ConversationDetail({ row, onDelete }: { row: ConversationRow; onDelete:
       <div className="flex flex-wrap gap-2 text-sm">
         <Badge variant="neutral">Rechtsgebiet: {row.detected_legal_area ?? 'Unbekannt'}</Badge>
         <Badge variant="neutral">Treffer: {row.matched_clinic_count ?? 0}</Badge>
+        <Badge variant="neutral">API-Kosten: {costOf(row)}</Badge>
       </div>
       <div className="flex flex-col gap-3">
         {(row.redacted_transcript ?? []).map((message, index) => (

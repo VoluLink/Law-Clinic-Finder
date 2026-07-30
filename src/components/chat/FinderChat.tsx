@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from 'react';
 
+import { BrandLine } from '@/components/layout/BrandLine';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { MAX_CHAT_MESSAGE_CHARS, trimChatHistory } from '@/lib/chat/schema';
@@ -194,9 +195,10 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
         disabled={pending || blocked}
         className="min-h-[140px] w-full resize-y rounded-xl border-[1.5px] border-primary/20 bg-surface-tint px-4 py-4 text-[17px] leading-normal outline-none focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary/10"
       />
-      <p className="mt-3 text-sm leading-normal text-muted">{dict.privacyNote}</p>
       {limitScope && <LimitBanner dict={dict} scope={limitScope} />}
-      <div className="mt-5">
+      {/* The disclaimer sits beside the button and wraps under it once the row
+          runs out of room, so it is read right before the query is sent. */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
         <Button
           type="submit"
           disabled={pending || blocked}
@@ -205,6 +207,9 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
           {dict.searchBtn}
           <Icon name={rtl ? 'arrow-left' : 'arrow-right'} className="h-4 w-4" />
         </Button>
+        <p className="max-w-[420px] flex-[1_1_260px] text-[13px] leading-normal text-muted">
+          {dict.aiDisclaimer}
+        </p>
       </div>
     </form>
   );
@@ -214,9 +219,17 @@ function ChatCard(
   props: StageProps & { messages: Message[]; greeting: string; onRestart: () => void },
 ) {
   const { dict, lang, messages, pending, limitScope, greeting, onRestart, rtl } = props;
+  const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const exportData = collectRecommendationExport(messages);
   const terminalState = pending ? null : chatTerminalState(messages);
+
+  // This card mounts with the first message. It is a viewport-tall panel, so it
+  // pulls itself under the sticky nav (`scroll-mt`) to open full-screen. The hero
+  // above it stays untouched — scrolling back up still shows it at full size.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ block: 'start' });
+  }, []);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -225,8 +238,13 @@ function ChatCard(
 
   const awaitingReply = pending && messages[messages.length - 1]?.role === 'user';
   return (
-    <div className="mx-auto max-w-[780px] rounded-3xl border border-border bg-surface p-4 text-start shadow-panel sm:p-6">
-      <div ref={scrollRef} className="max-h-[420px] space-y-4 overflow-y-auto p-1">
+    <div
+      ref={panelRef}
+      data-chat-active
+      className="mx-auto flex h-[calc(100dvh-var(--nav-h)-1.5rem)] max-w-[780px] min-h-[380px] scroll-mt-[var(--nav-h)] flex-col rounded-3xl border border-border bg-surface p-4 text-start shadow-panel sm:p-6"
+    >
+      <BrandLine className="mb-3 shrink-0 border-b border-border px-1 pb-3" />
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-1">
         {greeting && (
           <MessageBubble dict={dict} message={{ role: 'assistant', content: greeting }} />
         )}
@@ -313,7 +331,7 @@ function LimitBanner({ dict, scope }: { dict: Dictionary; scope: RateLimitScope 
   return (
     <div
       role="alert"
-      className="mt-3 flex items-start gap-3 rounded-lg border border-danger/40 bg-danger/10 p-4 text-start animate-[chat-in_0.3s_ease]"
+      className="mt-3 flex shrink-0 items-start gap-3 rounded-lg border border-danger/40 bg-danger/10 p-4 text-start animate-[chat-in_0.3s_ease]"
     >
       <span
         aria-hidden
@@ -347,7 +365,7 @@ function InputDock({ dict, input, setInput, pending, onSubmit, limitScope }: Sta
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-4">
+    <form onSubmit={onSubmit} className="mt-4 shrink-0">
       <div className="flex items-end gap-3 rounded-[18px] border-[1.5px] border-primary/20 bg-surface py-2 ps-4 pe-2 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
         <textarea
           ref={textareaRef}

@@ -9,6 +9,10 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **API-Kosten je Gespräch im Admin-Drawer:** Unter „Anonymisierte Gespräche" zeigt ein geöffnetes
+  Gespräch neben „Rechtsgebiet" und „Treffer" jetzt auch, was genau dieses Gespräch an LLM-Kosten
+  verursacht hat – auf vier Nachkommastellen, da ein einzelner Chat weit unter einem Cent liegt.
+  Für ein Modell ohne hinterlegten Preis steht dort „unbekannt" statt einer Null.
 - **Abschluss- und Kein-Treffer-Zustände im Finder-Chat:** Eine strukturierte Empfehlung schließt
   den Chat mit Neustart-Aktion ab. Bei `report_no_match` erscheint „Keine Law Clinic gefunden" mit
   festen nächsten Schritten und Link zum Gesamtverzeichnis; der Nachrichteneingang bleibt in beiden
@@ -62,6 +66,38 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **„So funktioniert's" erklärt jetzt diese Website statt Law Clinics allgemein:** Die vier
+  Schritte führen von der Beschreibung des Problems über die anonymisierte KI-Auswertung und den
+  Abgleich mit den Beratungsvoraussetzungen bis zum Vorschlag der passenden Law Clinic.
+- **Häufige Fragen erklären studentische Rechtsberatung:** Sieben Einträge statt fünf – neu sind
+  „Was ist eine Law Clinic?", „Wer berät mich – und wer prüft das Ergebnis?", „Warum beraten
+  Studierende überhaupt?" und „Wem hilft studentische Rechtsberatung?"; Kosten, Vertraulichkeit und
+  Vertretung vor Gericht bleiben unverändert. Die Frage nach mitzubringenden Unterlagen entfällt.
+- **KI-Hinweis direkt neben dem Suchbutton:** Vor dem Absenden steht jetzt in der Buttonzeile, dass
+  die Anfrage anonymisiert von einer KI bearbeitet wird, keine personenbezogenen Informationen in
+  den Chat gehören und die KI keine Rechtsberatung durchführt. Er ersetzt den bisherigen
+  Datenschutzhinweis unter dem Textfeld.
+- **Neuer Platzhalter im Suchfeld:** Statt eines ausformulierten Beispielfalls bittet er um eine
+  möglichst genaue Schilderung samt Wohnort und Angaben zur eigenen Person.
+- **Neue Landing-Texte bleiben in jeder Sprache deutsch:** Die vier Schritte, die neuen
+  FAQ-Einträge, der KI-Hinweis und der Suchfeld-Platzhalter werden bewusst nicht übersetzt und
+  erscheinen in allen 9 Sprachen wörtlich auf Deutsch.
+- **Der Chat füllt den Bildschirm, sobald er begonnen hat:** Aus der kleinen Karte mit fest
+  begrenztem Nachrichtenfenster wird ein bildschirmhohes Panel, das sich beim Öffnen unter die
+  Navigation schiebt — deutlich mehr Gesprächsverlauf auf einen Blick, mit „Law Clinic Finder" als
+  Titelzeile und dem Eingabefeld fest am unteren Rand. Überschrift und Untertitel der Startseite
+  bleiben in unveränderter Größe darüber und sind durch Hochscrollen weiterhin sichtbar; die
+  Suchkarte vor der ersten Nachricht bleibt wie bisher.
+- **Sprachbedarf ohne Stellvertretungs-Rückfrage:** Der Chatbot leitet die benötigte
+  Beratungssprache ausschließlich aus der Chat-Sprache ab und fragt nicht mehr danach, ob für die
+  Person selbst oder jemand anderen gesucht wird.
+- **Rechtsgebiets-Passung des Chatbots neu kalibriert:** Der Assistent ordnet konkrete
+  Sachverhalte jetzt allgemeinen, im Verzeichnis vorhandenen Rechtsgebieten zu, statt neue enge
+  Bezeichnungen aus ihrem Kontext abzuleiten. Clinics werden bei geringen oder mittleren Zweifeln
+  an dieser inhaltlichen Passung empfohlen (bei mittleren mit Prüfhinweis), bei hohen Zweifeln nicht.
+  Die Zweifelsskala gilt ausschließlich für das Rechtsgebiet; passt keines der in der Datenbank
+  vorhandenen Rechtsgebiete ausreichend, darf der Bot nach den vorgeschriebenen Suchen ausdrücklich
+  einen Kein-Treffer-Zustand ausgeben.
 - **Anfragelimit sperrt neue Chats sichtbar:** Die 429-Meldung heißt jetzt „Anfragelimit erreicht"
   und deaktiviert Eingabe sowie Startaktionen. Ein Minutenlimit wird nach dem Serverfenster wieder
   freigegeben, ein Tageslimit bleibt gesperrt.

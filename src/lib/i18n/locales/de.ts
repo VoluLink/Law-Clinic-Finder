@@ -1,6 +1,45 @@
-import type { Dictionary } from '../dictionary';
+import type { GermanOnly, Translations } from '../dictionary';
 
-export const de: Dictionary = {
+/**
+ * Landing copy that is maintained in German only. Every locale is served these
+ * strings unchanged, so the sections explaining the site and student legal
+ * advice have exactly one wording to keep current.
+ */
+export const deOnly: GermanOnly = {
+  searchPlaceholder:
+    'Beschreibe deine Situation bitte möglichst genau. Schreibe auch, wo du wohnst oder wo sich dein Problem ergeben hat, und wer du bist (z. B. Student, Bedürftiger, Senior, Start-up-Gründer, …).',
+  aiDisclaimer:
+    'Deine Anfrage wird anonymisiert von einer künstlichen Intelligenz bearbeitet. Bitte schreibe keine personenbezogenen Informationen in den Chat. Die KI führt keine Rechtsberatung durch.',
+  soHeading: 'So funktioniert diese Website',
+  soIntro:
+    'Du beschreibst dein Problem, eine KI ordnet es ein und schlägt dir die Law Clinic vor, die dir helfen kann.',
+  step1Title: 'Du beschreibst dein Problem',
+  step1Text:
+    'Beschreibe den Sachverhalt kurz, schreib, wo du wohnst, und ein bisschen darüber, wer du bist (z. B. Student, Flüchtling, Vereinsmitglied, …).',
+  step2Title: 'Die KI wertet aus, worum es bei deinem Problem rechtlich genau geht',
+  step2Text:
+    'Deine Nachricht wird anonymisiert an eine KI übersendet. Die KI findet dann heraus, welche Rechtsgebiete bei deinem Problem betroffen sind.',
+  step3Title: 'Die KI sucht die passende Law Clinic heraus',
+  step3Text: 'Deine Situation wird mit den Beratungsvoraussetzungen aller Law Clinics abgeglichen.',
+  step4Title: 'Du bekommst die passende Law Clinic vorgeschlagen',
+  step4Text:
+    'Du bekommst von der KI einen Vorschlag, welche Law Clinic dir helfen kann. Du kannst dich dann direkt bei dieser melden, um beraten zu werden.',
+  faqSub: 'Wie studentische Rechtsberatung funktioniert – und warum es sie gibt.',
+  faqWhatIsQ: 'Was ist eine Law Clinic?',
+  faqWhatIsA:
+    'Law Clinics sind studentische Rechtsberatungen, meist an Universitäten. Fortgeschrittene Jurastudierende bearbeiten echte Fälle und beraten dich kostenlos – begleitet, geschult und geprüft von Volljurist:innen aus der Praxis.',
+  faqWhoAdvisesQ: 'Wer berät mich – und wer prüft das Ergebnis?',
+  faqWhoAdvisesA:
+    'Beraten wirst du von geschulten Jurastudierenden. Begleitet werden sie laufend von Volljurist:innen aus der Praxis als Beirät:innen: Diese führen die Beratenden an die Fallbearbeitung und die relevanten Beratungsthemen heran, schulen sie, überprüfen die erarbeiteten Ergebnisse und stehen als Ansprechpartner:innen zur Verfügung – so gibt es das Rechtsdienstleistungsgesetz vor.',
+  faqWhyStudentsQ: 'Warum beraten Studierende überhaupt?',
+  faqWhyStudentsA:
+    'Studentische Rechtsberatung ist eine einzigartige Möglichkeit, Rechtskenntnisse und eine Vielzahl an Soft Skills für Referendariat und Beruf zu erlernen: den Umgang mit Mandantinnen und Mandanten, die Ermittlung von Sachverhalten, das Verfassen von Schriftsätzen und das Finden praxisgerechter Lösungen im Team. Aus der Anwendung des im Studium abstrakt Gelernten auf echte Lebenssachverhalte entsteht zugleich ein vertieftes Verständnis für Möglichkeiten und Grenzen des Rechts und seine verantwortungsbewusste Anwendung.',
+  faqWhoBenefitsQ: 'Wem hilft studentische Rechtsberatung?',
+  faqWhoBenefitsA:
+    'Studentische Rechtsberatung macht Rechtsrat den Personengruppen zugänglich, denen er andernfalls verschlossen bliebe – etwa wegen eines zu geringen Streitwerts, fehlender finanzieller Mittel oder Schwellenangst vor der Inanspruchnahme von Rechtsanwältinnen und Rechtsanwälten. Gleichzeitig wird das staatliche Beratungshilfebudget geschont. Entsprechend der Forderung des Bundesverfassungsgerichts nach mehr Rechtsschutz- und Rechtswahrnehmungsgleichheit ist sie damit ein zentrales Standbein für Rechtssicherheit und Gerechtigkeit in Deutschland.',
+};
+
+export const de: Translations = {
   navSo: "So funktioniert's",
   navFaq: 'Häufige Fragen',
   navCta: 'Deine Law Clinic anmelden',
@@ -9,41 +48,17 @@ export const de: Dictionary = {
   heroSub:
     'Beschreibe dein rechtliches Problem in deinen eigenen Worten. Wir finden die passende studentische Rechtsberatung für dich – kostenlos und vertraulich.',
   searchLabel: 'Worum geht es bei dir?',
-  searchPlaceholder:
-    'Zum Beispiel: Mein Vermieter hat mir fristlos gekündigt, weil ich angeblich zu spät die Miete gezahlt habe. Ich weiß nicht, ob das überhaupt erlaubt ist und was ich jetzt tun soll.',
   searchBtn: 'Passende Law Clinic finden',
-  soHeading: 'Wie Law Clinics funktionieren',
-  soIntro:
-    'Law Clinics sind studentische Rechtsberatungen an Universitäten. Hier beraten dich fortgeschrittene Jurastudierende – immer begleitet von erfahrenen Anwältinnen und Anwälten.',
-  step1Title: 'Studierende beraten dich',
-  step1Text:
-    'Fortgeschrittene Jurastudierende nehmen sich Zeit für deinen Fall und bringen aktuelles rechtliches Wissen mit.',
-  step2Title: 'Unter fachlicher Aufsicht',
-  step2Text:
-    'Jede Beratung wird von zugelassenen Anwält:innen oder Hochschullehrenden geprüft – so bekommst du verlässliche Auskünfte (§ 6 RDG).',
-  step3Title: 'Kostenlos & vertraulich',
-  step3Text:
-    'Die Beratung ist für dich immer kostenfrei und alle Beteiligten sind zur Vertraulichkeit verpflichtet.',
-  step4Title: 'Erste Orientierung',
-  step4Text:
-    'Du bekommst eine rechtliche Ersteinschätzung und erfährst, welche Möglichkeiten und nächsten Schritte du hast.',
   faqHeading: 'Häufige Fragen',
-  faqSub: 'Das fragen sich viele, bevor sie zu einer Law Clinic gehen.',
-  faq1Q: 'Was kostet die Beratung?',
-  faq1A:
+  faqCostQ: 'Was kostet die Beratung?',
+  faqCostA:
     'Nichts. Die Beratung in einer Law Clinic ist immer kostenlos – unabhängig von deinem Einkommen oder deiner Situation.',
-  faq2Q: 'Wer berät mich genau?',
-  faq2A:
-    'Jurastudierende im fortgeschrittenen Semester, die für die Beratung geschult wurden. Eine zugelassene Anwältin, ein Anwalt oder eine Hochschullehrkraft prüft die Beratung, bevor du eine verbindliche Auskunft erhältst.',
-  faq3Q: 'Sind meine Angaben vertraulich?',
-  faq3A:
+  faqConfidentialQ: 'Sind meine Angaben vertraulich?',
+  faqConfidentialA:
     'Ja. Alle Beteiligten einer Law Clinic sind zur Vertraulichkeit verpflichtet. Deine Angaben werden nur für deine Beratung verwendet.',
-  faq4Q: 'Können Law Clinics mich vor Gericht vertreten?',
-  faq4A:
+  faqCourtQ: 'Können Law Clinics mich vor Gericht vertreten?',
+  faqCourtA:
     'In der Regel nicht. Law Clinics geben dir eine rechtliche Ersteinschätzung und helfen dir, dein Anliegen einzuordnen. Brauchst du eine Vertretung vor Gericht, unterstützen sie dich dabei, die nächsten Schritte zu finden.',
-  faq5Q: 'Was sollte ich zur Beratung mitbringen?',
-  faq5A:
-    'Bring alle Unterlagen mit, die mit deinem Fall zu tun haben – zum Beispiel Briefe, Verträge, Kündigungen oder Bescheide. Je vollständiger die Informationen, desto besser kann man dir helfen.',
   footerPrivacy: 'Datenschutz',
   footerImprint: 'Impressum',
   footerAccount: 'Account',
@@ -74,8 +89,6 @@ export const de: Dictionary = {
   chatError: 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
   chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuche es später erneut.',
   chatUnavailableTitle: 'Assistent zurzeit nicht verfügbar',
-  privacyNote:
-    'Bitte gib keine vollständigen Namen oder Kontaktdaten ein. Gespräche werden nur anonymisiert gespeichert.',
   limitMinuteTitle: 'Anfragelimit erreicht',
   limitMinuteBody:
     'Zu viele Anfragen. Bitte warte einen Moment. Um Missbrauch und Kosten zu begrenzen, sind kurzfristig nur wenige Nachrichten möglich.',

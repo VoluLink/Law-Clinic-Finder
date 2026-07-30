@@ -35,7 +35,7 @@ const CONV_LIST_LIMIT = 12;
 const TOP_AREAS = 5;
 const CONV_LIST_COLUMNS =
   'id, created_at, redacted_transcript, redaction_status, detected_legal_area, ' +
-  'detected_city, matched_clinic_count, message_count, model';
+  'detected_city, matched_clinic_count, message_count, model, input_tokens, output_tokens';
 
 type ClinicAccessRow = {
   is_published: boolean;
