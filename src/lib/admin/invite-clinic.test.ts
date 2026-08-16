@@ -5,6 +5,8 @@ import { createLogger } from '@/lib/logger';
 import { inviteClinic, reinviteClinic, type InviteDeps } from './invite-clinic';
 
 const invite = { name: 'Neue Clinic', contact_email: 'org@clinic.de' };
+/** jsdom supplies the origin that authConfirmUrl() falls back to. */
+const CONFIRM_URL = 'http://localhost:3000/auth/confirm';
 
 function createDeps(overrides?: {
   clinicError?: boolean;
@@ -71,12 +73,23 @@ describe(inviteClinic, () => {
     const { deps, inviteUserByEmail, profileInsert } = createDeps();
     const result = await inviteClinic(deps, invite);
     expect(result).toEqual({ status: 'ok', clinicId: 'clinic-1' });
-    expect(inviteUserByEmail).toHaveBeenCalledWith(invite.contact_email);
+    expect(inviteUserByEmail).toHaveBeenCalledWith(invite.contact_email, {
+      redirectTo: CONFIRM_URL,
+    });
     expect(profileInsert).toHaveBeenCalledWith({
       user_id: 'user-1',
       role: 'clinic',
       clinic_id: 'clinic-1',
+      access_status: 'active',
     });
+  });
+
+  it('creates the clinic as approved, since an admin entered it', async () => {
+    const { deps, clinicInsert } = createDeps();
+    await inviteClinic(deps, invite);
+    expect(clinicInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ approval_status: 'approved' }),
+    );
   });
 
   it('reports invite_failed when the clinic exists but the email failed', async () => {
@@ -109,7 +122,7 @@ describe(reinviteClinic, () => {
     });
     expect(signInWithOtp).toHaveBeenCalledWith({
       email: invite.contact_email,
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: false, emailRedirectTo: CONFIRM_URL },
     });
   });
 

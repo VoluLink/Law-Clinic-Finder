@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { AuthError, requireRole } from '@/lib/auth/require-role';
+import { AuthError, requireActiveRole } from '@/lib/auth/require-role';
 import { clinicMemberSaveSchema } from '@/lib/clinics/schema';
 import { logger } from '@/lib/logger';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 export async function PATCH(request: NextRequest): Promise<Response> {
   const supabase = await createSupabaseServerClient();
   try {
-    const profile = await requireRole(supabase, ['clinic']);
+    const profile = await requireActiveRole(supabase, ['clinic']);
     if (!profile.clinic_id) return Response.json({ error: 'Nicht berechtigt.' }, { status: 403 });
     const body = await request.json().catch(() => null);
     const parsed = clinicMemberSaveSchema.safeParse(body);

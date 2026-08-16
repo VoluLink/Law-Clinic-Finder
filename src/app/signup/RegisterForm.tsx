@@ -34,12 +34,12 @@ type FormValues = typeof EMPTY_FORM;
 type FieldErrors = Partial<Record<keyof FormValues, string>>;
 
 type RegisterFormProps = {
-  onDone: () => void;
+  onPending: (email: string) => void;
   onCollision: (clinic: DirectoryMatch) => void;
   onBack: () => void;
 };
 
-export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps) {
+export function RegisterForm({ onPending, onCollision, onBack }: RegisterFormProps) {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -68,7 +68,15 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
     setPending(false);
     if (!result) return setError('Etwas ist schiefgelaufen. Bitte versuche es später erneut.');
     if (result.status === 'collision') return onCollision(result.clinic);
-    onDone();
+    if (result.status === 'email_taken') {
+      return setError(
+        'Diese E-Mail-Adresse wird bereits für ein anderes Konto verwendet. Melde dich damit an oder nutze eine andere Adresse.',
+      );
+    }
+    if (result.status !== 'pending_review') {
+      return setError('Etwas ist schiefgelaufen. Bitte versuche es später erneut.');
+    }
+    onPending(result.email);
   }
 
   return (
@@ -76,7 +84,8 @@ export function RegisterForm({ onDone, onCollision, onBack }: RegisterFormProps)
       <BackLink onClick={onBack} />
       <StageHeading>Neue Law Clinic eintragen</StageHeading>
       <p className="text-base text-muted">
-        Der Eintrag wird vom Team von Law Clinics Deutschland geprüft und freigeschaltet.
+        Wir senden einen Bestätigungslink an die angegebene Adresse. Danach prüft das Team von Law
+        Clinics Deutschland den Eintrag und schaltet ihn frei.
       </p>
       <p className="text-sm text-muted-soft">
         <span className="text-danger">*</span> Pflichtfeld

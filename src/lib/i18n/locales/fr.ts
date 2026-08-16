@@ -53,9 +53,9 @@ export const fr: Translations = {
   limitMinuteTitle: 'Limite de requêtes atteinte',
   limitMinuteBody:
     'Trop de requêtes. Patiente un instant. Pour éviter les abus et limiter les coûts, seuls quelques messages sont autorisés sur une courte période.',
-  limitDailyTitle: 'Limite de requêtes atteinte',
+  limitDailyTitle: 'Limite quotidienne atteinte',
   limitDailyBody:
-    'Tu as atteint la limite quotidienne de messages. Ce service gratuit limite les requêtes par jour pour que le coût du conseil par IA reste soutenable pour tous. Réessaie demain ou contacte directement une law clinic.',
+    'Tu as utilisé les deux conversations disponibles aujourd’hui. Nous limitons les requêtes au chatbot pour que ce service gratuit reste viable. Réessaie demain ou contacte directement une law clinic.',
   charWarn: 'Longueur maximale atteinte (4 000 caractères).',
   chatCompletedTitle: 'Ce chat est terminé',
   chatCompletedDescription:

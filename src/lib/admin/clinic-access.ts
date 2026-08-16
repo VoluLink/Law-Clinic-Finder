@@ -13,13 +13,18 @@ export function profileUserId(profiles: ProfileLink): string | null {
   return first?.user_id ?? null;
 }
 
+/** An account stays "invited" until it has actually been used once. */
+export function signInState(lastSignInAt: string | null | undefined): 'active' | 'invited' {
+  return lastSignInAt ? 'active' : 'invited';
+}
+
 export function deriveAccessState(
   clinic: { contact_email: string | null; profiles: ProfileLink },
   lastSignInByUser: Map<string, string | null>,
 ): AccessState {
   const userId = profileUserId(clinic.profiles);
   if (!userId) return clinic.contact_email ? 'none' : 'no_email';
-  return lastSignInByUser.get(userId) ? 'active' : 'invited';
+  return signInState(lastSignInByUser.get(userId));
 }
 
 /** Every auth user id → last_sign_in_at (service role; the member base is small). */

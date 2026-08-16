@@ -28,6 +28,18 @@ export default function DatenschutzPage() {
         Unsere Daten liegen bei Supabase in der EU-Region Frankfurt am Main. Beim Aufruf der Website
         fallen technisch notwendige Zugriffsdaten an.
       </p>
+      <h2 className="text-lg font-medium">Missbrauchsschutz des Chat-Assistenten</h2>
+      <p>
+        Um den kostenlosen Chat vor automatisierter oder übermäßiger Nutzung zu schützen, setzen wir
+        beim ersten Chat des Tages ein technisch notwendiges, ausschließlich für den Chat-Endpunkt
+        gültiges Cookie. Es enthält eine zufällige Kennung, ist für JavaScript nicht lesbar und
+        verfällt um Mitternacht deutscher Zeit. In der Datenbank speichern wir nicht diese Kennung,
+        sondern nur einen kryptografischen Hash, das Datum sowie höchstens zwei zufällige
+        Gesprächskennungen und kleine Nachrichtenzähler. Die Daten werden nach dem Tageswechsel
+        automatisch gelöscht, nicht für Werbung oder Reichweitenmessung verwendet und nicht mit
+        einem Nutzerkonto verknüpft. Die Verarbeitung dient der Sicherheit, Verfügbarkeit und
+        Kostenkontrolle des Angebots (Art. 6 Abs. 1 lit. f DSGVO).
+      </p>
     </LegalPage>
   );
 }

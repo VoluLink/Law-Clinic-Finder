@@ -4,6 +4,7 @@ import { z } from 'zod';
 const profileSchema = z.object({
   role: z.enum(['admin', 'clinic']),
   clinic_id: z.string().nullable(),
+  access_status: z.enum(['pending', 'active']),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -32,7 +33,7 @@ export async function requireRole(
   // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, clinic_id')
+    .select('role, clinic_id, access_status')
     .eq('user_id', userId)
     .maybeSingle();
   const parsed = profileSchema.safeParse(profile);
@@ -40,4 +41,19 @@ export async function requireRole(
     throw new AuthError('insufficient role', 403);
   }
   return parsed.data;
+}
+
+/**
+ * For everything a pending claimant must not reach. Their session is valid —
+ * they proved they own the address — but ownership of the clinic is still
+ * unconfirmed, so they may only see the waiting page. RLS enforces the same
+ * boundary via private.app_clinic_id(); this returns the clearer 403.
+ */
+export async function requireActiveRole(
+  supabase: SupabaseClient,
+  allowed: Array<Profile['role']>,
+): Promise<Profile> {
+  const profile = await requireRole(supabase, allowed);
+  if (profile.access_status !== 'active') throw new AuthError('access pending approval', 403);
+  return profile;
 }

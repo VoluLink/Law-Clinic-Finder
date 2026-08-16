@@ -6,22 +6,39 @@ import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-import { ClinicsManager, type AdminClinicRow, type PendingSubmission } from './ClinicsManager';
+import { ClinicsManager, type AdminClinicRow, type PendingReview } from './ClinicsManager';
 
 export const metadata: Metadata = { title: 'Law Clinics – Admin' };
 
 const ADMIN_COLUMNS =
   'id, name, description, region, contact_email, website, legal_areas, ' +
-  'target_clients, languages, requirements, advises_clients, is_published, profiles(user_id)';
+  'target_clients, languages, requirements, advises_clients, is_published, approval_status, ' +
+  'profiles(user_id, access_status)';
 
-const SUBMISSION_COLUMNS = 'id, name, region, legal_areas, contact_email, submitted_at';
+type ProfileLink = { user_id: string; access_status: string };
 
 type ClinicQueryRow = Omit<AdminClinicRow, 'accessState' | 'lastSignInLabel'> & {
-  profiles: { user_id: string }[] | { user_id: string } | null;
+  approval_status: string;
+  profiles: ProfileLink[] | ProfileLink | null;
 };
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('de-DE', { dateStyle: 'medium' });
+}
+
+function firstProfile(profiles: ClinicQueryRow['profiles']): ProfileLink | null {
+  if (!profiles) return null;
+  return Array.isArray(profiles) ? (profiles[0] ?? null) : profiles;
+}
+
+/**
+ * Two different things land in the review queue: an entry that does not exist in
+ * the directory yet, and a claim on an entry an admin created. They read the
+ * same but reject differently, so the queue names which is which.
+ */
+function reviewKind(clinic: ClinicQueryRow): PendingReview['kind'] | null {
+  if (clinic.approval_status === 'pending') return 'new';
+  return firstProfile(clinic.profiles)?.access_status === 'pending' ? 'claim' : null;
 }
 
 export default async function AdminClinicsPage() {
@@ -33,37 +50,53 @@ export default async function AdminClinicsPage() {
     throw error;
   }
   const admin = createSupabaseAdminClient();
-  const [{ data }, lastSignIn, submissions] = await Promise.all([
+  const [{ data }, lastSignIn] = await Promise.all([
     admin.from('clinics').select(ADMIN_COLUMNS).order('name'),
     loadLastSignInMap(admin).catch(() => new Map<string, string | null>()),
-    loadSubmissions(admin),
   ]);
 
-  const rows = ((data ?? []) as unknown as ClinicQueryRow[]).map((clinic) =>
-    enrich(clinic, lastSignIn),
-  );
-  return <ClinicsManager clinics={rows} pending={submissions} />;
+  const clinics = (data ?? []) as unknown as ClinicQueryRow[];
+  const pending = clinics
+    .map((clinic) => ({ clinic, kind: reviewKind(clinic) }))
+    .filter((entry): entry is { clinic: ClinicQueryRow; kind: PendingReview['kind'] } =>
+      Boolean(entry.kind),
+    )
+    .map(({ clinic, kind }) => ({
+      id: clinic.id,
+      name: clinic.name,
+      region: clinic.region,
+      legal_areas: clinic.legal_areas,
+      contact_email: clinic.contact_email,
+      kind,
+    }));
+
+  // An unapproved entry is not part of the directory yet, so it belongs in the
+  // review queue rather than the table of live entries.
+  const rows = clinics
+    .filter((clinic) => clinic.approval_status === 'approved')
+    .map((clinic) => enrich(clinic, lastSignIn));
+  return <ClinicsManager clinics={rows} pending={pending} />;
 }
 
+/** Builds the table row field by field, so neither the review flag nor the
+ *  embedded profile link crosses into the client component. */
 function enrich(clinic: ClinicQueryRow, signInMap: Map<string, string | null>): AdminClinicRow {
-  const { profiles, ...fields } = clinic;
-  const userId = profileUserId(profiles);
+  const userId = profileUserId(clinic.profiles);
   const lastSignIn = userId ? signInMap.get(userId) : null;
   return {
-    ...fields,
-    accessState: deriveAccessState({ contact_email: fields.contact_email, profiles }, signInMap),
+    id: clinic.id,
+    name: clinic.name,
+    description: clinic.description,
+    region: clinic.region,
+    contact_email: clinic.contact_email,
+    website: clinic.website,
+    legal_areas: clinic.legal_areas,
+    target_clients: clinic.target_clients,
+    languages: clinic.languages,
+    requirements: clinic.requirements,
+    advises_clients: clinic.advises_clients,
+    is_published: clinic.is_published,
+    accessState: deriveAccessState(clinic, signInMap),
     lastSignInLabel: lastSignIn ? formatDate(lastSignIn) : null,
   };
-}
-
-// clinic_submissions has no RLS policies (service client only); this page
-// re-checks the admin role before loading them.
-async function loadSubmissions(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-): Promise<PendingSubmission[]> {
-  const { data } = await admin
-    .from('clinic_submissions')
-    .select(SUBMISSION_COLUMNS)
-    .order('submitted_at', { ascending: true });
-  return (data ?? []) as unknown as PendingSubmission[];
 }

@@ -1,11 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { authConfirmUrl } from '@/lib/auth/auth-redirect';
+import { inviteAuthUser } from '@/lib/auth/invite-user';
 import type { ClinicInvite } from '@/lib/clinics/schema';
 import type { Logger } from '@/lib/logger';
 
 import { profileUserId } from './clinic-access';
 
 export type InviteDeps = { adminClient: SupabaseClient; logger: Logger };
+
+/** Whether the invited account may act for its clinic right away. Admin-created
+ *  invites are active; a self-service claim waits for approval. */
+export type AccessStatus = 'pending' | 'active';
 
 export type InviteResult =
   | { status: 'ok'; clinicId: string }
@@ -21,7 +27,11 @@ export type InviteResult =
 export async function inviteClinic(deps: InviteDeps, invite: ClinicInvite): Promise<InviteResult> {
   const { data: clinic, error } = await deps.adminClient
     .from('clinics')
-    .insert({ name: invite.name, contact_email: invite.contact_email })
+    .insert({
+      name: invite.name,
+      contact_email: invite.contact_email,
+      approval_status: 'approved',
+    })
     .select('id')
     .single();
   if (error || !clinic) {
@@ -56,9 +66,10 @@ async function sendPendingLoginLink(
   if (data.user.email?.toLowerCase() !== email.toLowerCase()) {
     return { status: 'error', reason: 'clinic email does not match invited user' };
   }
+  const redirectTo = await authConfirmUrl();
   const sent = await deps.adminClient.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false },
+    options: { shouldCreateUser: false, ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
   });
   if (sent.error) {
     deps.logger.warn('clinic login link failed', { clinicId, reason: sent.error.message });
@@ -67,22 +78,29 @@ async function sendPendingLoginLink(
   return { status: 'ok', clinicId };
 }
 
-async function linkInvitedUser(
+/**
+ * Invites the address and links it to the clinic. `accessStatus` decides whether
+ * the account can act immediately (admin-created invite, where the admin already
+ * vouched for the address) or has to wait for approval (self-service claim).
+ */
+export async function linkInvitedUser(
   deps: InviteDeps,
   clinicId: string,
   email: string,
+  accessStatus: AccessStatus = 'active',
 ): Promise<InviteResult> {
-  const invited = await deps.adminClient.auth.admin.inviteUserByEmail(email);
-  if (invited.error || !invited.data.user) {
-    if (invited.error?.message.toLowerCase().includes('already')) {
-      return { status: 'already_invited' };
-    }
-    deps.logger.warn('clinic invite email failed', { clinicId, reason: invited.error?.message });
+  const invited = await inviteAuthUser(deps.adminClient, email);
+  if (invited.status === 'already_invited') return { status: 'already_invited' };
+  if (invited.status !== 'ok') {
+    deps.logger.warn('clinic invite email failed', { clinicId, reason: invited.reason });
     return { status: 'invite_failed', clinicId };
   }
-  const profile = await deps.adminClient
-    .from('profiles')
-    .insert({ user_id: invited.data.user.id, role: 'clinic', clinic_id: clinicId });
+  const profile = await deps.adminClient.from('profiles').insert({
+    user_id: invited.userId,
+    role: 'clinic',
+    clinic_id: clinicId,
+    access_status: accessStatus,
+  });
   if (profile.error) {
     deps.logger.error('profile link failed', { clinicId, reason: profile.error.message });
     return { status: 'error', reason: 'profile insert failed' };

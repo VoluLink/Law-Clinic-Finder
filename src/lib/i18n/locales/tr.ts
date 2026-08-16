@@ -53,9 +53,9 @@ export const tr: Translations = {
   limitMinuteTitle: 'İstek sınırına ulaşıldı',
   limitMinuteBody:
     'Çok fazla istek. Lütfen bir an bekle. Kötüye kullanımı önlemek ve maliyetleri sınırlamak için kısa sürede yalnızca birkaç mesaja izin verilir.',
-  limitDailyTitle: 'İstek sınırına ulaşıldı',
+  limitDailyTitle: 'Günlük sınıra ulaşıldı',
   limitDailyBody:
-    'Günlük mesaj sınırına ulaştın. Bu ücretsiz hizmet, yapay zekâ danışmanlığının maliyetini herkes için sürdürülebilir tutmak amacıyla günlük istekleri sınırlar. Lütfen yarın tekrar dene veya doğrudan bir hukuk kliniğiyle iletişime geç.',
+    'Bugün kullanabileceğin iki sohbeti de kullandın. Bu ücretsiz hizmeti sürdürülebilir tutmak için sohbet botu isteklerini sınırlıyoruz. Lütfen yarın tekrar dene veya doğrudan bir hukuk kliniğiyle iletişime geç.',
   charWarn: 'Maksimum uzunluğa ulaşıldı (4.000 karakter).',
   chatCompletedTitle: 'Bu sohbet tamamlandı',
   chatCompletedDescription: 'Yeni bir konu için istediğin zaman yeni bir sohbet başlatabilirsin.',

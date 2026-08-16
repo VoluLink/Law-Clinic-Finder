@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AdminChrome } from './AdminChrome';
@@ -37,5 +37,20 @@ describe('AdminChrome', () => {
     renderAt('/admin');
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(screen.getByText('Seiteninhalt')).toBeInTheDocument();
+  });
+
+  it('places Admins last in the sidebar navigation', () => {
+    renderAt('/admin');
+    const sidebar = screen.getByText('Verwaltung').closest('aside');
+    const links = within(sidebar as HTMLElement).getAllByRole('link');
+
+    expect(links.at(-1)).toHaveTextContent('Admins');
+  });
+
+  it('renders the current admin as non-interactive identity information', () => {
+    renderAt('/admin');
+    const email = screen.getByText('admin@example.com');
+
+    expect(email.closest('a')).toBeNull();
   });
 });

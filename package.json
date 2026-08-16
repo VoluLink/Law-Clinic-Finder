@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:login:teardown": "node --env-file=.env.local scripts/dev-login.mjs --teardown",
+    "auth:config": "node scripts/push-auth-config.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

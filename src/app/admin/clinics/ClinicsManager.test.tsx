@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ClinicsManager, type AdminClinicRow, type PendingSubmission } from './ClinicsManager';
+import { ClinicsManager, type AdminClinicRow, type PendingReview } from './ClinicsManager';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
@@ -37,14 +37,14 @@ const noEmail = clinic({
   is_published: false,
   lastSignInLabel: null,
 });
-const pending: PendingSubmission[] = [
+const pending: PendingReview[] = [
   {
     id: 'p1',
     name: 'Neue Clinic',
     region: 'Hamburg',
     legal_areas: 'Sozialrecht',
     contact_email: 'n@c.de',
-    submitted_at: '2026-07-01',
+    kind: 'new',
   },
 ];
 
@@ -60,7 +60,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('ClinicsManager', () => {
   it('renders the pending panel and per-state Zugang controls', () => {
     renderManager();
-    expect(screen.getByText('Neue Einträge zur Prüfung')).toBeInTheDocument();
+    expect(screen.getByText('Zugänge zur Prüfung')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zugang zurücksetzen' })).toBeInTheDocument();
     expect(screen.getByText('Beratungsemail nötig')).toBeInTheDocument();
   });

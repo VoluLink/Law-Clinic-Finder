@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 import { Footer } from '@/components/layout/Footer';
 import { Wordmark } from '@/components/layout/Wordmark';
@@ -27,7 +28,10 @@ export default function LoginPage() {
               Bereich, der zu deinem Konto gehört.
             </p>
           </div>
-          <LoginForm />
+          {/* LoginForm reads the ?error= param, which needs a Suspense boundary. */}
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
           {/* Server-side gate: the panel is never sent to the browser in production. */}
           {devLoginEnabled() && <DevLoginPanel />}
           <p className="border-t border-border pt-5 text-sm text-muted">

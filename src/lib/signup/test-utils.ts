@@ -5,7 +5,17 @@ import type { Logger } from '@/lib/logger';
 export type CallLog = Array<[string, unknown[]]>;
 export type QueryResult = { data: unknown; error: { message: string } | null };
 
-const QUERY_METHODS = ['select', 'eq', 'ilike', 'gte', 'order', 'limit', 'insert', 'delete'];
+const QUERY_METHODS = [
+  'select',
+  'eq',
+  'ilike',
+  'gte',
+  'order',
+  'limit',
+  'insert',
+  'update',
+  'delete',
+];
 
 /**
  * Minimal chainable stand-in for the Supabase query builder. Each `from()`

@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server';
 
+import { linkInvitedUser } from '@/lib/admin/invite-clinic';
+import { isAdminEmail, isClinicEmail } from '@/lib/auth/email-uniqueness';
 import { clinicSubmissionSchema } from '@/lib/clinics/schema';
 import { logger } from '@/lib/logger';
 import { SIGNUP_REGISTER_RATE_LIMIT, createRateLimiter } from '@/lib/rate-limit';
@@ -16,8 +18,15 @@ export async function POST(request: NextRequest): Promise<Response> {
   const parsed = clinicSubmissionSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: 'Ungültige Anfrage.' }, { status: 400 });
 
+  const adminClient = createSupabaseAdminClient();
+  const deps = { adminClient, logger };
   const result = await registerClinic(
-    { adminClient: createSupabaseAdminClient(), logger },
+    {
+      ...deps,
+      claimWithEmail: (clinicId, email) => linkInvitedUser(deps, clinicId, email, 'pending'),
+      isEmailTaken: async (email) =>
+        (await isAdminEmail(adminClient, email)) || (await isClinicEmail(adminClient, email)),
+    },
     parsed.data,
   );
   if (result.status === 'error') {

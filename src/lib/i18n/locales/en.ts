@@ -53,9 +53,9 @@ export const en: Translations = {
   limitMinuteTitle: 'Request limit reached',
   limitMinuteBody:
     'Too many requests. Please wait a moment. To prevent abuse and control costs, only a few messages are allowed in a short time.',
-  limitDailyTitle: 'Request limit reached',
+  limitDailyTitle: 'Daily limit reached',
   limitDailyBody:
-    'You have reached the daily message limit. This free service limits requests per day to keep the cost of AI advice sustainable for everyone. Please try again tomorrow or contact a law clinic directly.',
+    'You have used both conversations available today. We limit chatbot requests to keep this free service sustainable. Please try again tomorrow or contact a law clinic directly.',
   charWarn: 'Maximum length reached (4,000 characters).',
   chatCompletedTitle: 'This chat is complete',
   chatCompletedDescription: 'You can start a fresh chat at any time for a new concern.',

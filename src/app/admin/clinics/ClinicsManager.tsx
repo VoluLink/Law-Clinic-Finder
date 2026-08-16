@@ -42,13 +42,14 @@ export type AdminClinicRow = {
   lastSignInLabel: string | null;
 };
 
-export type PendingSubmission = {
+export type PendingReview = {
   id: string;
   name: string;
   region: string | null;
   legal_areas: string;
-  contact_email: string;
-  submitted_at: string;
+  contact_email: string | null;
+  /** 'new' is a self-registered entry, 'claim' an application for an existing one. */
+  kind: 'new' | 'claim';
 };
 
 type EditableKey =
@@ -136,7 +137,7 @@ export function ClinicsManager({
   pending,
 }: {
   clinics: AdminClinicRow[];
-  pending: PendingSubmission[];
+  pending: PendingReview[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -644,7 +645,7 @@ function PendingPanel({
   onApprove,
   onReject,
 }: {
-  pending: PendingSubmission[];
+  pending: PendingReview[];
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }) {
@@ -652,26 +653,31 @@ function PendingPanel({
     <section className="rounded-[16px] border border-warning/40 bg-warning-surface/50 p-5">
       <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-primary">
         <Badge variant="warning">{pending.length}</Badge>
-        Neue Einträge zur Prüfung
+        Zugänge zur Prüfung
       </h3>
       <div className="flex flex-col gap-2">
-        {pending.map((submission) => (
+        {pending.map((review) => (
           <div
-            key={submission.id}
+            key={review.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3"
           >
             <div className="text-sm">
-              <div className="font-semibold text-foreground">{submission.name}</div>
+              <div className="flex items-center gap-2 font-semibold text-foreground">
+                {review.name}
+                <Badge variant="neutral">
+                  {review.kind === 'new' ? 'Neuer Eintrag' : 'Übernahme'}
+                </Badge>
+              </div>
               <div className="text-muted">
-                {submission.region ?? 'Region unbekannt'} · {submission.legal_areas} ·{' '}
-                {submission.contact_email}
+                {review.region ?? 'Region unbekannt'} · {review.legal_areas} ·{' '}
+                {review.contact_email ?? 'keine Adresse'}
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="primary" onClick={() => onApprove(submission.id)}>
+              <Button variant="primary" onClick={() => onApprove(review.id)}>
                 Freischalten
               </Button>
-              <Button variant="secondary" onClick={() => onReject(submission.id)}>
+              <Button variant="secondary" onClick={() => onReject(review.id)}>
                 Ablehnen
               </Button>
             </div>

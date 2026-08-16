@@ -9,8 +9,8 @@ vi.mock('@/lib/supabase/proxy-session', () => ({ loadProxySession: vi.fn() }));
 
 const loadSession = vi.mocked(loadProxySession);
 
-function sessionResponse(role: 'admin' | 'clinic' | null) {
-  return { response: new Response(null) as never, role };
+function sessionResponse(role: 'admin' | 'clinic' | null, pending = false) {
+  return { response: new Response(null) as never, role, pending };
 }
 
 describe(proxy, () => {
@@ -38,5 +38,23 @@ describe(proxy, () => {
     loadSession.mockResolvedValue(sessionResponse('admin'));
     const result = await proxy(new NextRequest('http://localhost/admin'));
     expect(result.headers.get('location')).toBeNull();
+  });
+
+  it('holds a pending claimant on the waiting page', async () => {
+    loadSession.mockResolvedValue(sessionResponse('clinic', true));
+    const result = await proxy(new NextRequest('http://localhost/clinic/statistics'));
+    expect(result.headers.get('location')).toBe('http://localhost/clinic/pending');
+  });
+
+  it('lets a pending claimant see the waiting page itself', async () => {
+    loadSession.mockResolvedValue(sessionResponse('clinic', true));
+    const result = await proxy(new NextRequest('http://localhost/clinic/pending'));
+    expect(result.headers.get('location')).toBeNull();
+  });
+
+  it('sends an approved clinic away from the waiting page', async () => {
+    loadSession.mockResolvedValue(sessionResponse('clinic'));
+    const result = await proxy(new NextRequest('http://localhost/clinic/pending'));
+    expect(result.headers.get('location')).toBe('http://localhost/clinic');
   });
 });

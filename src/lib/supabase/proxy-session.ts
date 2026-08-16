@@ -5,9 +5,13 @@ import { z } from 'zod';
 import { publicSupabaseEnv } from './env';
 
 const roleSchema = z.enum(['admin', 'clinic']);
+const profileSchema = z.object({
+  role: roleSchema,
+  access_status: z.enum(['pending', 'active']),
+});
 
 export type AppRole = z.infer<typeof roleSchema>;
-export type ProxySession = { response: NextResponse; role: AppRole | null };
+export type ProxySession = { response: NextResponse; role: AppRole | null; pending: boolean };
 
 /**
  * Refreshes the auth session inside src/proxy.ts and resolves the caller's
@@ -32,15 +36,16 @@ export async function loadProxySession(request: NextRequest): Promise<ProxySessi
 
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;
-  if (!userId) return { response, role: null };
+  if (!userId) return { response, role: null, pending: false };
 
   // Filter by user_id explicitly; RLS alone is not enough here — an admin can
   // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, access_status')
     .eq('user_id', userId)
     .maybeSingle();
-  const parsed = roleSchema.safeParse(profile?.role);
-  return { response, role: parsed.success ? parsed.data : null };
+  const parsed = profileSchema.safeParse(profile);
+  if (!parsed.success) return { response, role: null, pending: false };
+  return { response, role: parsed.data.role, pending: parsed.data.access_status === 'pending' };
 }

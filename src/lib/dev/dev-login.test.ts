@@ -120,7 +120,7 @@ describe('ensureDevSession', () => {
     const { client, upsert } = createClientMock();
     await ensureDevSession(client, 'clinic');
     expect(upsert).toHaveBeenCalledWith(
-      { user_id: USER_ID, role: 'clinic', clinic_id: CLINIC_ID },
+      { user_id: USER_ID, role: 'clinic', clinic_id: CLINIC_ID, access_status: 'active' },
       { onConflict: 'user_id' },
     );
   });
@@ -129,7 +129,7 @@ describe('ensureDevSession', () => {
     const { client, upsert } = createClientMock();
     await ensureDevSession(client, 'admin');
     expect(upsert).toHaveBeenCalledWith(
-      { user_id: USER_ID, role: 'admin', clinic_id: null },
+      { user_id: USER_ID, role: 'admin', clinic_id: null, access_status: 'active' },
       { onConflict: 'user_id' },
     );
   });

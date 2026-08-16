@@ -6,7 +6,13 @@ import type { createSupabaseAdminClient } from '@/lib/supabase/admin';
 // under test take their client as a parameter or are pure.
 vi.mock('server-only', () => ({}));
 
-import { autoPublishClinic, autoPublishTarget, markAccessActivated } from './route';
+import {
+  autoPublishClinic,
+  autoPublishTarget,
+  destinationFor,
+  markAccessActivated,
+  verifyLink,
+} from './route';
 
 const COMPLETE = {
   name: 'Clinic',
@@ -60,6 +66,17 @@ describe('autoPublishTarget', () => {
     ).toBeNull();
     expect(autoPublishTarget('invite', null)).toBeNull();
   });
+
+  it('never publishes for a claimant still awaiting approval', () => {
+    expect(
+      autoPublishTarget('invite', {
+        role: 'clinic',
+        clinic_id: 'c1',
+        activated_at: null,
+        access_status: 'pending',
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('autoPublishClinic', () => {
@@ -95,5 +112,103 @@ describe(markAccessActivated, () => {
       true,
     );
     expect(update).toHaveBeenCalledWith({ activated_at: '2026-07-26T20:00:00.000Z' });
+  });
+});
+
+describe('destinationFor', () => {
+  it('sends an admin to the admin area', () => {
+    expect(destinationFor({ role: 'admin', clinic_id: null, access_status: 'active' })).toBe(
+      '/admin',
+    );
+  });
+
+  it('sends an approved clinic to its portal', () => {
+    expect(destinationFor({ role: 'clinic', clinic_id: 'c1', access_status: 'active' })).toBe(
+      '/clinic',
+    );
+  });
+
+  it('holds a claimant awaiting approval on the waiting page', () => {
+    expect(destinationFor({ role: 'clinic', clinic_id: 'c1', access_status: 'pending' })).toBe(
+      '/clinic/pending',
+    );
+  });
+
+  it('names the reason when a verified login has no profile at all', () => {
+    expect(destinationFor(null)).toBe('/login?error=no_access');
+  });
+});
+
+describe(verifyLink, () => {
+  const user = { id: 'u1' };
+
+  function stubAuth(overrides: {
+    verifyOtp?: ReturnType<typeof vi.fn>;
+    exchangeCodeForSession?: ReturnType<typeof vi.fn>;
+  }) {
+    return {
+      auth: {
+        verifyOtp: overrides.verifyOtp ?? vi.fn(),
+        exchangeCodeForSession: overrides.exchangeCodeForSession ?? vi.fn(),
+      },
+    } as never;
+  }
+
+  it('verifies a token-hash link from the custom template', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ data: { user }, error: null });
+    const client = stubAuth({ verifyOtp });
+
+    await expect(verifyLink(client, { token_hash: 'abc', type: 'magiclink' })).resolves.toEqual({
+      userId: 'u1',
+      flow: 'token_hash',
+      type: 'magiclink',
+    });
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'abc', type: 'magiclink' });
+  });
+
+  // The stock {{ .ConfirmationURL }} template lands here after Supabase's own
+  // verify step, carrying a PKCE code instead of a token hash.
+  it('completes the code exchange from the stock template', async () => {
+    const exchangeCodeForSession = vi.fn().mockResolvedValue({ data: { user }, error: null });
+    const client = stubAuth({ exchangeCodeForSession });
+
+    await expect(verifyLink(client, { code: 'pkce-code' })).resolves.toEqual({
+      userId: 'u1',
+      flow: 'code',
+      type: 'magiclink',
+    });
+    expect(exchangeCodeForSession).toHaveBeenCalledWith('pkce-code');
+  });
+
+  it('rejects a link carrying neither a token hash nor a code', async () => {
+    const client = stubAuth({});
+    await expect(verifyLink(client, {})).resolves.toBeNull();
+  });
+
+  it('rejects an expired token hash', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ data: { user: null }, error: { message: 'x' } });
+    await expect(
+      verifyLink(stubAuth({ verifyOtp }), { token_hash: 'abc', type: 'magiclink' }),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects a code that cannot be exchanged', async () => {
+    const exchangeCodeForSession = vi
+      .fn()
+      .mockResolvedValue({ data: { user: null }, error: { message: 'x' } });
+    await expect(
+      verifyLink(stubAuth({ exchangeCodeForSession }), { code: 'x' }),
+    ).resolves.toBeNull();
+  });
+
+  it('prefers the token hash when a link somehow carries both', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ data: { user }, error: null });
+    const exchangeCodeForSession = vi.fn();
+    const client = stubAuth({ verifyOtp, exchangeCodeForSession });
+
+    await expect(
+      verifyLink(client, { token_hash: 'abc', type: 'invite', code: 'pkce-code' }),
+    ).resolves.toMatchObject({ flow: 'token_hash' });
+    expect(exchangeCodeForSession).not.toHaveBeenCalled();
   });
 });

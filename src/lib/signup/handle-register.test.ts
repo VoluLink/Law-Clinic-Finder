@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { clinicSubmissionSchema } from '@/lib/clinics/schema';
 
-import { registerClinic } from './handle-register';
-import type { SignupDeps } from './handle-search';
+import { registerClinic, type RegisterDeps } from './handle-register';
 import { createAdminClientMock, testLogger, type QueryResult } from './test-utils';
+
+const CLINIC_ID = '9f8b6c3a-0000-4000-8000-000000000003';
 
 const submission = clinicSubmissionSchema.parse({
   name: 'Neue Law Clinic Bremen',
@@ -19,9 +20,15 @@ const submission = clinicSubmissionSchema.parse({
   requirements: null,
 });
 
-function createDeps(responses: QueryResult[]) {
+function createDeps(responses: QueryResult[], overrides?: Partial<RegisterDeps>) {
   const mock = createAdminClientMock(responses);
-  const deps: SignupDeps = { adminClient: mock.client as never, logger: testLogger() };
+  const deps: RegisterDeps = {
+    adminClient: mock.client as never,
+    logger: testLogger(),
+    claimWithEmail: vi.fn().mockResolvedValue({ status: 'ok', clinicId: CLINIC_ID }),
+    isEmailTaken: vi.fn().mockResolvedValue(false),
+    ...overrides,
+  };
   return { deps, mock };
 }
 
@@ -37,14 +44,36 @@ describe('clinicSubmissionSchema', () => {
 });
 
 describe(registerClinic, () => {
-  it('stores the submission in the approval queue', async () => {
+  it('creates the entry unapproved and awaits review', async () => {
+    const { deps } = createDeps([
+      { data: null, error: null },
+      { data: { id: CLINIC_ID }, error: null },
+    ]);
+    expect(await registerClinic(deps, submission)).toEqual({
+      status: 'pending_review',
+      email: submission.contact_email,
+    });
+  });
+
+  it('never publishes the new entry', async () => {
     const { deps, mock } = createDeps([
       { data: null, error: null },
-      { data: null, error: null },
+      { data: { id: CLINIC_ID }, error: null },
     ]);
-    expect(await registerClinic(deps, submission)).toEqual({ status: 'submitted' });
-    expect(mock.calls).toContainEqual(['from', ['clinic_submissions']]);
-    expect(mock.calls).toContainEqual(['insert', [submission]]);
+    await registerClinic(deps, submission);
+    expect(mock.calls).toContainEqual([
+      'insert',
+      [{ ...submission, approval_status: 'pending', is_published: false }],
+    ]);
+  });
+
+  it('links the login to the new entry', async () => {
+    const { deps } = createDeps([
+      { data: null, error: null },
+      { data: { id: CLINIC_ID }, error: null },
+    ]);
+    await registerClinic(deps, submission);
+    expect(deps.claimWithEmail).toHaveBeenCalledWith(CLINIC_ID, submission.contact_email);
   });
 
   it('redirects name collisions into the claim flow instead of duplicating', async () => {
@@ -55,22 +84,29 @@ describe(registerClinic, () => {
       contact_email: 'alt@neue-clinic.de',
       profiles: [],
     };
-    const { deps, mock } = createDeps([{ data: existing, error: null }]);
+    const { deps } = createDeps([{ data: existing, error: null }]);
     const result = await registerClinic(deps, submission);
     expect(result).toMatchObject({
       status: 'collision',
       clinic: { id: existing.id, maskedEmail: 'a****t@neue-clinic.de' },
     });
-    expect(mock.calls).not.toContainEqual(['from', ['clinic_submissions']]);
+    expect(deps.claimWithEmail).not.toHaveBeenCalled();
   });
 
   it('checks the name case-insensitively but exactly', async () => {
     const { deps, mock } = createDeps([
       { data: null, error: null },
-      { data: null, error: null },
+      { data: { id: CLINIC_ID }, error: null },
     ]);
     await registerClinic(deps, submission);
     expect(mock.calls).toContainEqual(['ilike', ['name', 'Neue Law Clinic Bremen']]);
+  });
+
+  it('refuses an address that already belongs to another account', async () => {
+    const { deps } = createDeps([{ data: null, error: null }], {
+      isEmailTaken: vi.fn().mockResolvedValue(true),
+    });
+    expect(await registerClinic(deps, submission)).toEqual({ status: 'email_taken' });
   });
 
   it('reports an error when the insert fails', async () => {
@@ -80,5 +116,20 @@ describe(registerClinic, () => {
     ]);
     expect(await registerClinic(deps, submission)).toEqual({ status: 'error' });
     expect(deps.logger.warn).toHaveBeenCalled();
+  });
+
+  it('removes the entry again when the invite fails, so the queue stays clean', async () => {
+    const { deps, mock } = createDeps(
+      [
+        { data: null, error: null },
+        { data: { id: CLINIC_ID }, error: null },
+        { data: null, error: null },
+      ],
+      {
+        claimWithEmail: vi.fn().mockResolvedValue({ status: 'invite_failed', clinicId: CLINIC_ID }),
+      },
+    );
+    expect(await registerClinic(deps, submission)).toEqual({ status: 'error' });
+    expect(mock.calls).toContainEqual(['delete', []]);
   });
 });

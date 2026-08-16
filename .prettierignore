@@ -6,3 +6,7 @@ package-lock.json
 
 # Local tool and editor directories — not project code
 .*/
+
+# Auth mail templates are pasted verbatim into the Supabase dashboard. Email
+# clients react to whitespace between inline elements, so these stay unreflowed.
+supabase/email-templates/*.html

@@ -9,6 +9,64 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Selbstregistrierung mit echtem Zugang.** `/signup` führt jetzt auf drei Wegen zu einem Login.
+  Ist im Eintrag eine Beratungsemail hinterlegt, geht der Anmeldelink an genau diese Adresse und der
+  Zugang gilt sofort. Fehlt sie — was aktuell auf alle Verzeichnis-Einträge zutrifft —, gibt die Law
+  Clinic ihre eigene Adresse an und bestätigt sie; bis zur Admin-Freigabe sieht sie nur eine
+  Wartekarte. Eine neue Law Clinic legt ihren Eintrag selbst an und durchläuft denselben Weg. Damit
+  ist die frühere Sackgasse „Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt" geschlossen.
+- **Admin-Konten unter `/admin/admins`:** Liste aller Admins mit Adresse und Status (aktiv oder
+  eingeladen), Einladung weiterer Admins und Entfernen bestehender. Alle Admins haben dieselben
+  Rechte. Zwei serverseitig erzwungene Sperren: Niemand entfernt das eigene Konto, und das letzte
+  verbliebene Admin-Konto lässt sich nicht entfernen.
+- **Wartekarte `/clinic/pending`** als einzige erreichbare Seite eines noch nicht freigegebenen
+  Zugangs — durchgesetzt im Proxy, in den API-Routen (`requireActiveRole`) und in der Datenbank.
+- **`NEXT_PUBLIC_SITE_URL`** setzt die Basis-URL für den `/auth/confirm`-Link in Auth-Mails, statt
+  sich allein auf die Site-URL-Einstellung im Supabase-Dashboard zu verlassen.
+
+### Geändert
+
+- **Eine Adresse gehört genau einer Rolle.** Admin-Einladung und Clinic-Registrierung prüfen
+  gegenseitig, ob die Adresse schon vergeben ist, und melden das verständlich statt als
+  Datenbankfehler.
+- **Das Login legt keine Konten mehr an** und läuft über eine eigene, pro IP begrenzte Route. Die
+  Antwort ist immer dieselbe, sodass sich über das Formular nicht mehr herausfinden lässt, welche
+  Adressen registriert sind.
+- **Abgelaufene Anmeldelinks werden erklärt.** `/auth/confirm` leitete schon immer mit `?error=` auf
+  das Login zurück, angezeigt wurde davon nichts — das Formular erschien einfach leer.
+- **Die Freigabe-Warteschlange im Admin liegt jetzt in `clinics`** und unterscheidet „Neuer Eintrag"
+  von „Übernahme". Die Tabelle `clinic_submissions` entfällt.
+
+### Behoben
+
+- **Der Anmeldelink führt jetzt in den Mitglieder- bzw. Admin-Bereich statt auf die Startseite.**
+  Drei Ursachen lagen übereinander: `NEXT_PUBLIC_SITE_URL` war nicht gesetzt, der Helfer für die
+  Bestätigungs-URL fiel serverseitig auf `window` zurück (das es in einer Route nicht gibt) und
+  lieferte deshalb `null`, worauf `emailRedirectTo` entfiel — und ohne dieses Ziel leitet Supabase
+  auf die Site URL, also die Startseite. Der Helfer ist jetzt serverseitig und leitet den Ursprung
+  aus der Anfrage ab, wenn keine Domain konfiguriert ist. Ein Test deckt genau diesen Zweig ab, der
+  vorher nur in Produktion auftrat.
+- **`/auth/confirm` akzeptiert beide Linkformate.** Neben dem Token-Hash der eigenen Vorlagen jetzt
+  auch Supabases Standardformat (`code`), sodass die Anmeldung selbst mit unveränderten Vorlagen
+  funktioniert. Weil dieser Weg nur im anfordernden Browser klappt, wird er als Warnung protokolliert
+  statt still hingenommen.
+
+### Hinzugefügt (Auth)
+
+- **Gestaltete Anmelde-E-Mails** in `supabase/email-templates/` (Magic Link und Invite), im
+  Erscheinungsbild der Website. Sie bauen den Bestätigungslink selbst und sind die Referenzfassung
+  der im Dashboard hinterlegten Vorlagen.
+- **Auth-Ereignisse im Protokoll:** angeforderter und gesendeter Anmeldelink, Rate-Limit-Treffer,
+  erfolgreiche Bestätigung (mit Rolle, Ziel und Linkformat), fehlgeschlagene Bestätigung mit
+  unterscheidbarem Grund, Abmeldung sowie eingereichte Übernahmen und Registrierungen. Bewusst ohne
+  E-Mail-Adressen — nur IDs und kurze Gründe.
+
+### Behoben (weiterhin)
+
+- **Das Löschen einer Law Clinic entfernt jetzt auch deren Login.** Bisher verschwand nur das
+  Profil, während der `auth.users`-Datensatz als verwaistes Konto bestehen blieb. Ein Trigger auf
+  `clinics` erledigt das in der Datenbank, sodass auch ein Löschen im Supabase-Dashboard oder per
+  SQL greift.
 - **API-Kosten je Gespräch im Admin-Drawer:** Unter „Anonymisierte Gespräche" zeigt ein geöffnetes
   Gespräch neben „Rechtsgebiet" und „Treffer" jetzt auch, was genau dieses Gespräch an LLM-Kosten
   verursacht hat – auf vier Nachkommastellen, da ein einzelner Chat weit unter einem Cent liegt.

@@ -17,6 +17,11 @@
   --accent-hover: #e6d8bc;
   --danger: #c75050;
   --danger-foreground: #ffffff;
+  --limit: #aa4728;
+  --limit-foreground: #ffffff;
+  --limit-text: #8f4932;
+  --limit-surface: #f9e9e2;
+  --limit-border: #eab9a5;
   --success: #2f7a52;
   --success-surface: #e4f2e9;
   --warning: #9a6b1f;
@@ -48,6 +53,11 @@
   --color-accent-hover: var(--accent-hover);
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
+  --color-limit: var(--limit);
+  --color-limit-foreground: var(--limit-foreground);
+  --color-limit-text: var(--limit-text);
+  --color-limit-surface: var(--limit-surface);
+  --color-limit-border: var(--limit-border);
   --color-success: var(--success);
   --color-success-surface: var(--success-surface);
   --color-warning: var(--warning);

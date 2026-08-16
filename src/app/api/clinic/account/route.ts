@@ -1,4 +1,4 @@
-import { AuthError, requireRole } from '@/lib/auth/require-role';
+import { AuthError, requireActiveRole } from '@/lib/auth/require-role';
 import { revokeClinicAccess } from '@/lib/clinics/revoke-access';
 import { logger } from '@/lib/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -7,11 +7,11 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 // A clinic member deletes its own account: the login is removed and the entry
 // is unpublished (hidden from the finder), but the directory row is kept so an
 // admin can re-invite later. Publishing/deleting the auth user needs the
-// service client, so ownership is proven via requireRole first.
+// service client, so ownership is proven via requireActiveRole first.
 export async function DELETE(): Promise<Response> {
   const supabase = await createSupabaseServerClient();
   try {
-    const profile = await requireRole(supabase, ['clinic']);
+    const profile = await requireActiveRole(supabase, ['clinic']);
     if (!profile.clinic_id) return Response.json({ error: 'Nicht berechtigt.' }, { status: 403 });
     await revokeClinicAccess(createSupabaseAdminClient(), profile.clinic_id, {
       unpublish: true,

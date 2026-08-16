@@ -111,7 +111,10 @@ export async function ensureDevSession(client: DevClient, role: DevRole): Promis
   // only writer (see 20260718090100_profiles.sql).
   const { error } = await client
     .from('profiles')
-    .upsert({ user_id: userId, role, clinic_id: clinicId }, { onConflict: 'user_id' });
+    .upsert(
+      { user_id: userId, role, clinic_id: clinicId, access_status: 'active' },
+      { onConflict: 'user_id' },
+    );
   if (error) throw new Error(`profile upsert failed for ${account.email}: ${error.message}`);
   const link = await client.auth.admin.generateLink({ type: 'magiclink', email: account.email });
   if (link.error) throw new Error(`generateLink failed: ${link.error.message}`);

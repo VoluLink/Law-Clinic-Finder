@@ -19,17 +19,17 @@ type Stage =
   | { name: 'claim'; clinic: DirectoryMatch; fromCollision: boolean }
   | { name: 'verify'; clinic: DirectoryMatch; maskedEmail: string }
   | { name: 'register' }
-  | { name: 'done' };
+  | { name: 'pending'; email: string };
 
 const GENERIC_ERROR = 'Etwas ist schiefgelaufen. Bitte versuche es später erneut.';
 const SEARCH_DEBOUNCE_MS = 300;
 
-async function requestClaim(clinicId: string): Promise<ClaimResult> {
+async function requestClaim(clinicId: string, email?: string): Promise<ClaimResult> {
   try {
     const response = await fetch('/api/signup/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clinicId }),
+      body: JSON.stringify(email ? { clinicId, email } : { clinicId }),
     });
     const body = (await response.json().catch(() => null)) as ClaimResult | null;
     return body && 'status' in body ? body : { status: 'error' };
@@ -47,6 +47,7 @@ export function SignupFlow() {
         clinic={stage.clinic}
         fromCollision={stage.fromCollision}
         onSent={(maskedEmail) => setStage({ name: 'verify', clinic: stage.clinic, maskedEmail })}
+        onPending={(email) => setStage({ name: 'pending', email })}
         onBack={() => setStage({ name: 'search' })}
       />
     );
@@ -56,13 +57,13 @@ export function SignupFlow() {
   if (stage.name === 'register') {
     return (
       <RegisterForm
-        onDone={() => setStage({ name: 'done' })}
+        onPending={(email) => setStage({ name: 'pending', email })}
         onCollision={(clinic) => setStage({ name: 'claim', clinic, fromCollision: true })}
         onBack={() => setStage({ name: 'search' })}
       />
     );
   }
-  if (stage.name === 'done') return <DoneStage />;
+  if (stage.name === 'pending') return <PendingStage email={stage.email} />;
   return (
     <SearchStage
       onClaim={(clinic) => setStage({ name: 'claim', clinic, fromCollision: false })}
@@ -203,23 +204,29 @@ function ClaimStage({
   clinic,
   fromCollision,
   onSent,
+  onPending,
   onBack,
 }: {
   clinic: DirectoryMatch;
   fromCollision: boolean;
   onSent: (maskedEmail: string) => void;
+  onPending: (email: string) => void;
   onBack: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
 
   async function handleClaim() {
     setPending(true);
-    const result = await requestClaim(clinic.id);
+    const result = await requestClaim(clinic.id, clinic.hasContactEmail ? undefined : email.trim());
     setPending(false);
     if (result.status === 'sent') return onSent(result.maskedEmail);
+    if (result.status === 'pending_review') return onPending(result.email);
     setMessage(claimMessage(result));
   }
+
+  const canSubmit = clinic.hasContactEmail || email.trim().length > 0;
 
   return (
     <Card variant="panel" className="flex flex-col gap-5">
@@ -238,39 +245,49 @@ function ClaimStage({
           liest, kann den Eintrag übernehmen.
         </p>
       ) : (
-        <p className="text-base text-muted">
-          Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktiere Law Clinics
-          Deutschland, um den Zugang einzurichten.
-        </p>
+        <>
+          <p className="text-base text-muted">
+            Für diesen Eintrag ist noch keine E-Mail-Adresse hinterlegt. Gib die Adresse deiner Law
+            Clinic an — wir senden einen Bestätigungslink dorthin. Danach prüft das Team von Law
+            Clinics Deutschland, ob der Zugang zu dieser Law Clinic gehört.
+          </p>
+          <Input
+            label="E-Mail-Adresse deiner Law Clinic"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </>
       )}
       {message && (
         <p role="status" className="text-sm text-danger">
           {message}
         </p>
       )}
-      {clinic.hasContactEmail && (
-        <Button
-          onClick={handleClaim}
-          disabled={pending}
-          shape="pill"
-          className="w-full py-4 text-base font-bold"
-        >
-          Anmeldelink anfordern
-        </Button>
-      )}
+      <Button
+        onClick={handleClaim}
+        disabled={pending || !canSubmit}
+        shape="pill"
+        className="w-full py-4 text-base font-bold"
+      >
+        {clinic.hasContactEmail ? 'Anmeldelink anfordern' : 'Bestätigungslink anfordern'}
+      </Button>
     </Card>
   );
 }
 
 function claimMessage(result: ClaimResult): string {
   if (result.status === 'already_claimed') {
-    return 'Diese Law Clinic ist bereits aktiv. Melde dich mit der E-Mail-Adresse deiner Organisation an.';
+    return 'Diese Law Clinic ist bereits aktiv oder wird gerade geprüft. Melde dich mit der E-Mail-Adresse deiner Organisation an.';
   }
   if (result.status === 'blocked') {
     return `Für diesen Eintrag wurden bereits mehrere Links angefordert. Bitte versuche es in ${result.retryDays} Tagen erneut.`;
   }
-  if (result.status === 'no_email') {
-    return 'Für diesen Eintrag ist keine E-Mail-Adresse hinterlegt. Bitte kontaktiere Law Clinics Deutschland.';
+  if (result.status === 'email_required') {
+    return 'Bitte gib eine E-Mail-Adresse an.';
+  }
+  if (result.status === 'email_taken') {
+    return 'Diese E-Mail-Adresse wird bereits für ein anderes Konto verwendet. Melde dich damit an oder nutze eine andere Adresse.';
   }
   return GENERIC_ERROR;
 }
@@ -305,14 +322,18 @@ function VerifyStage({ clinic, maskedEmail }: { clinic: DirectoryMatch; maskedEm
   );
 }
 
-function DoneStage() {
+function PendingStage({ email }: { email: string }) {
   return (
     <Card variant="panel" className="flex flex-col gap-5">
-      <StageHeading>Vielen Dank!</StageHeading>
+      <StageHeading>Prüfe dein Postfach</StageHeading>
       <p className="text-base text-muted">
-        Deine Law Clinic wurde zur Prüfung eingereicht. Das Team von Law Clinics Deutschland
-        schaltet den Eintrag frei — danach erhältst du den Anmeldelink an die angegebene
-        E-Mail-Adresse.
+        Wir haben einen Bestätigungslink an <strong className="text-foreground">{email}</strong>{' '}
+        gesendet. Öffne ihn, um deine Adresse zu bestätigen — danach bist du angemeldet.
+      </p>
+      <p className="text-base text-muted">
+        Das Team von Law Clinics Deutschland prüft anschließend, ob der Zugang zu dieser Law Clinic
+        gehört. Bis zur Freigabe kannst du deinen Eintrag noch nicht bearbeiten, und er ist im
+        Verzeichnis nicht sichtbar.
       </p>
       <BackLink href="/" />
     </Card>

@@ -29,6 +29,10 @@ export const SIGNUP_SEARCH_RATE_LIMIT: RateLimitConfig = { maxRequests: 30, wind
 export const SIGNUP_CLAIM_RATE_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: MS_PER_DAY };
 export const SIGNUP_REGISTER_RATE_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: MS_PER_DAY };
 
+/** Login links: generous enough for a mistyped address, tight enough that one
+ *  address cannot drain the project-wide auth mail quota. */
+export const LOGIN_RATE_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 60 * 60_000 };
+
 /**
  * In-memory sliding-window limiter. Per-process only — behind multiple
  * instances, enforce limits at the proxy layer as well.

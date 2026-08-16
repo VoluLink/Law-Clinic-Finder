@@ -10,8 +10,14 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 
 export type NavItem = { href: string; label: string; icon: IconName };
-/** The pinned bottom identity block — doubles as the account/Konto tab link. */
-export type PortalFooter = { href: string; title: string; subtitle: string; navLabel: string };
+/** The pinned bottom identity block, optionally linked to an account tab. */
+type PortalIdentity = {
+  title: string;
+  subtitle: string;
+};
+type LinkedPortalFooter = PortalIdentity & { href: string; navLabel: string };
+type StaticPortalFooter = PortalIdentity & { href?: never; navLabel?: never };
+export type PortalFooter = LinkedPortalFooter | StaticPortalFooter;
 
 type PortalShellProps = {
   sectionLabel: string;
@@ -93,34 +99,105 @@ function Sidebar({
 }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[250px] shrink-0 flex-col bg-primary px-[18px] py-[26px] text-primary-foreground min-[860px]:flex">
+      <SidebarHeader sectionLabel={sectionLabel} />
+      <SidebarNavigation nav={nav} pathname={pathname} homeHref={homeHref} />
+      <SidebarFooter footer={footer} pathname={pathname} homeHref={homeHref} />
+    </aside>
+  );
+}
+
+function SidebarHeader({ sectionLabel }: { sectionLabel: string }) {
+  return (
+    <>
       <div className="px-2 pb-[26px]">
         <Wordmark variant="light" size="sm" />
       </div>
       <div className="px-3 pb-2.5 text-[11px] font-bold tracking-[0.14em] text-primary-foreground/[0.45] uppercase">
         {sectionLabel}
       </div>
-      <nav className="flex flex-col gap-1">
-        {nav.map((item) => (
-          <NavLink key={item.href} item={item} active={isActive(pathname, item.href, homeHref)} />
-        ))}
-      </nav>
-      <Link
-        href={footer.href}
-        aria-current={isActive(pathname, footer.href, homeHref) ? 'page' : undefined}
-        className={cn(
-          'mt-auto rounded-b border-t border-primary-foreground/[0.15] px-3 py-3.5 hover:bg-primary-foreground/[0.1]',
-          isActive(pathname, footer.href, homeHref) && 'bg-primary-foreground/[0.1]',
-        )}
-      >
-        <div className="truncate text-sm font-bold text-primary-foreground">{footer.title}</div>
-        {footer.subtitle && (
-          <div className="truncate text-[13px] text-primary-foreground/[0.6]">
-            {footer.subtitle}
-          </div>
-        )}
-      </Link>
-    </aside>
+    </>
   );
+}
+
+function SidebarNavigation({
+  nav,
+  pathname,
+  homeHref,
+}: {
+  nav: NavItem[];
+  pathname: string;
+  homeHref: string;
+}) {
+  return (
+    <nav className="flex flex-col gap-1">
+      {nav.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(pathname, item.href, homeHref)} />
+      ))}
+    </nav>
+  );
+}
+
+function SidebarFooter({
+  footer,
+  pathname,
+  homeHref,
+}: {
+  footer: PortalFooter;
+  pathname: string;
+  homeHref: string;
+}) {
+  if (isLinkedFooter(footer)) {
+    return <LinkedSidebarFooter footer={footer} pathname={pathname} homeHref={homeHref} />;
+  }
+
+  return <StaticSidebarFooter footer={footer} />;
+}
+
+function LinkedSidebarFooter({
+  footer,
+  pathname,
+  homeHref,
+}: {
+  footer: LinkedPortalFooter;
+  pathname: string;
+  homeHref: string;
+}) {
+  const active = isActive(pathname, footer.href, homeHref);
+  return (
+    <Link
+      href={footer.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'mt-auto rounded-b border-t border-primary-foreground/[0.15] px-3 py-3.5 hover:bg-primary-foreground/[0.1]',
+        active && 'bg-primary-foreground/[0.1]',
+      )}
+    >
+      <FooterIdentity footer={footer} />
+    </Link>
+  );
+}
+
+function StaticSidebarFooter({ footer }: { footer: PortalFooter }) {
+  return (
+    <div className="mt-auto rounded-b border-t border-primary-foreground/[0.15] px-3 py-3.5">
+      <FooterIdentity footer={footer} />
+    </div>
+  );
+}
+
+function FooterIdentity({ footer }: { footer: PortalFooter }) {
+  return (
+    <>
+      <div className="truncate text-sm font-bold text-primary-foreground">{footer.title}</div>
+      {footer.subtitle && (
+        <div className="truncate text-[13px] text-primary-foreground/[0.6]">{footer.subtitle}</div>
+      )}
+    </>
+  );
+}
+
+function isLinkedFooter(footer: PortalFooter): footer is LinkedPortalFooter {
+  return 'href' in footer;
 }
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -152,22 +229,38 @@ function MobileNav({
   footer: PortalFooter;
   homeHref: string;
 }) {
-  const items = [...nav, { href: footer.href, label: footer.navLabel }];
+  const items = isLinkedFooter(footer)
+    ? [...nav, { href: footer.href, label: footer.navLabel }]
+    : nav;
   return (
     <nav className="flex gap-2 overflow-x-auto bg-primary px-4 py-2 min-[860px]:hidden">
       {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          aria-current={isActive(pathname, item.href, homeHref) ? 'page' : undefined}
-          className={cn(
-            'rounded-lg px-3 py-1.5 text-sm whitespace-nowrap text-primary-foreground/[0.85]',
-            isActive(pathname, item.href, homeHref) && 'bg-primary-foreground/[0.15] font-bold',
-          )}
-        >
-          {item.label}
-        </Link>
+        <MobileNavLink key={item.href} item={item} pathname={pathname} homeHref={homeHref} />
       ))}
     </nav>
+  );
+}
+
+function MobileNavLink({
+  item,
+  pathname,
+  homeHref,
+}: {
+  item: Pick<NavItem, 'href' | 'label'>;
+  pathname: string;
+  homeHref: string;
+}) {
+  const active = isActive(pathname, item.href, homeHref);
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'rounded-lg px-3 py-1.5 text-sm whitespace-nowrap text-primary-foreground/[0.85]',
+        active && 'bg-primary-foreground/[0.15] font-bold',
+      )}
+    >
+      {item.label}
+    </Link>
   );
 }

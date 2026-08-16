@@ -8,25 +8,26 @@ const NAV: NavItem[] = [
   { href: '/admin/assistant', label: 'KI-Assistent', icon: 'robot' },
   { href: '/admin/logs', label: 'Protokolle', icon: 'file-lines' },
   { href: '/admin/branding', label: 'Branding', icon: 'palette' },
+  { href: '/admin/admins', label: 'Admins', icon: 'users' },
 ];
 
 const TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
   '/admin/clinics': 'Law-Clinics-Datenbank',
+  '/admin/admins': 'Admin-Konten',
   '/admin/assistant': 'KI-Assistent',
   '/admin/logs': 'Protokolle',
   '/admin/branding': 'Branding & Erscheinungsbild',
-  '/admin/account': 'Konto & Zugang',
 };
 
-/** Admin console chrome — the teal sidebar shell with the admin nav + account. */
+/** Admin console chrome — the teal sidebar shell with admin navigation and identity. */
 export function AdminChrome({ adminEmail, children }: { adminEmail: string; children: ReactNode }) {
   return (
     <PortalShell
       sectionLabel="Verwaltung"
       nav={NAV}
       homeHref="/admin"
-      footer={{ href: '/admin/account', title: 'Admin', subtitle: adminEmail, navLabel: 'Konto' }}
+      footer={{ title: 'Admin', subtitle: adminEmail }}
       titles={TITLES}
       fallbackTitle="Admin"
     >

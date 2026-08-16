@@ -92,9 +92,9 @@ export const de: Translations = {
   limitMinuteTitle: 'Anfragelimit erreicht',
   limitMinuteBody:
     'Zu viele Anfragen. Bitte warte einen Moment. Um Missbrauch und Kosten zu begrenzen, sind kurzfristig nur wenige Nachrichten möglich.',
-  limitDailyTitle: 'Anfragelimit erreicht',
+  limitDailyTitle: 'Tageslimit erreicht',
   limitDailyBody:
-    'Du hast das Tageslimit an Nachrichten erreicht. Dieser kostenlose Dienst begrenzt die Anfragen pro Tag, um die Kosten der KI-Beratung für alle tragbar zu halten. Bitte versuche es morgen erneut oder wende dich direkt an eine Law Clinic.',
+    'Du hast das Limit an Anfragen für heute erreicht. Wir begrenzen die Anfragen, die jeder Nutzer pro Tag an den Chatbot stellen kann, um diesen kostenlosen Dienst tragbar zu halten. Bitte versuche es morgen erneut oder wende dich direkt an eine Law Clinic.',
   charWarn: 'Maximale Länge erreicht (4.000 Zeichen).',
   chatCompletedTitle: 'Dieser Chat ist abgeschlossen',
   chatCompletedDescription:

@@ -29,7 +29,13 @@ export async function searchDirectory(
   deps: SignupDeps,
   query: string,
 ): Promise<DirectoryMatch[] | null> {
-  const base = deps.adminClient.from('clinics').select(DIRECTORY_COLUMNS);
+  // Unapproved entries are not part of the directory yet: listing them would
+  // publish a name before an admin agreed to it, and let a second person try to
+  // claim an entry whose first claim is still open.
+  const base = deps.adminClient
+    .from('clinics')
+    .select(DIRECTORY_COLUMNS)
+    .eq('approval_status', 'approved');
   const filtered = query ? base.ilike('name', `%${escapeLikePattern(query)}%`) : base;
   const { data, error } = await filtered.order('name').limit(MAX_RESULTS);
   if (error) {
