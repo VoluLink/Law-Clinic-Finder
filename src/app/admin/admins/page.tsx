@@ -24,5 +24,7 @@ export default async function AdminAccountsPage() {
     throw error;
   }
   const admins = await listAdmins({ store: firebaseAdminAccountStore, logger });
-  return <AdminsManager admins={admins} currentEmail={currentEmail} currentUserId={currentUserId} />;
+  return (
+    <AdminsManager admins={admins} currentEmail={currentEmail} currentUserId={currentUserId} />
+  );
 }

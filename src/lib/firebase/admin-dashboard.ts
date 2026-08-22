@@ -3,8 +3,12 @@ import { z } from 'zod';
 import type { ChatMessage } from '@/lib/chat/schema';
 import { parseMultiValue } from '@/lib/clinics/options';
 
+import { Timestamp } from 'firebase-admin/firestore';
+
+import { monthRange } from '@/lib/admin/month-window';
+
 import { firebaseFirestore } from './admin';
-import { listAdminClinics, type AdminClinicRecord } from './admin-clinic-store';
+import { loadClinicDashboardCounts, type ClinicDashboardCounts } from './admin-clinic-store';
 import { conversationSummarySchema, conversationTranscriptSchema } from './conversation-store';
 import { clinicDocumentSchema, firestoreDateSchema } from './documents';
 
@@ -59,28 +63,45 @@ export type AdminConversationRow = {
 };
 
 export type FirebaseDashboard = {
-  clinics: AdminClinicRecord[];
+  counts: ClinicDashboardCounts;
   metric: AdminMetric | null;
   conversations: AdminConversationRow[];
+  /** True when the month holds more conversations than were fetched. */
+  hasMoreConversations: boolean;
 };
+
+/*
+ * Conversations are scoped to the selected month so the list agrees with every
+ * other figure on the page. The range filter and the ordering are both on
+ * `createdAt`, so Firestore serves this from the automatic single-field index —
+ * no composite index is required.
+ */
+function monthConversations(month: string, limit: number) {
+  const { startIso, endIso } = monthRange(month);
+  return firebaseFirestore()
+    .collection('conversations')
+    .where('createdAt', '>=', Timestamp.fromDate(new Date(startIso)))
+    .where('createdAt', '<', Timestamp.fromDate(new Date(endIso)))
+    .orderBy('createdAt', 'desc')
+    .limit(limit);
+}
 
 export async function loadAdminDashboard(
   month: string,
   conversationLimit: number,
 ): Promise<FirebaseDashboard> {
-  const database = firebaseFirestore();
-  const [clinics, metricSnapshot, conversationSnapshot] = await Promise.all([
-    listAdminClinics(),
-    database.collection('adminMetrics').doc(month).get(),
-    database
-      .collection('conversations')
-      .orderBy('createdAt', 'desc')
-      .limit(conversationLimit)
-      .get(),
+  // One extra row answers "is there more?" without a second count query.
+  const probeLimit = conversationLimit + 1;
+  const [counts, metricSnapshot, conversationSnapshot] = await Promise.all([
+    loadClinicDashboardCounts(),
+    firebaseFirestore().collection('adminMetrics').doc(month).get(),
+    monthConversations(month, probeLimit).get(),
   ]);
   const metric = metricSnapshot.exists ? adminMetricSchema.parse(metricSnapshot.data()) : null;
-  const conversations = await hydrateConversations(conversationSnapshot.docs);
-  return { clinics, metric, conversations };
+  const hasMoreConversations = conversationSnapshot.size === probeLimit;
+  const page = conversationSnapshot.docs.slice(0, conversationLimit);
+  const conversations = await hydrateConversations(page);
+  return { counts, metric, conversations, hasMoreConversations };
 }
 
 async function hydrateConversations(

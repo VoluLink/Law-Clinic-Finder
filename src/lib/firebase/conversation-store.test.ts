@@ -5,6 +5,7 @@ import type { ConversationRecord } from '@/lib/chat/persist-conversation';
 import {
   conversationMetricDeltas,
   mergeConversation,
+  transcriptExpiry,
   updateTranscriptRetention,
 } from './conversation-store';
 
@@ -110,5 +111,22 @@ describe(updateTranscriptRetention, () => {
     const result = updateTranscriptRetention(entries, 'old-conversation', 1);
     expect(result.evictedId).toBe('old-conversation');
     expect(result.entries.some((entry) => entry.id === 'old-conversation')).toBe(false);
+  });
+});
+
+describe(transcriptExpiry, () => {
+  const CREATED_AT = new Date('2026-08-23T12:00:00.000Z');
+  const DAYS = 90;
+  const MS_PER_DAY = 86_400_000;
+
+  it('expires readable message text after ninety days', () => {
+    expect(transcriptExpiry(CREATED_AT).getTime()).toBe(CREATED_AT.getTime() + DAYS * MS_PER_DAY);
+  });
+
+  it('expires sooner than the statistics derived from it', () => {
+    const summaryRetentionDays = 366;
+    expect(transcriptExpiry(CREATED_AT).getTime()).toBeLessThan(
+      CREATED_AT.getTime() + summaryRetentionDays * MS_PER_DAY,
+    );
   });
 });

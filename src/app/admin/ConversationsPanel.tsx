@@ -56,9 +56,21 @@ function previewOf(row: ConversationRow): string {
   return row.redaction_status === 'failed' ? 'Nur Statistik gespeichert.' : 'Kein Verlauf.';
 }
 
-export function ConversationsPanel({ conversations }: { conversations: ConversationRow[] }) {
+type ConversationsPanelProps = {
+  conversations: ConversationRow[];
+  /** The month holds more conversations than were fetched for this list. */
+  hasMore?: boolean;
+};
+
+/**
+ * Collapsed, the list is clipped to whatever height the grid row gives it, which
+ * is the height of the "Datenbank auf einen Blick" tile beside it — so the two
+ * tiles stay level however many conversations a month happens to hold.
+ */
+export function ConversationsPanel({ conversations, hasMore = false }: ConversationsPanelProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<ConversationRow | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   async function remove(row: ConversationRow) {
     if (!window.confirm('Diese Konversation endgültig löschen?')) return;
@@ -68,18 +80,23 @@ export function ConversationsPanel({ conversations }: { conversations: Conversat
   }
 
   if (conversations.length === 0) {
-    return <p className="text-sm text-muted">Noch keine Gespräche gespeichert.</p>;
+    return <p className="text-sm text-muted">Noch keine Gespräche in diesem Monat.</p>;
   }
 
   return (
     <>
-      <div className="flex flex-col gap-2">
+      <div
+        className={cn(
+          'flex flex-col gap-2',
+          expanded ? 'overflow-y-auto' : 'min-h-0 flex-1 overflow-hidden',
+        )}
+      >
         {conversations.map((row) => (
           <button
             key={row.id}
             type="button"
             onClick={() => setSelected(row)}
-            className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-start hover:border-muted"
+            className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-start hover:border-muted"
           >
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-2">
@@ -94,6 +111,11 @@ export function ConversationsPanel({ conversations }: { conversations: Conversat
           </button>
         ))}
       </div>
+      <ExpandControl
+        expanded={expanded}
+        hasMore={hasMore}
+        onToggle={() => setExpanded((open) => !open)}
+      />
 
       <Drawer
         open={selected !== null}
@@ -108,6 +130,25 @@ export function ConversationsPanel({ conversations }: { conversations: Conversat
         {selected && <ConversationDetail row={selected} onDelete={() => remove(selected)} />}
       </Drawer>
     </>
+  );
+}
+
+function ExpandControl({
+  expanded,
+  hasMore,
+  onToggle,
+}: {
+  expanded: boolean;
+  hasMore: boolean;
+  onToggle: () => void;
+}) {
+  const suffix = hasMore && expanded ? ' · nur die neuesten dieses Monats' : '';
+  return (
+    <div className="mt-3 shrink-0 border-t border-border pt-3">
+      <Button variant="ghost" onClick={onToggle} className="px-0">
+        {expanded ? `Weniger anzeigen${suffix}` : 'Alle Gespräche anzeigen'}
+      </Button>
+    </div>
   );
 }
 

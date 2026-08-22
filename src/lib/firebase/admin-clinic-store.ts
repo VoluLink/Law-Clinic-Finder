@@ -2,6 +2,7 @@ import type { UserRecord } from 'firebase-admin/auth';
 import { z } from 'zod';
 
 import { prepareAdminClinicUpdate, type StoredAdminClinic } from '@/lib/admin/admin-clinic-update';
+import { signInState } from '@/lib/admin/clinic-access';
 import { owesPublicationNotice } from '@/lib/clinics/notification-state';
 import { clinicAdminSchema, type ClinicAdmin } from '@/lib/clinics/schema';
 
@@ -66,6 +67,36 @@ async function loadClinicProfiles(authUsers: Map<string, UserRecord>) {
     });
   }
   return profiles;
+}
+
+export type ClinicDashboardCounts = {
+  total: number;
+  published: number;
+  accessActive: number;
+  accessInvited: number;
+};
+
+/*
+ * The dashboard only needs five numbers, but `listAdminClinics()` reads every
+ * clinic document plus every clinicContacts document to produce them — 118 reads
+ * on a 59-clinic directory, on every render, for counts. Aggregation queries bill
+ * a single read each, and the access split comes from the clinic profiles, which
+ * is a far smaller collection than the directory.
+ */
+export async function loadClinicDashboardCounts(): Promise<ClinicDashboardCounts> {
+  const clinics = firebaseFirestore().collection('clinics');
+  const [total, published, profiles] = await Promise.all([
+    clinics.count().get(),
+    clinics.where('isPublished', '==', true).count().get(),
+    loadClinicProfiles(await loadAllAuthUsers()),
+  ]);
+  const states = [...profiles.values()].map((profile) => signInState(profile.lastSignInAt));
+  return {
+    total: total.data().count,
+    published: published.data().count,
+    accessActive: states.filter((state) => state === 'active').length,
+    accessInvited: states.filter((state) => state === 'invited').length,
+  };
 }
 
 export async function listAdminClinics(): Promise<AdminClinicRecord[]> {

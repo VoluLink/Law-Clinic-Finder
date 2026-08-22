@@ -44,7 +44,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('ConversationsPanel', () => {
   it('shows an empty state when there are no conversations', () => {
     render(<ConversationsPanel conversations={[]} />);
-    expect(screen.getByText('Noch keine Gespräche gespeichert.')).toBeInTheDocument();
+    expect(screen.getByText('Noch keine Gespräche in diesem Monat.')).toBeInTheDocument();
   });
 
   it('lists a conversation with its area and message preview', () => {

@@ -6,18 +6,13 @@ import { BarChart } from '@/components/ui/BarChart';
 import { MeterList } from '@/components/ui/MeterList';
 import { Panel } from '@/components/ui/Panel';
 import { StatCard } from '@/components/ui/StatCard';
-import { signInState } from '@/lib/admin/clinic-access';
 import { clampMonthKey, currentMonthKey, formatMonthLabel } from '@/lib/admin/month-window';
 import { monthWeekCountsFromDays } from '@/lib/admin/stats';
 import { formatEngagement, loadGaMetrics } from '@/lib/analytics/ga-metrics';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { estimateCostUsd, formatUsd } from '@/lib/chat/usage';
 import { cn } from '@/lib/cn';
-import {
-  loadAdminDashboard,
-  type AdminMetric,
-  type FirebaseDashboard,
-} from '@/lib/firebase/admin-dashboard';
+import { loadAdminDashboard, type AdminMetric } from '@/lib/firebase/admin-dashboard';
 
 import { ConversationsPanel } from './ConversationsPanel';
 
@@ -55,22 +50,12 @@ function topAreas(metric: AdminMetric | null) {
     }));
 }
 
-function accessCounts(data: FirebaseDashboard) {
-  const states = data.clinics.flatMap((clinic) =>
-    clinic.profile ? [signInState(clinic.profile.lastSignInAt)] : [],
-  );
-  return {
-    active: states.filter((state) => state === 'active').length,
-    invited: states.filter((state) => state === 'invited').length,
-  };
-}
-
 async function loadDashboard(monthParam: string | undefined) {
   const now = Date.now();
   const month = clampMonthKey(monthParam ?? currentMonthKey(now), now);
   const [firebase, ga] = await Promise.all([
     loadAdminDashboard(month, CONVERSATION_LIST_LIMIT),
-    loadGaMetrics(),
+    loadGaMetrics(month),
   ]);
   const total = firebase.metric?.conversationCount ?? 0;
   const matched = firebase.metric?.matchedConversationCount ?? 0;
@@ -78,10 +63,11 @@ async function loadDashboard(monthParam: string | undefined) {
     month,
     now,
     ga,
-    totalClinics: firebase.clinics.length,
-    published: firebase.clinics.filter((clinic) => clinic.is_published).length,
-    access: accessCounts(firebase),
+    totalClinics: firebase.counts.total,
+    published: firebase.counts.published,
+    access: { active: firebase.counts.accessActive, invited: firebase.counts.accessInvited },
     conversationTotal: total,
+    hasMoreConversations: firebase.hasMoreConversations,
     costUsd: metricCost(firebase.metric),
     matchRate: total === 0 ? 0 : Math.round((matched / total) * 100),
     chart: monthWeekCountsFromDays(firebase.metric?.dayBuckets ?? {}),
@@ -106,7 +92,7 @@ export default async function AdminDashboardPage({
   const monthLabel = formatMonthLabel(data.month);
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="grid grid-cols-2 gap-[18px] min-[860px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-[18px] *:min-w-0 min-[560px]:grid-cols-2 min-[860px]:grid-cols-3">
         <StatCard
           label="Nutzer"
           value={data.ga ? fmt(data.ga.users) : '—'}
@@ -129,7 +115,7 @@ export default async function AdminDashboardPage({
         <MonthStepper month={data.month} now={data.now} />
       </div>
 
-      <div className="grid grid-cols-2 gap-[18px] min-[860px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-[18px] *:min-w-0 min-[560px]:grid-cols-2 min-[860px]:grid-cols-3">
         <StatCard
           label="KI-Interaktionen"
           value={fmt(data.conversationTotal)}
@@ -150,7 +136,7 @@ export default async function AdminDashboardPage({
         />
       </div>
 
-      <div className="grid gap-[18px] min-[860px]:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-[18px] *:min-w-0 min-[860px]:grid-cols-[1.5fr_1fr]">
         <Panel title={`KI-Interaktionen · ${monthLabel}`}>
           <BarChart bars={data.chart} />
         </Panel>
@@ -163,13 +149,19 @@ export default async function AdminDashboardPage({
         </Panel>
       </div>
 
-      <div className="grid items-start gap-[18px] min-[860px]:grid-cols-2">
+      <div className="grid gap-[18px] *:min-w-0 min-[860px]:grid-cols-2">
         <Panel title="Datenbank auf einen Blick">
           <DbGlance data={data} />
         </Panel>
-        <Panel title="Anonymisierte Gespräche">
-          <p className="mb-4 text-sm text-muted">Pseudonymisierte KI-Suchverläufe.</p>
-          <ConversationsPanel conversations={data.conversations} />
+        <Panel title={`Anonymisierte Gespräche · ${monthLabel}`} className="flex flex-col">
+          <p className="mb-4 text-sm text-muted">
+            Pseudonymisierte KI-Suchverläufe. Verläufe werden 90 Tage gespeichert, die Statistiken
+            darüber 12 Monate.
+          </p>
+          <ConversationsPanel
+            conversations={data.conversations}
+            hasMore={data.hasMoreConversations}
+          />
         </Panel>
       </div>
     </div>
@@ -194,12 +186,12 @@ function DbGlance({ data }: { data: Awaited<ReturnType<typeof loadDashboard>> })
         <div
           key={row.label}
           className={cn(
-            'flex items-center justify-between py-3.5',
+            'flex items-center justify-between gap-3 py-3.5',
             index < rows.length - 1 && 'border-b border-border',
           )}
         >
-          <span className="text-sm text-foreground">{row.label}</span>
-          <span className={cn('text-xl font-extrabold', row.tone)}>{fmt(row.value)}</span>
+          <span className="min-w-0 text-sm text-foreground">{row.label}</span>
+          <span className={cn('shrink-0 text-xl font-extrabold', row.tone)}>{fmt(row.value)}</span>
         </div>
       ))}
     </div>

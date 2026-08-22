@@ -13,6 +13,14 @@ import { firestoreDateSchema } from './documents';
 
 const TRANSCRIPT_CAP = 200;
 const RETENTION_MS = 366 * 86_400_000;
+/*
+ * Message text expires far sooner than the statistics derived from it. Redaction
+ * is deterministic and good, but it cannot guarantee that a legal narrative is
+ * unidentifiable, so the readable transcript is the part worth keeping briefly.
+ * Counts, costs and legal-area aggregates carry no narrative and keep the full
+ * twelve-month window.
+ */
+const TRANSCRIPT_RETENTION_MS = 90 * 86_400_000;
 const UNKNOWN_AREA = 'Unbekannt';
 
 export const modelUsageSchema = z.record(
@@ -66,6 +74,10 @@ type RetentionEntry = z.infer<typeof retentionEntrySchema>;
 
 function retentionExpiry(createdAt: Date): Date {
   return new Date(createdAt.getTime() + RETENTION_MS);
+}
+
+export function transcriptExpiry(createdAt: Date): Date {
+  return new Date(createdAt.getTime() + TRANSCRIPT_RETENTION_MS);
 }
 
 export function mergeConversation(
@@ -251,7 +263,7 @@ function recordTranscript(
     transaction.set(transcriptReference, {
       messages,
       updatedAt: Timestamp.fromDate(summary.updatedAt),
-      expiresAt: Timestamp.fromDate(summary.expiresAt),
+      expiresAt: Timestamp.fromDate(transcriptExpiry(summary.createdAt)),
     });
   } else {
     transaction.delete(transcriptReference);

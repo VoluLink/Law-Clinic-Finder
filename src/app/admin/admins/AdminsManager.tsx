@@ -23,11 +23,7 @@ async function readError(response: Response): Promise<string> {
   return body?.error ?? 'Aktion fehlgeschlagen.';
 }
 
-export function AdminsManager({
-  admins,
-  currentEmail,
-  currentUserId,
-}: AdminsManagerProps) {
+export function AdminsManager({ admins, currentEmail, currentUserId }: AdminsManagerProps) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
