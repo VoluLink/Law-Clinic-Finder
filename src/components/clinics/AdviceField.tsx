@@ -29,7 +29,15 @@ export function AdviceField({
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
-        Beratungsarbeit
+        <span>
+          Beratungsarbeit
+          {/* Matches FieldLabel's marker: aria-hidden, because the required state
+              is announced on the controls themselves. */}
+          <span className="text-danger" aria-hidden>
+            {' '}
+            *
+          </span>
+        </span>
         {FIELD_HELP.advises_clients && (
           <InfoHint text={FIELD_HELP.advises_clients} label="Beratungsarbeit" />
         )}

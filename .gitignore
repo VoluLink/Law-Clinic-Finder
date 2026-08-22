@@ -50,3 +50,19 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local-only assistant configuration and working notes. These were excluded via
+# .git/info/exclude, which is not shared — on a fresh clone they would be
+# committable again. Keeping them here makes the exclusion travel with the repo
+# without publishing any of their contents.
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
+sync-agent-config.sh
+PLAN.md
+LOCAL-TESTING.md
+WHICH-COPY.md
+
+# Unpublished security assessment; tracked deliberately nowhere.
+docs/security-hardening-plan.md

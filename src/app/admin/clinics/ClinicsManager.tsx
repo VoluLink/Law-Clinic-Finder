@@ -75,8 +75,14 @@ const MULTI_SUGGESTIONS: Partial<Record<EditableKey, readonly string[]>> = {
   languages: LANGUAGES,
 };
 
-/** Columns an admin must fill before a clinic can be published (marked with `*`). */
-const PUBLISH_REQUIRED = new Set<string>(PUBLISH_KEYS);
+/*
+ * Columns marked with `*` in the header. Beratungsarbeit joins the publish keys
+ * for display only: `advises_clients` is a boolean and `description` is required
+ * just when it is false, so neither belongs in PUBLISH_KEYS — `isFilled` there
+ * accepts strings only, and adding the toggle would make every clinic
+ * unpublishable.
+ */
+const PUBLISH_REQUIRED = new Set<string>([...PUBLISH_KEYS, 'advises_clients', 'description']);
 
 // Frozen-cell classes for the wide database table: the header row stays put on
 // vertical scroll, the Name column on horizontal scroll, so the admin never loses
