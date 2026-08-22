@@ -64,3 +64,25 @@ env:
     secret: stagingAccessPassword
     availability:
       - RUNTIME
+  # Google Analytics 4 (optional). Both plain values stay empty until the
+  # operator fills them in — analytics and the dashboard's GA cards stay off
+  # meanwhile. The measurement id is the public "G-" one and must reach the
+  # build so it can be inlined into the client bundle; GA_PROPERTY_ID is the
+  # numeric property id the Data API addresses.
+  #
+  # GA_SERVICE_ACCOUNT_JSON stays commented out on purpose: App Hosting fails a
+  # rollout when a `secret:` reference cannot be resolved, and this secret does
+  # not exist yet. Create `gaServiceAccountJson` in Secret Manager, grant
+  # law-clinic-runtime `secretmanager.versions.access` on it alone, and only then
+  # uncomment the two lines below. Until then the dashboard cards stay at "—".
+  - variable: NEXT_PUBLIC_GA_MEASUREMENT_ID
+    value: ''
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: GA_PROPERTY_ID
+    value: ''
+    availability:
+      - RUNTIME
+  # - variable: GA_SERVICE_ACCOUNT_JSON
+  #   secret: gaServiceAccountJson
