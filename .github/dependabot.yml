@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      application-dependencies:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /functions
+    schedule:
+      interval: weekly
+    groups:
+      function-dependencies:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

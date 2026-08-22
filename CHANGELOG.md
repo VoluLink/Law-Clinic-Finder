@@ -7,6 +7,18 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Deployment und Dokumentation
+
+- Eine minimal berechtigte GitHub-CI prüft Anwendung und Functions auf Pull Requests und `main`;
+  Actions sind auf Commit-SHAs fixiert, parallele Alt-Läufe werden abgebrochen und
+  Produktionsabhängigkeiten scheitern ab `high`-Schweregrad.
+- Dependabot prüft wöchentlich die beiden npm-Lockfiles und GitHub Actions.
+- Der neue Firebase Agent Playbook hält feste Projekt-/Region-/Datenbankziele, Emulator- und
+  Testablauf, Deploy-Grenzen, Least Privilege, Secret-/Datenregeln, Kostenkontrollen und Rollback für
+  zukünftige Bearbeiter fest.
+- Der Migrationsplan enthält nur noch ausstehende Aufgaben: GitHub-Verknüpfung, Post-Copy-Restore,
+  öffentliche Freigabe, SMTP-/Mail-Folgefeature und optionale Supabase-Codebereinigung.
+
 ### Firebase-Migration (in Arbeit)
 
 - Diese Unreleased-Fassung ist der erste GitHub-Projektstand mit der Firebase-Migration. Sie bleibt

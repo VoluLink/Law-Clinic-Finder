@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, test, lint, and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ci-build-only-key
+      FIREBASE_DATABASE_ID: primary-eu
+      FIREBASE_PROJECT_ID: law-clinic-finder
+      FIREBASE_STORAGE_BUCKET: law-clinic-finder.firebasestorage.app
+      IDENTITY_PLATFORM_API_KEY: ci-build-only-key
+      NEXT_PUBLIC_SITE_URL: https://ci.example
+      NEXT_TELEMETRY_DISABLED: '1'
+      SMTP_FROM_EMAIL: sender@example.com
+      SMTP_FROM_NAME: Law Clinics Deutschland
+      SMTP_HOST: smtp.example.com
+      SMTP_LOGIN_EMAIL: sender@example.com
+      SMTP_PASSWORD: ci-build-only-password
+      SMTP_PORT: '587'
+      STAGING_ACCESS_ENABLED: 'false'
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Functions dependencies
+        run: npm --prefix functions ci
+
+      - name: Typecheck application
+        run: npm run typecheck
+
+      - name: Test application
+        run: npm test
+
+      - name: Test Functions
+        run: npm --prefix functions test
+
+      - name: Build Functions
+        run: npm --prefix functions run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build application
+        run: npm run build
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit Functions production dependencies
+        run: npm --prefix functions audit --omit=dev --audit-level=high

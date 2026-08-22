@@ -95,7 +95,9 @@ Firebase-Session und das aktuelle Profil erneut.
 | `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff      |
 | `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                    |
 | `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify |
-| `docs/firebase-migration-plan.md`         | Dauerhafter Phasenplan, Entscheidungen, Fortschritt und Resume-Protokoll           |
+| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                            |
+| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden               |
+| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                    |
 | `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback       |
 
 ### Datenfluss und Sicherheitsgrenze
@@ -197,6 +199,14 @@ höchstens drei Instanzen, Concurrency 80 und 512 MiB, um Leerlaufkosten und Aus
 `firebase.json` erlaubt den lokalen App-Hosting-Quellrollout erst seit der SMTP-, IAM- und
 Staging-Schutz vorbereitet und der alte Supabase-Quellschlüssel widerrufen wurde.
 
+Der Zielzustand für Auslieferung ist die native Firebase-App-Hosting-Verknüpfung mit
+`hackerFlo/Law-Clinic-Finder`, Repository-Wurzel `/`, Live-Branch `main` und automatischen Rollouts.
+Sie benötigt keinen langlebigen Google-Schlüssel in GitHub. Ein read-only GitHub-Workflow prüft
+TypeScript, Tests, Functions, Lint, Formatierung, Build und Produktionsabhängigkeiten. Gewöhnlicher
+Arbeitsfluss: Feature-Branch → Pull Request → grüne CI → Merge nach `main` → automatischer
+App-Hosting-Rollout. Functions, Regeln, IAM, Secrets, Backups und Auth-Konfiguration bleiben bewusst
+explizite, zielgeprüfte Deployments.
+
 Der erste Staging-Rollout bleibt durch HTTP Basic geschützt. Der Schutz läuft vor allen Seiten und
 API-Routen, gibt die Zugangsdaten nicht an die Anwendung weiter, verhindert Shared-Cache-Antworten
 und benötigt keine Firestore-Lese- oder Schreibvorgänge. Lokal ist er standardmäßig aus. Vor der
@@ -247,6 +257,9 @@ gibt weder Uptime-Polling noch eine eigene Log-Metrik.
   ergänzten `X-Forwarded-For`-Kette; ein vom Client gesetzter Präfix wird nie vertraut.
 - Tests liegen neben der Implementierung. Kritische Transaktionen benötigen Emulator-Integration;
   Regeln werden separat mit `npm run test:rules` geprüft.
+- Vor Firebase-, Auth-, Daten-, Secret-, IAM- oder Hosting-Arbeit ist der vollständige
+  [`Firebase Agent Playbook`](docs/firebase-agent-playbook.md) verbindlich. Er enthält feste Ziele,
+  Freigabegrenzen, Deploy-Matrix, Rollback, Kosten- und Datenschutzregeln.
 
 ## Spec & Status
 
@@ -302,9 +315,10 @@ Datenbank benötigt weiterhin eine genaue Freigabe. Danach folgen Domain-/Link-K
 öffentlicher Trafficwechsel und Beobachtung. Die gewünschte Auth-Mail-Gestaltung und
 SMTP-Administration bleiben Phase 10.
 
-Der vollständige, fortlaufend markierte Arbeitsplan steht in
-[`docs/firebase-migration-plan.md`](docs/firebase-migration-plan.md). Er enthält die Resume-Reihenfolge,
-Entscheidungen, Exit-Gates und Prüfsummen-Tabelle.
+Der verschlankte Arbeitsplan enthält ausschließlich noch offene Arbeit und die Resume-Reihenfolge:
+[`docs/firebase-migration-plan.md`](docs/firebase-migration-plan.md). Abgeschlossene
+Migrationshistorie bleibt in Git und `CHANGELOG.md`; laufende Firebase-Konventionen stehen im
+[`Firebase Agent Playbook`](docs/firebase-agent-playbook.md).
 
 ### Sichere Datenkopie
 
@@ -374,11 +388,9 @@ sind im Browser nur als „gesetzt“ sichtbar; die vollständigen Sicherheits-,
 Testanforderungen stehen als Phase 10 im Migrationsplan. Diese späteren Funktionen zählen nicht zum
 aktuellen Migrationsfortschritt.
 
-Nach Abschluss aller Produktfeatures folgt als eigene Phase 11 die gewünschte kanonische Anleitung
-für zukünftige Agenten: sichere und kosteneffiziente Firebase-Konventionen, Emulator-first/TDD,
-feste Projekt-/Datenbank-/Regionsgrenzen, Least Privilege, Secret Manager, idempotente Migrationen,
-Freigabegrenzen, Backups, Monitoring und Rollback. Auch diese Phase ist bewusst nicht in den
-aktuellen Migrationsprozenten enthalten.
+Der gewünschte kanonische Firebase-Leitfaden für zukünftige Agenten ist jetzt unter
+[`docs/firebase-agent-playbook.md`](docs/firebase-agent-playbook.md) vorhanden und aus der
+Architekturkarte verlinkt.
 
 ## Versionierung
 
