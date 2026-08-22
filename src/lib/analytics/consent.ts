@@ -1,8 +1,14 @@
+import { z } from 'zod';
+
 export const CONSENT_COOKIE = 'lcf_consent';
 export type Consent = 'granted' | 'denied';
 
 /** The public GA4 id; when unset, no tracking or banner is rendered. */
-export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? '';
+export const GA_MEASUREMENT_ID = z
+  .string()
+  .regex(/^G-[A-Z0-9]{4,20}$/)
+  .catch('')
+  .parse(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? '');
 
 export function readConsent(): Consent | null {
   if (typeof document === 'undefined') return null;

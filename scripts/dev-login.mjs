@@ -1,70 +1,92 @@
-// Dev-only: removes the seeded test accounts from the Supabase project.
-//
+// Emulator-only cleanup for the two reserved development identities.
 // Usage: npm run dev:login:teardown
-//
-// Seeding moved into the app (src/lib/dev/dev-login.ts) so the two dev logins
-// are one click on /login instead of a pasted magic link — this script is now
-// only the cleanup half. The accounts it deletes are REAL rows in the live
-// project, so run it before publishing (G-7).
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-import { createClient } from '@supabase/supabase-js';
+import { Firestore } from '@google-cloud/firestore';
+import { getApp, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 const DEV_EMAIL_DOMAIN = '@example.com';
-
-// Must stay in step with DEV_ACCOUNTS in src/lib/dev/dev-login.ts. Kept as a
-// literal because a .mjs script cannot import the TypeScript module.
 const DEV_EMAILS = [`admin${DEV_EMAIL_DOMAIN}`, `startright${DEV_EMAIL_DOMAIN}`];
+const LOOPBACK = /^(?:127\.0\.0\.1|localhost):\d{2,5}$/;
 
-/** example.com is RFC 2606 reserved: undeliverable, so no real inbox can ever
- *  be deleted by a mistake here. */
 export function assertDevEmail(email) {
   if (!email.toLowerCase().endsWith(DEV_EMAIL_DOMAIN)) {
-    throw new Error(
-      `Refusing "${email}": dev logins must use a reserved ${DEV_EMAIL_DOMAIN} address`,
-    );
+    throw new Error(`Refusing "${email}": expected the reserved ${DEV_EMAIL_DOMAIN} domain`);
   }
 }
 
-function requireEnv(name) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing ${name} — run with: node --env-file=.env.local`);
-  return value;
+export function assertEmulators(env = process.env) {
+  if (env.NODE_ENV === 'production') throw new Error('Dev teardown is disabled in production');
+  if (!LOOPBACK.test(env.FIREBASE_AUTH_EMULATOR_HOST ?? '')) {
+    throw new Error('FIREBASE_AUTH_EMULATOR_HOST must point to loopback');
+  }
+  if (!LOOPBACK.test(env.FIRESTORE_EMULATOR_HOST ?? '')) {
+    throw new Error('FIRESTORE_EMULATOR_HOST must point to loopback');
+  }
 }
 
-function createAdminClient() {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('dev-login must never run with NODE_ENV=production');
-  }
-  return createClient(requireEnv('NEXT_PUBLIC_SUPABASE_URL'), requireEnv('SUPABASE_SECRET_KEY'), {
-    auth: { persistSession: false, autoRefreshToken: false },
+function firebaseServices() {
+  assertEmulators();
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim() || 'demo-law-clinic-finder';
+  const databaseId = process.env.FIREBASE_DATABASE_ID?.trim() || 'primary-eu';
+  const app = getApps().length > 0 ? getApp() : initializeApp({ projectId });
+  return { auth: getAuth(app), database: new Firestore({ projectId, databaseId }) };
+}
+
+async function listDevUsers(auth) {
+  const wanted = new Set(DEV_EMAILS);
+  const result = await auth.listUsers(1_000);
+  return result.users.filter((user) => wanted.has(user.email?.toLowerCase() ?? ''));
+}
+
+async function unlinkProfile(database, user) {
+  const profileReference = database.doc(`profiles/${user.uid}`);
+  const stateReference = database.doc('adminState/current');
+  const email = user.email?.toLowerCase() ?? '';
+  const emailOwner = database.doc(`emailOwners/${emailReservationId(email)}`);
+  await database.runTransaction(async (transaction) => {
+    const [profile, state] = await Promise.all([
+      transaction.get(profileReference),
+      transaction.get(stateReference),
+    ]);
+    transaction.delete(profileReference);
+    transaction.delete(emailOwner);
+    const clinicId = profile.data()?.clinicId;
+    if (typeof clinicId === 'string') {
+      transaction.delete(database.doc(`uniqueClinicOwners/${clinicId}`));
+    }
+    if (profile.data()?.role === 'admin' && state.exists) {
+      const count = Number(state.data()?.count);
+      if (Number.isInteger(count) && count > 1)
+        transaction.update(stateReference, { count: count - 1 });
+      else transaction.delete(stateReference);
+    }
   });
 }
 
-async function listDevUsers(client) {
-  const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) throw new Error(`listUsers failed: ${error.message}`);
-  const wanted = new Set(DEV_EMAILS.map((email) => email.toLowerCase()));
-  return data.users.filter((user) => wanted.has(user.email?.toLowerCase() ?? ''));
+function emailReservationId(email) {
+  return createHash('sha256').update(email).digest('hex');
 }
 
-async function teardown(client) {
-  const users = await listDevUsers(client);
+async function teardown() {
+  const { auth, database } = firebaseServices();
+  const users = await listDevUsers(auth);
   for (const user of users) {
     assertDevEmail(user.email ?? '');
-    const { error } = await client.auth.admin.deleteUser(user.id);
-    if (error) throw new Error(`deleteUser failed for ${user.email}: ${error.message}`);
-    process.stdout.write(`deleted ${user.email}\n`);
+    await unlinkProfile(database, user);
+    await auth.deleteUser(user.uid);
+    process.stdout.write(`deleted ${user.email} from the Firebase emulators\n`);
   }
-  process.stdout.write(`${users.length} dev account(s) removed; profiles cascade automatically.\n`);
+  process.stdout.write(`${users.length} emulator dev account(s) removed.\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  // Deletion stays behind an explicit flag: running this file by accident
-  // should print usage, not remove accounts.
   if (!process.argv.includes('--teardown')) {
-    process.stdout.write('Usage: npm run dev:login:teardown\n');
-    process.exit(1);
+    process.stderr.write('Usage: npm run dev:login:teardown\n');
+    process.exitCode = 1;
+  } else {
+    await teardown();
   }
-  await teardown(createAdminClient());
 }

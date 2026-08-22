@@ -1,94 +1,59 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { DirectoryMatch } from './directory';
 import { claimClinic, signupClaimSchema, type ClaimDeps } from './handle-claim';
-import { createAdminClientMock, testLogger, type QueryResult } from './test-utils';
+import { testLogger } from './test-utils';
 
-const NOW = 1_750_000_000_000;
-const MS_PER_DAY = 86_400_000;
+const NOW = new Date('2025-06-15T12:00:00.000Z');
 const CLINIC_ID = '9f8b6c3a-0000-4000-8000-000000000001';
-const SUPPLIED_EMAIL = 'kontakt@neue-adresse.de';
+const SUPPLIED_EMAIL = 'new-address@example.org';
 
-const unclaimedRow = {
+const onFileMatch: DirectoryMatch = {
   id: CLINIC_ID,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Köln',
-  contact_email: 'kontakt@milcc.de',
-  profiles: [],
+  claimed: false,
+  hasContactEmail: true,
+  maskedEmail: 'k****t@example.org',
 };
 
-const withoutEmail = { ...unclaimedRow, contact_email: null };
-
-function createDeps(responses: QueryResult[], overrides?: Partial<ClaimDeps>) {
-  const mock = createAdminClientMock(responses);
-  const deps: ClaimDeps = {
-    adminClient: mock.client as never,
+function dependencies(match: DirectoryMatch | null = onFileMatch): ClaimDeps {
+  return {
+    store: {
+      readMatch: vi.fn().mockResolvedValue(match),
+      isEmailTaken: vi.fn().mockResolvedValue(false),
+      reserveAttempt: vi.fn().mockResolvedValue({ allowed: true }),
+    },
     logger: testLogger(),
     invite: vi.fn().mockResolvedValue({ status: 'ok', clinicId: CLINIC_ID }),
     claimWithEmail: vi.fn().mockResolvedValue({ status: 'ok', clinicId: CLINIC_ID }),
-    isEmailTaken: vi.fn().mockResolvedValue(false),
-    ...overrides,
   };
-  return { deps, mock };
 }
 
 describe('signupClaimSchema', () => {
-  it('rejects non-uuid clinic ids', () => {
+  it('rejects non-UUID clinic IDs', () => {
     expect(signupClaimSchema.safeParse({ clinicId: '1; drop table' }).success).toBe(false);
   });
 
-  it('rejects a malformed supplied email', () => {
-    const parsed = signupClaimSchema.safeParse({ clinicId: CLINIC_ID, email: 'nope' });
-    expect(parsed.success).toBe(false);
+  it('rejects a malformed supplied e-mail', () => {
+    expect(signupClaimSchema.safeParse({ clinicId: CLINIC_ID, email: 'nope' }).success).toBe(false);
   });
 });
 
-describe('claimClinic with an address on file', () => {
-  it('invites the on-file address and records the send', async () => {
-    const { deps, mock } = createDeps([
-      { data: unclaimedRow, error: null },
-      { data: [], error: null },
-      { data: null, error: null },
-    ]);
-    const result = await claimClinic(deps, CLINIC_ID, undefined, NOW);
-    expect(result).toEqual({ status: 'sent', maskedEmail: 'k****t@milcc.de' });
-    expect(deps.invite).toHaveBeenCalledWith(CLINIC_ID);
-    expect(mock.calls).toContainEqual(['insert', [{ clinic_id: CLINIC_ID }]]);
-  });
-
-  it('reports a linked clinic as claimed when its access helper finds an active account', async () => {
-    const row = { ...unclaimedRow, profiles: [{ user_id: 'user-1' }] };
-    const invite = vi.fn().mockResolvedValue({ status: 'already_invited' });
-    const { deps } = createDeps([{ data: row, error: null }], { invite });
-    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({
-      status: 'already_claimed',
-    });
-    expect(invite).toHaveBeenCalledWith(CLINIC_ID);
-  });
-
-  it('resends and records a link for a linked account that is still pending', async () => {
-    const row = { ...unclaimedRow, profiles: [{ user_id: 'user-1' }] };
-    const { deps, mock } = createDeps([
-      { data: row, error: null },
-      { data: [{ sent_at: new Date(NOW - MS_PER_DAY).toISOString() }], error: null },
-      { data: null, error: null },
-    ]);
-
+describe(claimClinic, () => {
+  it('reserves and sends to the address already on file', async () => {
+    const deps = dependencies();
     expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({
       status: 'sent',
-      maskedEmail: 'k****t@milcc.de',
+      maskedEmail: onFileMatch.maskedEmail,
     });
-    expect(mock.calls).toContainEqual(['insert', [{ clinic_id: CLINIC_ID }]]);
+    expect(deps.store.reserveAttempt).toHaveBeenCalledWith(CLINIC_ID, NOW);
+    expect(deps.invite).toHaveBeenCalledWith(CLINIC_ID);
   });
 
-  it('blocks after two sends within seven days and names the wait', async () => {
-    const sends = [
-      { sent_at: new Date(NOW - 2 * MS_PER_DAY).toISOString() },
-      { sent_at: new Date(NOW - MS_PER_DAY).toISOString() },
-    ];
-    const { deps } = createDeps([
-      { data: unclaimedRow, error: null },
-      { data: sends, error: null },
-    ]);
+  it('returns the transactional retry window without sending', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.store.reserveAttempt).mockResolvedValue({ allowed: false, retryDays: 5 });
     expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({
       status: 'blocked',
       retryDays: 5,
@@ -96,52 +61,52 @@ describe('claimClinic with an address on file', () => {
     expect(deps.invite).not.toHaveBeenCalled();
   });
 
-  it('allows again once the oldest send falls out of the window', async () => {
-    const sends = [{ sent_at: new Date(NOW - MS_PER_DAY).toISOString() }];
-    const { deps } = createDeps([
-      { data: unclaimedRow, error: null },
-      { data: sends, error: null },
-      { data: null, error: null },
-    ]);
-    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toMatchObject({ status: 'sent' });
-  });
-
-  it('returns not_found for unknown ids', async () => {
-    const { deps } = createDeps([{ data: null, error: null }]);
-    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({ status: 'not_found' });
-  });
-
-  it('maps a failed invite to error without recording a send', async () => {
-    const { deps, mock } = createDeps(
-      [
-        { data: unclaimedRow, error: null },
-        { data: [], error: null },
-      ],
-      { invite: vi.fn().mockResolvedValue({ status: 'invite_failed', clinicId: CLINIC_ID }) },
-    );
-    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({ status: 'error' });
-    expect(mock.calls).not.toContainEqual(['insert', [{ clinic_id: CLINIC_ID }]]);
-  });
-});
-
-describe('claimClinic without an address on file', () => {
-  it('asks for an address instead of dead-ending', async () => {
-    const { deps } = createDeps([
-      { data: withoutEmail, error: null },
-      { data: [], error: null },
-    ]);
+  it('maps an existing active account to already claimed', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.invite).mockResolvedValue({ status: 'already_invited' });
     expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({
-      status: 'email_required',
+      status: 'already_claimed',
     });
   });
 
-  it('invites the supplied address and leaves access pending', async () => {
-    const { deps } = createDeps([
-      { data: withoutEmail, error: null },
-      { data: [], error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-    ]);
+  it('does not reserve an attempt for an unknown clinic', async () => {
+    const deps = dependencies(null);
+    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({ status: 'not_found' });
+    expect(deps.store.reserveAttempt).not.toHaveBeenCalled();
+  });
+
+  it('asks for an address before reserving when none is on file', async () => {
+    const deps = dependencies({ ...onFileMatch, hasContactEmail: false, maskedEmail: null });
+    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({
+      status: 'email_required',
+    });
+    expect(deps.store.reserveAttempt).not.toHaveBeenCalled();
+  });
+
+  it('rejects a second claimant before reserving an attempt', async () => {
+    const deps = dependencies({
+      ...onFileMatch,
+      claimed: true,
+      hasContactEmail: false,
+      maskedEmail: null,
+    });
+    expect(await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW)).toEqual({
+      status: 'already_claimed',
+    });
+    expect(deps.store.reserveAttempt).not.toHaveBeenCalled();
+  });
+
+  it('rejects an e-mail reserved by another identity', async () => {
+    const deps = dependencies({ ...onFileMatch, hasContactEmail: false, maskedEmail: null });
+    vi.mocked(deps.store.isEmailTaken).mockResolvedValue(true);
+    expect(await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW)).toEqual({
+      status: 'email_taken',
+    });
+    expect(deps.store.reserveAttempt).not.toHaveBeenCalled();
+  });
+
+  it('reserves then creates a pending claim for a supplied address', async () => {
+    const deps = dependencies({ ...onFileMatch, hasContactEmail: false, maskedEmail: null });
     expect(await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW)).toEqual({
       status: 'pending_review',
       email: SUPPLIED_EMAIL,
@@ -149,40 +114,29 @@ describe('claimClinic without an address on file', () => {
     expect(deps.claimWithEmail).toHaveBeenCalledWith(CLINIC_ID, SUPPLIED_EMAIL);
   });
 
-  it('stores the supplied address on the clinic', async () => {
-    const { deps, mock } = createDeps([
-      { data: withoutEmail, error: null },
-      { data: [], error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-    ]);
-    await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW);
-    expect(mock.calls).toContainEqual(['update', [{ contact_email: SUPPLIED_EMAIL }]]);
-  });
-
-  it('refuses a second claimant while the first claim is open', async () => {
-    const claimed = { ...withoutEmail, profiles: [{ user_id: 'user-1' }] };
-    const { deps } = createDeps([
-      { data: claimed, error: null },
-      { data: [], error: null },
-    ]);
-    expect(await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW)).toEqual({
-      status: 'already_claimed',
-    });
-    expect(deps.claimWithEmail).not.toHaveBeenCalled();
-  });
-
-  it('refuses an address that already belongs to another account', async () => {
-    const { deps } = createDeps(
-      [
-        { data: withoutEmail, error: null },
-        { data: [], error: null },
-      ],
-      { isEmailTaken: vi.fn().mockResolvedValue(true) },
-    );
+  it('maps a reservation collision during identity creation to e-mail taken', async () => {
+    const deps = dependencies({ ...onFileMatch, hasContactEmail: false, maskedEmail: null });
+    vi.mocked(deps.claimWithEmail).mockResolvedValue({ status: 'already_invited' });
     expect(await claimClinic(deps, CLINIC_ID, SUPPLIED_EMAIL, NOW)).toEqual({
       status: 'email_taken',
     });
-    expect(deps.claimWithEmail).not.toHaveBeenCalled();
+  });
+
+  it('maps failed delivery to a generic error', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.invite).mockResolvedValue({
+      status: 'invite_failed',
+      clinicId: CLINIC_ID,
+    });
+    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({ status: 'error' });
+  });
+
+  it('maps store failures to a generic error', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.store.readMatch).mockRejectedValue(new Error('private detail'));
+    expect(await claimClinic(deps, CLINIC_ID, undefined, NOW)).toEqual({ status: 'error' });
+    expect(deps.logger.warn).toHaveBeenCalledWith('clinic claim failed', {
+      reason: 'private detail',
+    });
   });
 });

@@ -1,5 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+
+import type { BrandingRepository } from './repository';
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Ungültige Farbe (z. B. #0d4b5b).');
 
@@ -51,6 +52,8 @@ export const brandingSchema = z.object({
 });
 
 export type Branding = z.infer<typeof brandingSchema>;
+export const brandingUpdateSchema = brandingSchema.omit({ logo_url: true });
+export type BrandingUpdate = z.infer<typeof brandingUpdateSchema>;
 
 export const DEFAULT_BRANDING: Branding = {
   wordmark: 'Law Clinics Deutschland',
@@ -62,10 +65,8 @@ export const DEFAULT_BRANDING: Branding = {
   font: 'Hanken Grotesk',
 };
 
-export async function loadBranding(client: SupabaseClient): Promise<Branding> {
-  const { data } = await client.from('branding').select('*').maybeSingle();
-  const parsed = brandingSchema.safeParse(data);
-  return parsed.success ? parsed.data : DEFAULT_BRANDING;
+export async function loadBranding(repository: BrandingRepository): Promise<Branding> {
+  return (await repository.read()) ?? DEFAULT_BRANDING;
 }
 
 /** Overrides the base design tokens at runtime; unset values fall back to CSS defaults. */

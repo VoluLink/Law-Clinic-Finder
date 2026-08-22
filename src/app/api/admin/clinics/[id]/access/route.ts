@@ -3,22 +3,23 @@ import { z } from 'zod';
 
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { revokeClinicAccess } from '@/lib/clinics/revoke-access';
-import { logger } from '@/lib/logger';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
+import { requestLogger } from '@/lib/http/request-id';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 // Reset a clinic's member access: delete the linked auth user and clear the
 // contact/login email, while preserving the directory publication state.
-export async function DELETE(_request: NextRequest, context: RouteContext): Promise<Response> {
-  const guard = await requireAdminRoute();
+export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
+  const logger = requestLogger(request);
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) {
     return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
   }
   try {
-    await revokeClinicAccess(createSupabaseAdminClient(), id, {
+    await revokeClinicAccess(firebaseClinicAccessStore, id, {
       unpublish: false,
       clearContactEmail: true,
     });

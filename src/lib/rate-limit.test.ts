@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  CHAT_DAILY_RATE_LIMIT,
-  CHAT_RATE_LIMIT,
-  combineRateLimiters,
-  createRateLimiter,
-} from './rate-limit';
+import { CHAT_RATE_LIMIT, combineRateLimiters, createRateLimiter } from './rate-limit';
 
 const START = 1_000_000;
 
@@ -39,11 +34,6 @@ describe('createRateLimiter', () => {
   it('exports sensible chat defaults', () => {
     expect(CHAT_RATE_LIMIT.maxRequests).toBeGreaterThan(0);
     expect(CHAT_RATE_LIMIT.windowMs).toBeGreaterThan(0);
-  });
-
-  it('sizes the daily limit for two conversations of eight user turns', () => {
-    expect(CHAT_DAILY_RATE_LIMIT.maxRequests).toBe(20);
-    expect(CHAT_DAILY_RATE_LIMIT.windowMs).toBe(86_400_000);
   });
 });
 

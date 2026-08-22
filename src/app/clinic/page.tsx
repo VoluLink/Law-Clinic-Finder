@@ -4,23 +4,17 @@ import { redirect } from 'next/navigation';
 
 import { Card } from '@/components/ui/Card';
 import { AuthError, requireRole, type Profile } from '@/lib/auth/require-role';
+import { getClinic } from '@/lib/clinics/server';
 import { clinicEditableSchema } from '@/lib/clinics/schema';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 import { ClinicForm } from './ClinicForm';
 
 export const metadata: Metadata = { title: 'Mein Eintrag – Law Clinic Finder' };
 
-const EDITABLE_COLUMNS =
-  'name, description, region, contact_email, website, legal_areas, ' +
-  'target_clients, languages, requirements, advises_clients';
-
 export default async function ClinicPage() {
-  const supabase = await createSupabaseServerClient();
   let profile: Profile;
   try {
-    profile = await requireRole(supabase, ['clinic', 'admin']);
+    profile = await requireRole(['clinic', 'admin']);
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
@@ -33,12 +27,8 @@ export default async function ClinicPage() {
 }
 
 async function ClinicEditor({ clinicId }: { clinicId: string }) {
-  const { data } = await createSupabaseAdminClient()
-    .from('clinics')
-    .select(EDITABLE_COLUMNS)
-    .eq('id', clinicId)
-    .maybeSingle();
-  if (!data) {
+  const clinic = await getClinic(clinicId);
+  if (!clinic) {
     return <p className="text-sm text-danger">Ihr Eintrag wurde nicht gefunden.</p>;
   }
   return (
@@ -56,7 +46,7 @@ async function ClinicEditor({ clinicId }: { clinicId: string }) {
         </p>
       </div>
       <Card variant="panel" className="p-6 sm:p-6">
-        <ClinicForm clinic={clinicEditableSchema.parse(data)} />
+        <ClinicForm clinic={clinicEditableSchema.parse(clinic)} />
       </Card>
     </div>
   );

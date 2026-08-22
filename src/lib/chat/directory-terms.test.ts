@@ -13,16 +13,14 @@ type CallLog = Array<[string, unknown[]]>;
 
 function createSupabaseMock(rows: Row[] | null, error: { message: string } | null = null) {
   const calls: CallLog = [];
-  const query: Record<string, unknown> = {};
-  for (const method of ['select', 'eq']) {
-    query[method] = (...args: unknown[]) => {
-      calls.push([method, args]);
-      return query;
-    };
-  }
-  (query as { then: unknown }).then = (resolve: (value: unknown) => void) =>
-    resolve({ data: rows, error });
-  const client = { from: (table: string) => (calls.push(['from', [table]]), query) };
+  const client = {
+    listPublished: async () => {
+      calls.push(['listPublished', []]);
+      if (error) throw new Error(error.message);
+      return rows ?? [];
+    },
+    findPublishedByIds: async () => [],
+  };
   return { client, calls };
 }
 
@@ -74,10 +72,10 @@ describe('listDirectoryTerms', () => {
     expect(legal_areas).toEqual([]);
   });
 
-  it('only reads published clinics', async () => {
+  it('only reads through the published-directory boundary', async () => {
     const { client, calls } = createSupabaseMock([]);
     await listDirectoryTerms(client as never);
-    expect(calls).toContainEqual(['eq', ['is_published', true]]);
+    expect(calls).toContainEqual(['listPublished', []]);
   });
 
   it('returns empty lists for an empty directory', async () => {

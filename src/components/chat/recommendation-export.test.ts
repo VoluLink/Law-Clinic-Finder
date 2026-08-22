@@ -15,7 +15,7 @@ const firstClinic: ClinicRecommendation = {
   areas: ['Mietrecht', 'Nebenkosten'],
   reason: 'Berät genau zu deinem Thema.',
   website: 'https://milcc.de/',
-  email: 'kontakt@milcc.de',
+  email: 'contact@example.org',
 };
 
 const finalClinic: ClinicRecommendation = {

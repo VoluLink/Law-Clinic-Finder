@@ -4,133 +4,67 @@ import { createLogger } from '@/lib/logger';
 
 import { inviteClinic, reinviteClinic, type InviteDeps } from './invite-clinic';
 
-const invite = { name: 'Neue Clinic', contact_email: 'org@clinic.de' };
-/** jsdom supplies the origin that authConfirmUrl() falls back to. */
-const CONFIRM_URL = 'http://localhost:3000/auth/confirm';
+const invite = { name: 'Neue Clinic', contact_email: 'org@example.org' };
 
-function createDeps(overrides?: {
-  clinicError?: boolean;
-  inviteError?: boolean;
-  profileError?: boolean;
-}) {
-  const profileInsert = vi
-    .fn()
-    .mockResolvedValue({ error: overrides?.profileError ? { message: 'boom' } : null });
-  const clinicInsert = vi.fn(() => ({
-    select: () => ({
-      single: async () =>
-        overrides?.clinicError
-          ? { data: null, error: { message: 'dup' } }
-          : { data: { id: 'clinic-1' }, error: null },
-    }),
-  }));
-  const inviteUserByEmail = vi.fn(async () =>
-    overrides?.inviteError
-      ? { data: { user: null }, error: { message: 'smtp down' } }
-      : { data: { user: { id: 'user-1' } }, error: null },
-  );
-  const deps: InviteDeps = {
-    adminClient: {
-      from: (table: string) =>
-        table === 'clinics' ? { insert: clinicInsert } : { insert: profileInsert },
-      auth: { admin: { inviteUserByEmail } },
-    } as never,
-    logger: createLogger({}, () => undefined),
-  };
-  return { deps, clinicInsert, inviteUserByEmail, profileInsert };
-}
-
-function createReinviteDeps(lastSignInAt: string | null) {
-  const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
-  const clinic = {
-    id: 'clinic-1',
-    contact_email: invite.contact_email,
-    profiles: [{ user_id: 'user-1' }],
-  };
-  const adminClient = {
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: clinic }) }) }),
-    }),
-    auth: {
-      admin: {
-        getUserById: vi.fn().mockResolvedValue({
-          data: { user: { email: invite.contact_email, last_sign_in_at: lastSignInAt } },
-          error: null,
-        }),
-      },
-      signInWithOtp,
+function dependencies(): InviteDeps {
+  return {
+    store: {
+      createClinic: vi.fn().mockResolvedValue('clinic-1'),
+      readInviteState: vi.fn().mockResolvedValue({ email: invite.contact_email, userId: 'user-1' }),
+      createAndLinkUser: vi.fn().mockResolvedValue('ok'),
+      resendInvite: vi.fn().mockResolvedValue('ok'),
     },
-  };
-  const deps: InviteDeps = {
-    adminClient: adminClient as never,
     logger: createLogger({}, () => undefined),
   };
-  return { deps, signInWithOtp };
 }
 
 describe(inviteClinic, () => {
-  it('creates clinic, invites the user and links the profile', async () => {
-    const { deps, inviteUserByEmail, profileInsert } = createDeps();
-    const result = await inviteClinic(deps, invite);
-    expect(result).toEqual({ status: 'ok', clinicId: 'clinic-1' });
-    expect(inviteUserByEmail).toHaveBeenCalledWith(invite.contact_email, {
-      redirectTo: CONFIRM_URL,
-    });
-    expect(profileInsert).toHaveBeenCalledWith({
-      user_id: 'user-1',
-      role: 'clinic',
-      clinic_id: 'clinic-1',
-      access_status: 'active',
-    });
-  });
-
-  it('creates the clinic as approved, since an admin entered it', async () => {
-    const { deps, clinicInsert } = createDeps();
-    await inviteClinic(deps, invite);
-    expect(clinicInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ approval_status: 'approved' }),
+  it('creates an approved clinic then links and invites its user', async () => {
+    const deps = dependencies();
+    expect(await inviteClinic(deps, invite)).toEqual({ status: 'ok', clinicId: 'clinic-1' });
+    expect(deps.store.createClinic).toHaveBeenCalledWith(invite);
+    expect(deps.store.createAndLinkUser).toHaveBeenCalledWith(
+      'clinic-1',
+      invite.contact_email,
+      'active',
     );
   });
 
-  it('reports invite_failed when the clinic exists but the email failed', async () => {
-    const { deps } = createDeps({ inviteError: true });
-    const result = await inviteClinic(deps, invite);
-    expect(result).toEqual({ status: 'invite_failed', clinicId: 'clinic-1' });
+  it('keeps the clinic when e-mail delivery fails', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.store.createAndLinkUser).mockResolvedValue('invite_failed');
+    expect(await inviteClinic(deps, invite)).toEqual({
+      status: 'invite_failed',
+      clinicId: 'clinic-1',
+    });
   });
 
-  it('reports an error when the clinic cannot be created', async () => {
-    const { deps, inviteUserByEmail } = createDeps({ clinicError: true });
-    const result = await inviteClinic(deps, invite);
-    expect(result.status).toBe('error');
-    expect(inviteUserByEmail).not.toHaveBeenCalled();
-  });
-
-  it('reports an error when the profile link fails', async () => {
-    const { deps } = createDeps({ profileError: true });
-    const result = await inviteClinic(deps, invite);
-    expect(result.status).toBe('error');
+  it('reports a clinic-name conflict without creating an Auth user', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.store.createClinic).mockRejectedValue(new Error('duplicate'));
+    expect((await inviteClinic(deps, invite)).status).toBe('error');
+    expect(deps.store.createAndLinkUser).not.toHaveBeenCalled();
   });
 });
 
 describe(reinviteClinic, () => {
-  it('sends a fresh login link when the invited account has never signed in', async () => {
-    const { deps, signInWithOtp } = createReinviteDeps(null);
-
-    await expect(reinviteClinic(deps, 'clinic-1')).resolves.toEqual({
-      status: 'ok',
-      clinicId: 'clinic-1',
-    });
-    expect(signInWithOtp).toHaveBeenCalledWith({
-      email: invite.contact_email,
-      options: { shouldCreateUser: false, emailRedirectTo: CONFIRM_URL },
-    });
+  it('sends a new link to an existing unactivated account', async () => {
+    const deps = dependencies();
+    expect(await reinviteClinic(deps, 'clinic-1')).toEqual({ status: 'ok', clinicId: 'clinic-1' });
+    expect(deps.store.resendInvite).toHaveBeenCalledWith(
+      'clinic-1',
+      'user-1',
+      invite.contact_email,
+    );
   });
 
-  it('does not email an account that has already signed in', async () => {
-    const { deps, signInWithOtp } = createReinviteDeps('2026-07-26T20:00:00Z');
-    await expect(reinviteClinic(deps, 'clinic-1')).resolves.toEqual({
-      status: 'already_invited',
+  it('creates the Auth identity when the first invite failed before linking', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.store.readInviteState).mockResolvedValue({
+      email: invite.contact_email,
+      userId: null,
     });
-    expect(signInWithOtp).not.toHaveBeenCalled();
+    await reinviteClinic(deps, 'clinic-1');
+    expect(deps.store.createAndLinkUser).toHaveBeenCalledOnce();
   });
 });

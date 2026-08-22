@@ -8,7 +8,9 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
-type FormState = 'idle' | 'pending' | 'sent' | 'invalid' | 'error';
+type FormState = 'idle' | 'pending' | 'sent' | 'not_registered' | 'invalid' | 'error';
+
+const loginResponseSchema = z.object({ status: z.enum(['sent', 'not_registered']) }).strict();
 
 /** Reasons /auth/confirm can bounce someone back here. Without these the form
  *  reappeared blank after an expired link, which reads as "nothing happened". */
@@ -31,27 +33,14 @@ export function LoginForm() {
       return;
     }
     setState('pending');
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: parsed.data }),
-    }).catch(() => null);
-    setState(response?.ok ? 'sent' : 'error');
+    setState(await requestLogin(email.trim()));
   }
 
   if (state === 'sent') {
     return (
       <div className="flex flex-col gap-3">
         <p role="status" className="text-sm text-foreground">
-          Wenn für diese Adresse ein Zugang besteht, haben wir dir einen Anmeldelink geschickt.
-          Prüfe dein E-Mail-Postfach.
-        </p>
-        <p className="text-sm text-muted">
-          Kein Link angekommen? Dann gibt es für diese Adresse noch keinen Zugang —{' '}
-          <Link href="/signup" className="font-semibold text-primary underline">
-            registriere deine Law Clinic
-          </Link>
-          .
+          Wir haben dir einen Anmeldelink geschickt. Prüfe dein E-Mail-Postfach.
         </p>
       </div>
     );
@@ -62,6 +51,15 @@ export function LoginForm() {
       {linkError && (
         <p role="alert" className="text-sm text-danger">
           {linkError}
+        </p>
+      )}
+      {state === 'not_registered' && (
+        <p role="alert" className="text-sm text-danger">
+          Diese E-Mail-Adresse ist nicht registriert. Wenn du für eine Law Clinic Zugang brauchst,{' '}
+          <Link href="/signup" className="font-semibold underline">
+            registriere sie zuerst
+          </Link>
+          .
         </p>
       )}
       <Input
@@ -82,4 +80,16 @@ export function LoginForm() {
       </Button>
     </form>
   );
+}
+
+async function requestLogin(email: string): Promise<FormState> {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  }).catch(() => null);
+  if (!response?.ok) return 'error';
+  const body = await response.json().catch(() => null);
+  const parsed = loginResponseSchema.safeParse(body);
+  return parsed.success ? parsed.data.status : 'error';
 }

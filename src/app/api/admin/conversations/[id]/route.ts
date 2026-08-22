@@ -2,22 +2,28 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
-import { logger } from '@/lib/logger';
+import { deleteConversation } from '@/lib/firebase/conversation-store';
+import { requestLogger } from '@/lib/http/request-id';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-// GDPR erasure: RLS grants admins delete on conversations.
-export async function DELETE(_request: NextRequest, context: RouteContext): Promise<Response> {
-  const guard = await requireAdminRoute();
+export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
+  const logger = requestLogger(request);
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) {
     return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
   }
-  const { error } = await guard.supabase.from('conversations').delete().eq('id', id);
-  if (error) {
-    logger.error('conversation delete failed', { reason: error.message });
+  try {
+    await deleteConversation(id);
+  } catch (error) {
+    logger.error('conversation delete failed', { reason: errorMessage(error) });
     return Response.json({ error: 'Löschen fehlgeschlagen.' }, { status: 500 });
   }
   return Response.json({ ok: true });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown';
 }

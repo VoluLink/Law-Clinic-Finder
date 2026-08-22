@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Hanken_Grotesk, Noto_Sans_Arabic } from 'next/font/google';
+import { headers } from 'next/headers';
 import './globals.css';
 
 import { Analytics } from '@/components/analytics/Analytics';
@@ -31,8 +32,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [lang, branding] = await Promise.all([getRequestLang(), getBranding()]);
+  const [lang, branding, requestHeaders] = await Promise.all([
+    getRequestLang(),
+    getBranding(),
+    headers(),
+  ]);
   const fontHref = googleFontHref(branding.font);
+  const nonce = requestHeaders.get('x-nonce') ?? undefined;
   return (
     <html
       lang={lang}
@@ -42,10 +48,10 @@ export default async function RootLayout({
       <head>
         {fontHref && <link rel="stylesheet" href={fontHref} />}
         {/* Runtime :root token overrides from the admin Branding tab. */}
-        <style dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }} />
+        <style nonce={nonce} dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <Analytics />
+        <Analytics nonce={nonce} />
         {children}
         <ConsentBanner />
       </body>

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { PortalShell, type NavItem } from '@/components/layout/PortalShell';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getClinic } from '@/lib/clinics/server';
 
 const NAV: NavItem[] = [
   { href: '/clinic', label: 'Mein Eintrag', icon: 'address-card' },
@@ -17,26 +17,20 @@ const TITLES: Record<string, string> = {
 };
 
 export default async function ClinicLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServerClient();
   let clinicName = '';
+  let email = '';
   let pending = false;
   try {
-    const profile = await requireRole(supabase, ['clinic', 'admin']);
+    const profile = await requireRole(['clinic', 'admin']);
+    email = profile.email ?? '';
     pending = profile.access_status === 'pending';
     if (profile.clinic_id) {
-      const { data } = await supabase
-        .from('clinics')
-        .select('name')
-        .eq('id', profile.clinic_id)
-        .maybeSingle();
-      clinicName = data?.name ?? '';
+      clinicName = (await getClinic(profile.clinic_id))?.name ?? '';
     }
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
   }
-  const { data } = await supabase.auth.getClaims();
-  const email = typeof data?.claims?.email === 'string' ? data.claims.email : '';
   // A pending claimant may only reach the waiting page, so offering the other
   // tabs would just bounce them off the proxy.
   return (

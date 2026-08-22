@@ -1,13 +1,26 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-const profileSchema = z.object({
+import { readProfile } from '@/lib/firebase/profile-repository';
+import { readSessionCookie } from '@/lib/firebase/session';
+
+export const profileSchema = z.object({
   role: z.enum(['admin', 'clinic']),
   clinic_id: z.string().nullable(),
   access_status: z.enum(['pending', 'active']),
+  activated_at: z.string().nullable().optional(),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
+export type AuthenticatedProfile = Profile & {
+  user_id: string;
+  email?: string;
+  auth_time?: number;
+};
+
+type RoleDependencies = {
+  readSession(): Promise<{ uid: string; email?: string; auth_time?: number } | null>;
+  readProfile(userId: string): Promise<unknown>;
+};
 
 export class AuthError extends Error {
   readonly status: number;
@@ -18,42 +31,37 @@ export class AuthError extends Error {
   }
 }
 
-/**
- * Second defense layer after src/proxy.ts (and before RLS): every gated
- * route/page re-checks the caller's role through this helper.
- */
+async function defaultDependencies(): Promise<RoleDependencies> {
+  return {
+    readSession: readSessionCookie,
+    readProfile,
+  };
+}
+
 export async function requireRole(
-  supabase: SupabaseClient,
   allowed: Array<Profile['role']>,
-): Promise<Profile> {
-  const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub;
-  if (!userId) throw new AuthError('not signed in', 401);
-  // Filter by user_id explicitly; RLS alone is not enough here — an admin can
-  // read every profile row, so an unfiltered maybeSingle() errors on 2+ rows.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, clinic_id, access_status')
-    .eq('user_id', userId)
-    .maybeSingle();
-  const parsed = profileSchema.safeParse(profile);
+  dependencies?: RoleDependencies,
+): Promise<AuthenticatedProfile> {
+  const deps = dependencies ?? (await defaultDependencies());
+  const session = await deps.readSession();
+  if (!session) throw new AuthError('not signed in', 401);
+  const parsed = profileSchema.safeParse(await deps.readProfile(session.uid));
   if (!parsed.success || !allowed.includes(parsed.data.role)) {
     throw new AuthError('insufficient role', 403);
   }
-  return parsed.data;
+  return {
+    ...parsed.data,
+    user_id: session.uid,
+    ...(session.email ? { email: session.email } : {}),
+    ...(session.auth_time !== undefined ? { auth_time: session.auth_time } : {}),
+  };
 }
 
-/**
- * For everything a pending claimant must not reach. Their session is valid —
- * they proved they own the address — but ownership of the clinic is still
- * unconfirmed, so they may only see the waiting page. RLS enforces the same
- * boundary via private.app_clinic_id(); this returns the clearer 403.
- */
 export async function requireActiveRole(
-  supabase: SupabaseClient,
   allowed: Array<Profile['role']>,
-): Promise<Profile> {
-  const profile = await requireRole(supabase, allowed);
+  dependencies?: RoleDependencies,
+): Promise<AuthenticatedProfile> {
+  const profile = await requireRole(allowed, dependencies);
   if (profile.access_status !== 'active') throw new AuthError('access pending approval', 403);
   return profile;
 }

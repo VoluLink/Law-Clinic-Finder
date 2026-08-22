@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 
 import { ChatUnavailable } from '@/components/chat/ChatUnavailable';
 import { FinderChat } from '@/components/chat/FinderChat';
@@ -10,36 +11,40 @@ import { Wordmark } from '@/components/layout/Wordmark';
 import { isRtl, type Lang } from '@/lib/i18n/config';
 import { getDictionary, type Dictionary } from '@/lib/i18n/dictionary';
 import { getRequestLang } from '@/lib/i18n/get-request-lang';
+import { firebaseSettingsRepository } from '@/lib/firebase/settings-repository';
+import { requestLogger } from '@/lib/http/request-id';
+import type { Logger } from '@/lib/logger';
 import { loadChatSettings } from '@/lib/settings';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 type ChatLanding = { available: boolean; greeting: string };
 
 /**
  * The landing page needs the greeting and whether the assistant is live. `anon`
- * cannot read the settings table, so this uses the service-role client.
- * `available` mirrors the chat route's 503 conditions (env keys present, the
+ * cannot read Firestore directly, so this uses the server repository.
+ * `available` mirrors the chat route's 503 conditions (the API key is present, the
  * settings fully configured, AND `chat_enabled`); a missing setting or unreachable
  * database degrades to unavailable rather than throwing, so the page shows the
  * notice instead of a broken chat.
  */
-async function loadChatLanding(): Promise<ChatLanding> {
-  const configured =
-    Boolean(process.env.SUPABASE_SECRET_KEY) && Boolean(process.env.ANTHROPIC_API_KEY);
-  if (!configured) return { available: false, greeting: '' };
+async function loadChatLanding(routeLogger: Logger): Promise<ChatLanding> {
+  if (!process.env.ANTHROPIC_API_KEY) return { available: false, greeting: '' };
   try {
-    const loaded = await loadChatSettings(createSupabaseAdminClient());
+    const loaded = await loadChatSettings(firebaseSettingsRepository);
     if (!loaded.ok) return { available: false, greeting: '' };
     return { available: loaded.settings.chat_enabled, greeting: loaded.settings.chat_greeting };
-  } catch {
+  } catch (error) {
+    routeLogger.warn('chat landing settings unavailable', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
     return { available: false, greeting: '' };
   }
 }
 
 export default async function Home() {
+  const routeLogger = requestLogger({ headers: await headers() });
   const lang = await getRequestLang();
   const dict = getDictionary(lang);
-  const chat = await loadChatLanding();
+  const chat = await loadChatLanding(routeLogger);
   return (
     <div className="flex flex-1 flex-col">
       <Nav dict={dict} lang={lang} />

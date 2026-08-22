@@ -1,29 +1,42 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { listAdmins } from '@/lib/admin/manage-admins';
+import { loadOperationalAlertRecipient } from '@/lib/admin/operational-alerts';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
-import { logger } from '@/lib/logger';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { firebaseAdminAccountStore } from '@/lib/firebase/admin-account-store';
+import { firebaseOperationalAlertStore } from '@/lib/firebase/operational-alert-store';
+import { requestLogger } from '@/lib/http/request-id';
 
 import { AdminsManager } from './AdminsManager';
 
 export const metadata: Metadata = { title: 'Admin-Konten – Admin' };
 
 export default async function AdminAccountsPage() {
-  const supabase = await createSupabaseServerClient();
+  const logger = requestLogger({ headers: await headers() });
+  let currentUserId = '';
+  let currentEmail = '';
   try {
-    await requireRole(supabase, ['admin']);
+    const profile = await requireRole(['admin']);
+    currentUserId = profile.user_id;
+    currentEmail = profile.email ?? '';
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
   }
-  const { data } = await supabase.auth.getClaims();
-  const currentUserId = typeof data?.claims?.sub === 'string' ? data.claims.sub : '';
-  const currentEmail = typeof data?.claims?.email === 'string' ? data.claims.email : '';
-  const admins = await listAdmins({ adminClient: createSupabaseAdminClient(), logger });
+  const admins = await listAdmins({ store: firebaseAdminAccountStore, logger });
+  const operationalAlertRecipient = await loadOperationalAlertRecipient(
+    admins,
+    firebaseOperationalAlertStore,
+    logger,
+  );
   return (
-    <AdminsManager admins={admins} currentEmail={currentEmail} currentUserId={currentUserId} />
+    <AdminsManager
+      admins={admins}
+      currentEmail={currentEmail}
+      currentUserId={currentUserId}
+      operationalAlertRecipient={operationalAlertRecipient}
+    />
   );
 }

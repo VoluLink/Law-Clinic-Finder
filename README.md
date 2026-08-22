@@ -1,336 +1,380 @@
 # Law Clinic Finder
 
-Verzeichnis der deutschen Law Clinics mit KI-Chat, der Ratsuchende an die passende Clinic
-weiterleitet. Eine Next.js-Anwendung mit rollengetrenntem Clinic- und Admin-Bereich und
-passwortlosem Login.
+## What & Run
 
-> **Status: Vorabversion (Alpha).** Die Anwendung ist nicht produktionsreif. Schnittstellen,
-> Datenmodell und Konfiguration können sich jederzeit ohne Ankündigung ändern.
+Mehrsprachiger Finder für studentische Rechtsberatung mit öffentlichem KI-Chat, Clinic-Portal und
+Admin-Bereich. Diese Fassung ersetzt Supabase vollständig durch Firebase Authentication mit
+Identity Platform, Cloud Firestore, Cloud Storage und Firebase App Hosting. Auth-Mails werden über
+einen provider-neutralen SMTP-Adapter versendet; Brevo ist nur die aktuelle Konfiguration.
 
-## Stack
-
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Supabase
-(Postgres, Auth, RLS) · Anthropic Claude API · Vitest · Zod
-
-## Einrichtung & Betrieb
+Stack: Next.js 16 App Router · React 19 · TypeScript · Tailwind CSS v4 · Firebase Admin · Firestore ·
+Anthropic · Nodemailer. Benötigt Node 22.
 
 ```bash
-npm install                                    # Abhängigkeiten installieren
-cp .env.example .env.local                     # Zugangsdaten eintragen (siehe unten)
-npm run dev                                    # Entwicklungsserver, http://localhost:3000
-
-npm test                                       # Vitest (Unit-Tests, koloziert als *.test.ts[x])
-npm run typecheck                              # tsc --noEmit
-npm run lint                                   # ESLint
-npm run format:check                           # Prettier
-
-npm run build                                  # Produktions-Build
-docker build -t law-clinic-finder .            # portables Produktions-Image (output: standalone)
-
-node scripts/import-clinics.mjs <clinics.json> # idempotenter Import (Upsert über den Namen)
+npm install
+npm run dev
+npm test
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-### Umgebungsvariablen
+Wichtige Befehle:
 
-`.env.example` listet alle benötigten Variablen. Reale Werte gehören ausschließlich in
-`.env.local` und werden nie eingecheckt.
+| Befehl                                                          | Zweck                                                                |
+| --------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `npm run emulators`                                             | Auth-, Firestore-, Functions- und Storage-Emulatoren                 |
+| `npm run test:firebase`                                         | Firestore-Transaktionen und Race-Bedingungen gegen den Emulator      |
+| `npm run test:rules`                                            | Deny-by-default-Regeln gegen Emulatoren prüfen                       |
+| `npm run test:migration`                                        | Firebase-Ziel: Apply, Resume und Verify gegen Emulatoren             |
+| `npm run test:e2e`                                              | Rollen-, Public-, RTL- und Accessibility-E2E nur gegen Emulatoren    |
+| `npm run dev:login:teardown`                                    | Löscht nur die zwei `@example.com`-Konten aus Loopback-Emulatoren    |
+| `npm run import:clinics -- clinics.json`                        | Clinic-JSON validieren; ohne `--apply` nur Vorschau                  |
+| `npm run migrate:firebase -- --source-ref <REF> --run-id <RUN>` | Supabase lesen, validieren und Checksummen ausgeben; schreibt nichts |
 
-| Variable                        | Bereich    | Zweck                                                     |
-| ------------------------------- | ---------- | --------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | öffentlich | Supabase-Projekt-URL                                      |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | öffentlich | Anon-Key, spaltenweise per RLS beschränkt                 |
-| `SUPABASE_SECRET_KEY`           | Server     | Service-Key, umgeht RLS — niemals `NEXT_PUBLIC_`          |
-| `ANTHROPIC_API_KEY`             | Server     | Claude API ausschließlich für Chat-Antworten              |
-| `DEV_LOGIN_ENABLED`             | nur Dev    | Schaltet die E-Mail-freien Test-Logins frei               |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | öffentlich | GA4-Mess-ID; aktiviert einwilligungsbasiertes Tracking    |
-| `GA_PROPERTY_ID`                | Server     | GA4-Property für die Dashboard-Kennzahlen (Data API)      |
-| `GA_SERVICE_ACCOUNT_JSON`       | Server     | Service-Account für die GA Data API (Dashboard-GA-Karten) |
+Die Emulator-Hosts müssen beim lokalen App-Prozess auf Loopback zeigen:
 
-`DEV_LOGIN_ENABLED` darf in Produktion nie gesetzt sein. Die zugehörige Route antwortet
-zusätzlich mit 404, sobald `NODE_ENV=production` gilt.
+```bash
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199
+DEV_LOGIN_ENABLED=true
+```
 
-## Architektur
+### Umgebung
 
-Einstiegspunkte: `src/app/layout.tsx` (Root-Layout), `src/proxy.ts` (Rollen-Gating; ersetzt
-`middleware.ts` ab Next 16; Matcher `/admin/*`, `/clinic/*`), API-Routen unter `src/app/api/`.
+Reale Werte gehören ausschließlich in `.env.local` bzw. App Hosting Secret Manager, nie ins Repo.
+`.env.example` enthält die vollständige Vorlage.
 
-| Pfad                         | Zweck                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/page.tsx`           | Öffentliche Startseite mit eingebettetem FinderChat (oder `ChatUnavailable`-Hinweis, wenn der Chatbot aus/unkonfiguriert ist)                                                                                                                                                                                         |
-| `src/app/login/`             | Gemeinsames Login für Clinics und Admins (Magic Link, nur auf Einladung)                                                                                                                                                                                                                                              |
-| `src/app/signup/`            | Selbstregistrierung: Verzeichnis durchsuchen → Eintrag beanspruchen oder neu                                                                                                                                                                                                                                          |
-| `src/app/auth/confirm/`      | OTP-Verifikation via `token_hash`; aktiviert den Zugang einmalig und veröffentlicht eine vollständige Clinic bei erster Einladung bzw. deren Ersatz-Magic-Link automatisch                                                                                                                                            |
-| `src/app/clinic/`            | Clinic-Bereich (Teal-Sidebar-Shell): Mein Eintrag, Statistiken (Empfehlungen/Klicks), Konto (Selbst-Löschung)                                                                                                                                                                                                         |
-| `src/app/admin/`             | Admin: Teal-Sidebar-Shell — Dashboard (monatsweise navigierbare Statistik + Gespräche-Drawer mit API-Kosten und empfohlenen Clinic-Karten), Law Clinics, KI-Assistent, Protokolle, Branding, Konto                                                                                                                    |
-| `src/app/api/chat/`          | Streamender Claude-Tool-Use-Loop; speichert redigierte Konversationen + Empfehlungs-Events                                                                                                                                                                                                                            |
-| `src/app/api/clinic/`        | Clinic-Self-Service: eigenen Eintrag bearbeiten (`PATCH`), Konto löschen (`DELETE /account`: unpublish + Login weg)                                                                                                                                                                                                   |
-| `src/app/api/clinic-events/` | Öffentlicher Klick-Beacon (Website/E-Mail); same-origin, rate-limitiert, nur veröffentlichte Clinics, PII-frei                                                                                                                                                                                                        |
-| `src/app/api/signup/`        | Öffentliche API: Suche, Beanspruchung, Registrierung                                                                                                                                                                                                                                                                  |
-| `src/app/api/admin/**`       | Admin-CRUD: Clinics, Einladungen, Zugang-Reset, Einreichungen, Einstellungen, Branding, Protokolle                                                                                                                                                                                                                    |
-| `src/components/ui/`         | UI-Kit: Badge, Button, Card, Checkbox, ColorField, Drawer, FieldLabel, FileDropzone, Icon, InfoHint, Input, Modal, Panel, Select, SuggestionList, TagCombobox, StatCard, BarChart, MeterList, Textarea, Toggle                                                                                                        |
-| `src/lib/branding/`          | Branding-Record laden/validieren; Runtime-Theming (`:root`-Tokens + Google-Font) im Root-Layout                                                                                                                                                                                                                       |
-| `src/lib/analytics/`         | GA4-Consent (Mode v2) + Data-API-Kennzahlen (`ga-metrics.ts`, leer bis konfiguriert)                                                                                                                                                                                                                                  |
-| `src/components/analytics/`  | GA-Script (einwilligungsgesteuert) + Cookie-Consent-Banner                                                                                                                                                                                                                                                            |
-| `src/components/admin/`      | AdminChrome (Admin-Navigation via `PortalShell`), MonthStepper (Monats-Navigator des Dashboards)                                                                                                                                                                                                                      |
-| `src/components/layout/`     | Wordmark, AreaHeader, `PortalShell` (geteilte Teal-Sidebar für Admin- **und** Clinic-Portal, aktive Tabs via `usePathname`)                                                                                                                                                                                           |
-| `src/components/chat/`       | FinderChat (Suchkarte → Chat; strukturierte Abschluss-, Kein-Treffer- und Limit-Zustände), Empfehlungskarten (Klick-Beacon auf Website/E-Mail), browserlokaler PDF-/Text-Export mit der letzten Empfehlungsliste (das PDF zeigt nur die erste Nutzerangabe; der Text-Export bleibt vollständig) und `ChatUnavailable` |
-| `src/lib/chat/`              | Tool-Texte, Schema, Tools, NDJSON, Loop, deterministische PII-Redaktion, `usage.ts` (Token/Kosten pro Gespräch)                                                                                                                                                                                                       |
-| `src/lib/clinic/`            | `stats.ts`: Kennzahlen des Statistik-Tabs (Empfehlungen, Klicks, Klickrate)                                                                                                                                                                                                                                           |
-| `src/lib/admin/`             | Dashboard-Kennzahlen (`stats.ts`), Zugriffsstatus (`clinic-access.ts`), Monatsfenster (`month-window.ts`: rollierende 12-Monats-Aufbewahrung, Monatsschritte)                                                                                                                                                         |
-| `src/lib/clinics/`           | `revoke-access.ts` (Login löschen + Eintrags-Reset), `click-event.ts` (Klick-Recorder), `schema.ts`, `options.ts` (Vorschlagslisten + `;`-Parser), `publish-requirements.ts` (Pflichtfeld-Gate zum Veröffentlichen)                                                                                                   |
-| `src/lib/logs/`              | `log-store.ts`: Sink, der Logs in `public.logs` schreibt (7 Tage Aufbewahrung)                                                                                                                                                                                                                                        |
-| `src/instrumentation.ts`     | Next-Startup-Hook: verbindet den Logger mit dem `logs`-Sink                                                                                                                                                                                                                                                           |
-| `src/lib/i18n/`              | Wörterbücher für 9 Sprachen, `lcf_lang`-Cookie, RTL-Hilfen und lokaler Englisch-Fallback für nicht unterstützte Chatsprachen                                                                                                                                                                                          |
-| `src/lib/signup/`            | Verzeichnissuche, E-Mail-Maskierung, Beanspruchungsfenster, Registrierung                                                                                                                                                                                                                                             |
-| `src/lib/supabase/`          | Clients: Browser, Server (Cookies), Service (nur Server), Proxy-Session                                                                                                                                                                                                                                               |
-| `src/lib/auth/`              | `requireRole` (+ `AuthError`), Admin-Guard für API-Routen                                                                                                                                                                                                                                                             |
-| `src/lib/`                   | Logger (strukturiertes JSON, optional in `logs`-Tabelle), Rate-Limiting, Einstellungen, `cn`, Schemata                                                                                                                                                                                                                |
-| `supabase/migrations/`       | Schema und RLS — alleinige Quelle der Wahrheit                                                                                                                                                                                                                                                                        |
-| `scripts/`                   | Zod-validierter Clinic-Import, Dev-Hilfsskripte                                                                                                                                                                                                                                                                       |
+| Variable                                              | Sichtbarkeit          | Zweck                                                               |
+| ----------------------------------------------------- | --------------------- | ------------------------------------------------------------------- |
+| `FIREBASE_PROJECT_ID`                                 | Server                | Fest auf `law-clinic-finder`; verhindert versehentliche Zielwechsel |
+| `FIREBASE_DATABASE_ID`                                | Server                | Fest auf die benannte EU-Datenbank `primary-eu`                     |
+| `FIREBASE_STORAGE_BUCKET`                             | Server                | Branding-Bucket des Projekts                                        |
+| `IDENTITY_PLATFORM_API_KEY`                           | Server, nicht geheim  | Identity-Platform-REST-Austausch für E-Mail-Links                   |
+| `NEXT_PUBLIC_SITE_URL`                                | öffentlich            | Kanonischer HTTPS-Origin für `/auth/confirm`                        |
+| `SMTP_HOST` / `SMTP_PORT`                             | Server                | SMTP-Server und Port; 465 = TLS, andere Ports = STARTTLS            |
+| `SMTP_LOGIN_EMAIL` / `SMTP_PASSWORD`                  | Server/Secret         | Provider-neutraler SMTP-Login                                       |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME`                  | Server                | Absender; E-Mail fällt auf den SMTP-Login zurück                    |
+| `STAGING_ACCESS_ENABLED`                              | Server                | Schaltet den temporären Vorschau-Schutz explizit ein                |
+| `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD` | Server/Secret         | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                  |
+| `ANTHROPIC_API_KEY`                                   | Server/Secret         | Claude API für den Finder-Chat                                      |
+| `DEV_LOGIN_ENABLED`                                   | nur lokal             | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden     |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                       | öffentlich, optional  | Consent-gesteuertes GA4                                             |
+| `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`          | Server, optional      | GA-Karten im Admin-Dashboard                                        |
+| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SECRET_KEY`    | nur Migrationsrechner | Read-only Quelle des Kopierwerkzeugs; kein App-Runtime-Zugriff      |
 
-**Datenfluss:** Browser → API-Route (Zod-Validierung, `requireRole`) → Supabase (Postgres + RLS)
-→ Antwort. Beim Chat redigiert `/api/chat` alle Nachrichten mit lokalen, deterministischen Regeln,
-bevor die Texte die Anthropic-API erreichen. Nach Streamende redigiert `after()` das vollständige
-Transkript nochmals lokal und legt es mit Kennzahlen ab; das nachgefragte Rechtsgebiet stammt
-vorrangig aus dem validierten `search_clinics`-Filter, mit lokaler Texterkennung als Fallback. Das
-`search_clinics`-Werkzeug gibt dem Modell ausschließlich Verzeichnisdaten ohne Beratungsemails;
-eine E-Mail-Adresse wird erst für eine konkret serverseitig geprüfte Empfehlungskarte an den Browser
-gegeben.
+App Hosting stellt Application Default Credentials bereit. Lokal werden Emulatoren oder lokale ADC
+außerhalb des Repositories verwendet; Service-Account-JSON wird weder eingebaut noch committed.
 
-**Authentifizierungs-E-Mails:** Supabase Auth erzeugt Einladungs-, Magic-Link- und
-E-Mail-Änderungs-Tokens; ein in Supabase konfigurierter SMTP-Anbieter stellt alle drei Mailarten zu.
-Die Auth-Mailvorlagen werden im Supabase-Dashboard gepflegt und verlinken mit `TokenHash` auf
-`/auth/confirm`. Für den Produktivbetrieb ist Custom SMTP erforderlich; der Supabase-Free-Tarif
-erlaubt Custom SMTP, sein eingebauter Testversand ist jedoch nicht für beliebige Empfänger gedacht.
-Eine Clinic-Einladung legt sofort Auth-User und Profil an. `profiles.activated_at` unterscheidet
-seitdem eine noch offene Einladung von einem tatsächlich erstmals angemeldeten Zugang: Ein
-Ersatz-Magic-Link kann die einmalige Auto-Veröffentlichung auslösen, spätere Logins niemals. Die
-Admin-E-Mail-Änderung überträgt denselben Auth-User und damit dieselbe Admin-Rolle nach Bestätigung
-auf die neue Adresse; sie legt keinen zweiten Admin an.
+## Architecture Map
 
-**Privatsphäre im Chat:** E-Mail-Adressen, Telefonnummern, IBANs, deutsche Straßenanschriften und
-Namen in eindeutigen Namenskontexten werden durch `redactPatterns` schon **vor** dem
-Anthropic-Aufruf entfernt. Für die Redaktion wird nie eine KI-API aufgerufen. Dieselben Regeln
-laufen vor dem Speichern erneut; Rechtsgebiet und Stadt werden für Statistiken gegen kontrollierte
-lokale Begriffslisten erkannt. Freitext-Anonymisierung kann Angaben außerhalb der bekannten Muster
-nicht garantiert erkennen, deshalb bleibt der Hinweis bestehen, keine vollständigen Namen oder
-Kontaktdaten einzugeben.
+Einstiegspunkte sind `src/app/layout.tsx`, `src/app/page.tsx`, `src/proxy.ts` und die Route Handler
+unter `src/app/api/`. `proxy.ts` macht nur frühes Routing; jede geschützte Datenoperation prüft die
+Firebase-Session und das aktuelle Profil erneut.
 
-**Chat-Werkzeuge:** Das Modell hat genau vier serverseitig registrierte Tools.
-`list_directory_terms` liest die tatsächlich vorhandenen Suchbegriffe aus veröffentlichten
-Verzeichniseinträgen. `search_clinics` liest das Verzeichnis in stabil sortierten Seiten mit je 100
-Einträgen; `count` und `next_offset` machen auch größere Verzeichnisse vollständig abrufbar, lange
-Freitextfelder werden pro Zeile gekürzt — ohne Beratungsemail. `recommend_clinics` akzeptiert nur
-eindeutige Clinic-IDs, die eine Suche im selben Gespräch geliefert hat; der Server schlägt jede ID
-erneut in der Datenbank nach und sendet daraus die Karten. `report_no_match` zeigt ausschließlich
-die feste Hilfe-Karte der Website und wird erst nach zwei erfolgreichen Datenbanksuchen akzeptiert.
-Unbekannte Tool-Namen werden abgewiesen und führen niemals
-ersatzweise eine Datenbankabfrage aus. Alles außer der kurzen Empfehlungsbegründung stammt damit aus
-der Datenbank; erfundene oder nicht zuvor gelesene IDs fallen heraus. Die E-Mail-Adresse verlässt
-diesen Server-Schritt nur als Teil der fertigen Empfehlungskarte, nie als Tool-Ergebnis für das
-Modell.
+| Pfad                                      | Zweck                                                                              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                  |
+| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren           |
+| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung           |
+| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding und Konto   |
+| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion               |
+| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                          |
+| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil        |
+| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                         |
+| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                   |
+| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export              |
+| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel     |
+| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                  |
+| `src/lib/http/`                           | Client-IP, Origin, Request-ID und zentrale HTTP-Sicherheitsheader                  |
+| `src/lib/mail/`                           | Provider-neutraler Nodemailer-Transport und lokale Auth-Mailvorlagen               |
+| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten             |
+| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                  |
+| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync     |
+| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff      |
+| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                    |
+| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify |
+| `docs/firebase-migration-plan.md`         | Dauerhafter Phasenplan, Entscheidungen, Fortschritt und Resume-Protokoll           |
+| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback       |
 
-**Pro-Clinic-Statistik:** Jede Empfehlung schreibt beim Speichern des Gesprächs ein
-`recommended`-Event nach `public.clinic_events`; Klicks auf Website/E-Mail meldet ein Beacon der
-Empfehlungskarte an `/api/clinic-events` (`click_website`/`click_email`). Die Events tragen **keine**
-Nutzerdaten (nur Clinic-ID, Art, Zeitstempel). Der Statistik-Tab der Clinic liest sie über die View
-`clinic_event_counts` (`security_invoker`, RLS auf `private.app_clinic_id()`) — **nur die eigenen
-Zahlen, nicht für Admins**. Löscht ein Gespräch (DSGVO), bleibt der Zähler erhalten
-(`conversation_id … on delete set null`). `clinic_events` wird nach 12 Monaten bereinigt (siehe
-_Datenaufbewahrung_), die Mitglieder-Statistik ist also rollierend über ein Jahr.
-Das Admin-Dashboard liest die verknüpften `recommended`-Events zusätzlich, um im anonymisierten
-Gespräch am Ende des Verlaufs die aktuellen Karten der tatsächlich empfohlenen Clinics zu zeigen.
+### Datenfluss und Sicherheitsgrenze
 
-**System-Prompt = Rolle + Datengrundlage + Ablauf:** Der System-Prompt wird zur Laufzeit aus drei
-DB-Texten zusammengesetzt (`buildSystemPrompt` in `src/lib/chat/prompts.ts`): `<role>` (wer der
-Assistent ist), `<grounding>` (verbindliche Beschränkung auf aktuelle Datenbank-Tool-Ergebnisse) und
-`<skill>` (der Gesprächsablauf). Rolle und Ablauf sind unter `/admin/assistant` editierbar; die
-Grounding-Regel (`chat_grounding_policy`) wird ausschließlich per versionierter Migration gepflegt
-und kann weder im Admin-Formular noch durch einen direkten authentifizierten Supabase-Schreibzugriff
-überschrieben oder gelöscht werden. Fehlt einer der drei Werte, bleibt der Chat deaktiviert statt
-auf einen Code- oder Modellwissen-Fallback auszuweichen.
+```text
+Browser → Next.js Route/Server Component → Session + Profil/Rolle → Zod → Firebase Admin → Firestore
+                                         ↘ SMTP / Anthropic (nur validierte, minimierte Daten)
+```
 
-**Grenzwerte des Chats** (Konstante → Datei → Wert):
+Der Browser verwendet kein Firebase-Client-SDK für Daten. Private Beratungsmails liegen getrennt in
+`clinicContacts`; öffentliche Clinic-Dokumente enthalten sie nicht. E-Mail-Adressen werden erst für
+eine serverseitig validierte Empfehlungskarte geladen. Firestore und Storage lehnen Client-Schreib-
+zugriffe ab; App Hosting schreibt mit der dedizierten, eingeschränkten Runtime-Identität
+`law-clinic-runtime`. Die standardmäßige Build-Identität besitzt keine Rollen für Anwendungsdaten.
 
-| Grenze                  | Datei               | Wert            |
-| ----------------------- | ------------------- | --------------- |
-| Anfragen/Minute pro IP  | `rate-limit.ts`     | 20              |
-| Anfragen/Tag pro IP     | `rate-limit.ts`     | 20              |
-| `max_tokens` (Standard) | `settings.ts`       | 1024 (max 4096) |
-| Temperatur (Standard)   | `settings.ts`       | 0.3             |
-| Tool-Runden pro Antwort | `run-chat.ts`       | 5 (→ 6 Aufrufe) |
-| Zeichen pro Nachricht   | `schema.ts`         | 4000            |
-| Nachrichten im Verlauf  | `schema.ts`         | 16              |
-| Treffer pro Suchseite   | `search-clinics.ts` | 100 (paginiert) |
-| Empfohlene Clinics      | `settings.ts`       | ≤ 8 (Standard)  |
+Firebase-Auth-Zustand liegt ausschließlich im begrenzten `HttpOnly`-Cookie `__session` (`Secure` in
+Produktion, `SameSite=Lax`, fünf Tage). ID- und Refresh-Tokens werden nicht im Browser gespeichert.
+Ein gültiges Cookie allein reicht nicht: `requireRole` lädt immer das aktuelle `profiles/{uid}`-
+Dokument, sodass Löschung, Sperre oder Rollenänderung sofort wirken.
 
-Das Rate-Limit liegt im Prozessspeicher (kein Redis) — pro Instanz und beim Neustart zurückgesetzt;
-hinter mehreren Instanzen zusätzlich am Proxy erzwingen — der Proxy muss dafür
-die echte Client-IP setzen (`X-Forwarded-For`).
+Alle Browser-Mutationen müssen zusätzlich vom exakten kanonischen Site-Origin stammen. Direkte
+Requests vergleichen Origin, Request-URL und Host; hinter App Hosting darf nur der validierte
+`NEXT_PUBLIC_SITE_URL`-Origin vom internen Cloud-Run-Host abweichen. HTML-Antworten erhalten eine
+nonce-basierte CSP mit `script-src 'self'`; HSTS, Frame-/MIME-Schutz, Referrer- und
+Permissions-Policy gelten auf allen Antworten. Clinic-Homepages akzeptieren nur `http:`/`https:`
+und Branding-SVGs werden vor der Auslieferung als PNG neu codiert.
 
-## Konventionen
+`proxy.ts` verwirft jeden eingehenden `X-Request-Id`-Wert, erzeugt an der vertrauenswürdigen Grenze
+eine UUID, sendet sie in der Antwort zurück und reicht sie an strukturierte Child-Logger weiter.
+Damit lässt sich ein fehlgeschlagener Request korrelieren, ohne Body, Token oder PII zu protokollieren.
 
-- **Next.js 16:** Request-APIs sind ausschließlich asynchron (`await cookies()`, `await params`);
-  `proxy.ts` statt `middleware.ts`.
-- **Design-Tokens:** Alle Farben, Abstände, Radien und Schatten liegen als Custom Properties in
-  `src/app/globals.css`. Nie einen Rohwert im Komponentencode hartkodieren.
-- **`cn` ist ein einfacher String-Join, kein `tailwind-merge`.** Ein `className`-Override schlägt
-  eine Basis-Utility nicht — beide landen im Markup, die CSS-Reihenfolge entscheidet. Form- und
-  Farbänderungen an geteilten Komponenten gehören daher in echte Varianten (`Button`
-  `variant`/`shape`, `Input` `shape`, `Card` `variant`, `Badge` `variant`), nie in `className`.
-- **Sprachen:** Der öffentliche Bereich liefert 9 Sprachen (Standard Deutsch; RTL für `ar`/`fa`)
-  aus `src/lib/i18n/`. Login, Signup, Clinic- und Admin-Bereich bleiben deutsch. Code, Bezeichner
-  und Kommentare sind englisch.
-- **Nur-deutsche Landing-Texte:** Das Wörterbuch ist zweigeteilt. `Translations` sind die Schlüssel,
-  die jede Locale-Datei selbst liefert; `GermanOnly` sind die Texte, die in jeder Sprache deutsch
-  bleiben (Suchfeld-Platzhalter, KI-Hinweis, „So funktioniert diese Website", FAQ-Einträge zur
-  studentischen Rechtsberatung). Sie stehen einmal in `deOnly` (`locales/de.ts`); `getDictionary`
-  mischt sie über jede Locale. Locale-Dateien können diese Schlüssel nicht deklarieren — eine
-  Übersetzung kann die deutsche Fassung also nicht überschreiben.
-- **Datenbank-Rechte:** `anon` und `authenticated` erhalten ausschließlich explizite,
-  spaltenweise Grants für die Directory-Tabelle, nie tabellenweite — ein Table-Grant hebt
-  spaltenweise Revokes stillschweigend auf. `clinics.contact_email` ist für beide Rollen nicht
-  lesbar; alles, was die Adresse braucht, läuft nach einer serverseitigen Rollenprüfung über den
-  Service-Client. Sicherungstabellen sind für Web- und Service-Rollen vollständig gesperrt und
-  erzwingen RLS ohne Richtlinie. Neue Tabellen und Funktionen erhalten standardmäßig keine dieser
-  Rechte; jede nötige Freigabe gehört ausdrücklich in dieselbe Migration.
-- **Clinic-Selbstverwaltung:** „Konto löschen“ entfernt den Login **und** setzt `is_published=false`,
-  lässt den Verzeichnis-Eintrag aber bestehen — geteilte Logik `revokeClinicAccess(admin, id,
-{ unpublish, clearContactEmail })`. Der Admin-Button „Zugang zurücksetzen“ entfernt Login und
-  Beratungsemail (`clearContactEmail: true`), lässt den Veröffentlichungsstatus aber unverändert.
-  Der Admin-Filter „Mit Konto verknüpft“ zeigt Einträge mit Mitglieds-Login (aktiv oder eingeladen);
-  „Alle“ behält ausgeblendete/selbstgelöschte Einträge.
-- **Geführte Dateneingabe:** Die Kategoriefelder `legal_areas`, `target_clients`, `languages` und
-  `region` (alle Mehrfachauswahl via `TagCombobox`) schlagen standardisierte Werte aus
-  `src/lib/clinics/options.ts` vor — der einzigen Quelle, die alle drei Eingabemasken
-  (Mitglieder-Formular, Admin-Editor, öffentliche Registrierung) nutzen. Freitext bleibt erlaubt
-  (geführt, nicht erzwungen). Die Speicherung ändert sich nicht: Mehrfachwerte liegen weiter als
-  `"; "`-verkettetes `text` (`parseMultiValue`/`serializeMultiValue`), passend zu `search_clinics`
-  (`ilike`) und den Empfehlungskarten (`splitAreas`). Bestandsdaten bleiben unangetastet.
-  `"Bundesweit"` ist der reservierte bundesweite Sentinel und steht in den Regionsvorschlägen an
-  erster Stelle; darauf folgen alle Bundesländer, Regierungsbezirke und Großstädte. Das
-  Mitglieder-Formular zeigt den Eintrag zunächst schreibgeschützt und blendet Bearbeiten erst nach
-  Klick auf „Bearbeiten" ein („Abbrechen" verwirft ungespeicherte Änderungen).
-- **Feld-Hilfen & Pflichtkennzeichen:** Jedes Feld trägt in Admin-, Mitglieder- und
-  Registrierungs-Ansicht ein `circle-info`-Symbol (`InfoHint`), das beim Hovern/Fokussieren einen
-  Erklärtext zeigt — einzige Quelle ist `FIELD_HELP` in `src/lib/clinics/field-help.ts`. Ein wegen
-  fehlender Pflichtfelder gesperrter Veröffentlichungsschalter verwendet stattdessen das Font-
-  Awesome-Symbol `triangle-exclamation` mit dem erklärenden Tooltip.
-  Pflichtfelder erhalten über die gemeinsame `FieldLabel` ein rotes `*` (rein visuell; der Status
-  wird per `aria-required` an das Control gemeldet); die Pflichtmengen stammen aus
-  `MEMBER_KEYS`/`PUBLISH_KEYS` (`publish-requirements.ts`). Die Beschreibung der Beratungsarbeit ist
-  nur Pflicht, wenn „Berät individuell?" = Nein.
-- **Veröffentlichung ist an Vollständigkeit geknüpft.** Eine Clinic wird nur öffentlich (und damit
-  für den Chatbot sichtbar), wenn `name`, `website`, `region`, `legal_areas`, `target_clients`,
-  `languages` und die Beratungsarbeit-Angabe gesetzt sind — einzige Quelle ist
-  `publishBlockers`/`missingRequiredKeys` in `src/lib/clinics/publish-requirements.ts`, genutzt vom
-  Admin-Umschalter, der Admin-`PATCH`-Route (422 bei Lücken) und der Auto-Veröffentlichung.
-  Mitglieder-Formular und Registrierung erzwingen zusätzlich `contact_email`
-  (`clinicMemberSaveSchema`, `clinicSubmissionSchema`). **Beratungsarbeit** ist eine Ja/Nein-Angabe
-  (`advises_clients`): „Nein" verlangt einen erklärenden Text zur Alternativleistung — geteilte
-  `AdviceField`-Komponente in Formular, Registrierung und Admin-Editor. Auto-Veröffentlichung
-  passiert nur bei der **ersten Zugangsaktivierung** (`profiles.activated_at`): über die ursprüngliche
-  Einladung oder einen Ersatz-Magic-Link, nie bei späteren Logins, damit ein Admin-„Verbergen" nicht
-  aufgehoben wird. Der Admin-Editor rendert jede Zelle passend
-  zum Inhalt (E-Mail/URL/Text/Ja-Nein) neben den geführten Vorschlägen. Die Datenbanktabelle scrollt
-  in einem eigenen Bereich (`max-h`, `overflow-auto`) mit fixierter Kopfzeile und fixierter
-  Namensspalte (`position: sticky`); der Veröffentlichen-Schalter richtet sich stets nach dem
-  gespeicherten Eintrag — auch im Bearbeiten-Modus, nicht nach ungespeicherten Entwürfen.
-- **Chat-Sprache:** Der Assistent leitet die Sprache der ratsuchenden Person ausschließlich aus der
-  Nachrichtensprache ab und stellt dazu keine Rückfrage. Passt eine Clinic inhaltlich, führt aber die
-  Sprache nicht auf, wird sie trotzdem empfohlen — mit dem Hinweis, die Sprache direkt zu klären.
-  Diese Regeln leben im `chat_skill`-Text (DB `settings`), nicht im Code.
-- **Chat-Kontext und Sucherweiterung:** Für die Empfehlung klärt der Assistent Aufenthaltsort,
-  ratsuchende Person und rechtliches Anliegen mit höchstens einer Rückfrage pro Nachricht. Den
-  Sachverhalt ordnet er allgemeinen, etablierten Rechtsgebieten aus dem aktuellen Verzeichnis zu,
-  ohne aus dem Kontext neue enge Rechtsgebietsbezeichnungen zu bilden. Erst wenn die inhaltliche
-  Suche keine passende Clinic liefert, sucht er ein zweites Mal mit weiter gefassten Kriterien.
-  Geringe und mittlere Zweifel an der Rechtsgebiet-Passung führen zu einer Empfehlung (mittlere mit
-  transparentem Prüfhinweis), hohe Zweifel nicht; diese Skala gilt ausschließlich für das
-  Rechtsgebiet. Passt kein im Verzeichnis vorhandenes Rechtsgebiet ausreichend, darf der Assistent
-  dies nach den vorgeschriebenen Suchen als Kein-Treffer-Ergebnis ausgeben. Diese Regeln leben
-  ebenfalls im DB-`chat_skill`.
-- **Chat-Stream ist NDJSON, kein Klartext.** `/api/chat` sendet eine JSON-Zeile pro Frame
-  (`{"t":"text"}` bzw. `{"t":"clinics"}`, siehe `src/lib/chat/stream-protocol.ts`). Wer den Stream
-  liest, muss Teilzeilen puffern — ein Frame kann über zwei Chunks brechen. Unbekannte oder
-  ungültige Frames werden übersprungen, damit ein neuer Frame-Typ ältere Clients nicht bricht.
-- **Assistententext unterstützt sichere Hervorhebung.** `ChatText` rendert ausschließlich gepaarte
-  `**…**`-Marker als Fettschrift; HTML und alle anderen Markdown-Funktionen bleiben normaler Text.
-- **Zwei Stufen des Finder-Chats:** `FinderChat` zeigt bis zur ersten Nachricht die Suchkarte
-  (unverändert), danach ein bildschirmhohes Panel (`h-[calc(100dvh-var(--nav-h)-1.5rem)]`, Flex-Spalte,
-  Nachrichtenliste `min-h-0 flex-1`). Es zieht sich beim Öffnen per `scrollIntoView` unter die
-  klebende Navigation (`scroll-mt-[var(--nav-h)]`); Überschrift und Untertitel der Startseite bleiben
-  in voller Größe darüber stehen und sind durch Hochscrollen weiter erreichbar. Die Nav-Höhe ist der
-  Token `--nav-h` — beide Stellen lesen ihn, nie einen Rohwert.
-- **Kosten pro Gespräch im Drawer:** Neben „Rechtsgebiet" und „Treffer" steht die API-Kostenschätzung
-  dieses einen Gesprächs, gerechnet aus den auf der Zeile summierten Tokens (`input_tokens`/
-  `output_tokens`) und dem Preis des Modells. Sie zeigt vier Nachkommastellen (`formatUsdPrecise`),
-  weil ein einzelner Chat weit unter einem Cent liegt. Ist das Modell nicht in `PRICING` hinterlegt,
-  steht dort „unbekannt" statt einer erfundenen Null.
-- **Abschlusszustände im Chat:** Ein `clinics`-Frame beendet die Unterhaltung erst nach dem
-  Streamende und zeigt „Dieser Chat ist abgeschlossen" samt Neustart. Ein `nomatch`-Frame zeigt
-  „Keine Law Clinic gefunden", die festen nächsten Schritte und den Link zum Gesamtverzeichnis.
-  Ein 429-Limit sperrt Eingabe und Neustart lokal; das Kurzzeitlimit wird nach dem konfigurierten
-  Minutenfenster wieder freigegeben, das Tageslimit nicht.
-- **Steuerung des Assistenten:** Alle Regler stehen in der Tabelle `settings` und sind unter
-  `/admin/assistant` editierbar (Betrieb: Modell, Tokens, Temperatur, An/Aus · Anweisungen: Rolle,
-  Ablauf · Darstellung: Begrüßung, max. Empfehlungen). **`settings` ist die einzige Quelle — es gibt
-  keinen Code-Fallback.** Die Chat-Route liest sie pro Anfrage (`parseChatSettings`), ein
-  Admin-Speichern schreibt jede Zeile per Upsert, und die Änderung gilt sofort für alle Ratsuchenden.
-  Rolle, Ablauf und die nicht editierbare Datengrundlage leben nur in der DB
-  (`chat_system_prompt`/`chat_skill`/`chat_grounding_policy`); die eingefrorene
-  Standardfassung liegt daneben (`chat_system_prompt_default`/`chat_skill_default`) und ist im Tab per
-  „Auf Standard zurücksetzen" wiederherstellbar. Beide Texte werden per versionierter
-  Supabase-Migration gesät; eine Code-seitige Änderung liefert eine neue Migration aus, die die
-  `settings`-Zeilen upsertet — nie per Direkt-SQL. Fehlt ein Pflichtwert oder ist er ungültig, gilt
-  der Chat als nicht verfügbar (Hinweis auf der Startseite, Warnung im Admin-Tab) statt auf Code
-  zurückzufallen. Die Tool-Beschreibungen und die Toolbox-Referenz fürs Admin-Panel stehen dagegen in
-  `src/lib/chat/prompts.ts` (nicht admin-editierbar). Die Begrüßung wird nicht übersetzt und erscheint
-  in allen 9 Sprachen wörtlich.
-- **Chat-Verfügbarkeit auf der Startseite:** `src/app/page.tsx` prüft serverseitig
-  `chat_enabled` + gesetzte Keys und rendert bei „aus"/unkonfiguriert die Hinweiskarte
-  `ChatUnavailable` **statt** `FinderChat` — dieselben 503-Bedingungen wie die Chat-Route.
-- **Protokolle/Logging:** Der Logger (`src/lib/logger.ts`) schreibt strukturiertes JSON nach
-  stdout und – am Server, via `src/instrumentation.ts` – zusätzlich in die admin-only Tabelle
-  `public.logs` (RLS wie `conversations`, 7 Tage Aufbewahrung, im Sink `log-store.ts` gekappt).
-  Sichtbar und exportierbar unter `/admin/logs`. Logs sind bewusst **PII-frei**: an den Logger nur
-  kurze `msg` plus `reason`/IDs übergeben, nie Nachrichten, Klartext-Fehlerbodies, Tokens oder
-  Personendaten – denn alles Übergebene landet jetzt 7 Tage in der Datenbank und ist per „Für LLM
-  kopieren“ exportierbar.
-- **Datenaufbewahrung:** Zwei Stufen halten die regelmäßig anwachsenden Tabellen klein. (1) Der
-  detaillierte Chat-**Verlauf** bleibt nur für die neuesten **200** Gespräche gespeichert; ältere
-  behalten ihre Statistik, verlieren aber `redacted_transcript` — in Echtzeit in
-  `record_conversation` gekappt (die schwere `jsonb`-Spalte, zugleich die einzige heikle). (2) Ein
-  tägliches `pg_cron`-Job `prune_expired_data()` löscht alles ab einem Jahr, an Monatsgrenzen
-  ausgerichtet: Grenzwert `date_trunc('month', now()) - interval '12 months'` (im Oktober 2027 ist
-  Oktober 2026 noch sichtbar, September 2026 nicht mehr). Betroffen: `conversations`, `clinic_events`,
-  `claim_requests`. **Ausgenommen:** `logs` (eigene 7-Tage-Regel im Sink), `clinic_submissions`
-  (offene Registrierungen bleiben bis zur Admin-Entscheidung) und alle operativen Tabellen (`clinics`,
-  `profiles`, `settings`, `branding`, Auth). Das Admin-Dashboard blättert mit dem `MonthStepper`
-  monatsweise durch dieses rollierende 12-Monats-Fenster (`src/lib/admin/month-window.ts` als einzige
-  Quelle für Grenzen und Monatsbereich).
-- **Testbarkeit:** Module nehmen Abhängigkeiten als Parameter (`runChat(deps, …)`,
-  `handleChatRequest(request, deps)`); Routen sind dünne Verdrahtung.
-- **Portabilität:** Keine hostspezifischen APIs; `output: 'standalone'` und das Dockerfile müssen
-  bei jedem Anbieter funktionieren, das Schema bleibt als reines SQL migrierbar.
+### Authentifizierung und SMTP
+
+Der Login erzeugt nie ein Konto. Auf ausdrücklichen Nutzerwunsch meldet das Formular eindeutig, wenn
+keine zugelassene Firebase-Identität mit aktivem Profil existiert; das ist ein bewusst akzeptierter
+Enumeration-Trade-off. Exakter Origin, Zod-Validierung und Per-IP-Limits bleiben aktiv, während
+SMTP-/Infrastrukturfehler weiterhin keine Kontoinformation verraten. Der Server erzeugt einen
+Firebase-E-Mail-Link, bindet ihn an einen gehashten, einmaligen Firestore-State und sendet die lokale
+HTML-/Textvorlage über `SMTP_HOST`, `SMTP_PORT`, `SMTP_LOGIN_EMAIL` und `SMTP_PASSWORD`. Ein
+Providerwechsel benötigt nur Konfiguration. `/auth/confirm` tauscht den Code serverseitig und setzt
+das Session-Cookie. Neue E-Mail-Links tragen Code und State ausschließlich im URL-Fragment, das nie
+an App Hosting gesendet wird; die Bestätigungsseite entfernt es sofort aus der Browserhistorie und
+übergibt es validiert an `POST /api/auth/confirm`. Der Endpoint ist Same-Origin- und rate-limitiert,
+und seine Antwort erlaubt nur feste lokale Ziele. Auf der Bestätigungsseite wird kein
+Drittanbieter-Analytics initialisiert; optionale GA4-IDs werden vor Einbettung in das
+nonce-autorisierte Skript streng validiert.
+
+Konten entstehen ausschließlich in geprüften Admin-/Signup-Workflows über das Admin SDK. Identity
+Platform wird zusätzlich so konfiguriert, dass Endnutzer-Signup und -Löschung deaktiviert sind; die
+deployed `beforeAccountCreated`-Funktion lehnt jede direkte Client-Erstellung ab. Admin-SDK-Importe
+und -Einladungen umgehen den Blocker absichtlich.
+
+Ein Admin-E-Mail-Wechsel verlangt eine höchstens fünf Minuten alte Authentifizierung, reserviert die
+neue Adresse atomar und wird erst nach Firebase-Verifikation abgeschlossen. Firebase informiert die
+alte Adresse über die Änderung. Danach wird die Sitzung gelöscht und eine neue Anmeldung verlangt.
+
+### Firestore-Modell
+
+| Dokument/Collection                                      | Inhalt                                                                  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `clinics/{id}` / `clinicContacts/{id}`                   | Öffentlicher Eintrag / private Beratungsmail                            |
+| `profiles/{uid}`                                         | Rolle, Clinic-Zuordnung, Zugangsstatus und Aktivierung                  |
+| `uniqueClinicNames`, `uniqueClinicOwners`, `emailOwners` | Transaktionale Ersatz-Invarianten für SQL-Unique/FK                     |
+| `settings/chat`                                          | Einzige Quelle für alle Live-Prompts, Regler und eingefrorenen Defaults |
+| `settings/operations`                                    | Ausgewählte Admin-UID für Betriebsalarme; keine E-Mail-Kopie            |
+| `branding/current` + `branding/**` in Storage            | Theme und als PNG normalisiertes Logo                                   |
+| `conversations`, `conversationTranscripts`, `retention`  | Statistik, höchstens 200 redigierte Verläufe und Cap-State              |
+| `clinicEvents`, `clinicMetrics`, `adminMetrics`          | PII-freie Events und günstige Monatsaggregate                           |
+| `claimLimits`, `chatDailyQuotas`                         | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                        |
+| `authEmailStates`, `pendingEmailOwners`                  | Kurzlebige Einmal-State- und E-Mail-Reservierungen                      |
+| `logs`                                                   | PII-freie Admin-Protokolle, sieben Tage TTL                             |
+| `migrationRuns/{runId}`                                  | Nicht-PII Checkpoints, Counts und Checksummen                           |
+
+Firestore ersetzt keine SQL-Constraints automatisch. Alle Namen, Eigentümer und E-Mail-Adressen
+werden deshalb über Hash-/Reservation-Dokumente in Transaktionen vergeben. Ein Pending-Eintrag kann
+nie veröffentlicht sein. Ein Clinic-Mitglied kann nur die Clinic-ID aus seinem frisch geladenen
+Profil verwenden. Der letzte Admin und der handelnde Admin selbst können nicht entfernt werden.
+
+### Chat, Privatsphäre und Kosten
+
+- PII-Muster werden lokal vor Anthropic und erneut vor Speicherung redigiert; keine zweite KI wird
+  zur Redaktion aufgerufen.
+- Das Modell sieht nur validierte Directory-Daten ohne Beratungsmails und darf nur IDs empfehlen,
+  die es im selben Gespräch aus der Suche erhielt.
+- Der Stream ist NDJSON. Clients puffern Teilzeilen und ignorieren unbekannte Frames.
+- `settings/chat` ist die einzige Quelle für Rolle, Ablauf, Grounding, Modell und Grenzwerte. Fehlt
+  ein Pflichtwert, bleibt der Chat geschlossen; es gibt keinen Code-Fallback.
+- Das `lcf_chat_quota`-Cookie enthält einen zufälligen Klarwert, Firestore nur dessen SHA-256-Hash.
+  Eine Transaktion erlaubt zwei Gespräche pro Berliner Kalendertag und acht User-Turns je Gespräch.
+- Kurzes IP-Burst-Limit bleibt pro Instanz; App Hosting/Proxy muss die echte Client-IP liefern.
+- Monatsaggregate verhindern teure Vollscans. Nicht abgefragte große/TTL-Felder sind nicht indexiert.
+
+### Hosting
+
+Empfohlen ist Firebase App Hosting in `europe-west4` (Niederlande), mit Firestore Standard und
+Storage in derselben Region. App Hosting hat derzeit keine deutsche Region. Diese EU-Kombination
+vermeidet regionsübergreifende Latenz und Egress. `apphosting.yaml` startet mit `minInstances: 0`,
+höchstens drei Instanzen, Concurrency 80 und 512 MiB, um Leerlaufkosten und Ausreißer zu begrenzen.
+`firebase.json` erlaubt den lokalen App-Hosting-Quellrollout erst seit der SMTP-, IAM- und
+Staging-Schutz vorbereitet und der alte Supabase-Quellschlüssel widerrufen wurde.
+
+Der erste Staging-Rollout bleibt durch HTTP Basic geschützt. Der Schutz läuft vor allen Seiten und
+API-Routen, gibt die Zugangsdaten nicht an die Anwendung weiter, verhindert Shared-Cache-Antworten
+und benötigt keine Firestore-Lese- oder Schreibvorgänge. Lokal ist er standardmäßig aus. Vor der
+öffentlichen Freigabe werden die drei `STAGING_ACCESS_*`-Variablen entfernt und die rechtlichen
+Platzhalter ersetzt.
+
+Ein Firebase-Hosting-Proxy vor Cloud Run in Frankfurt ist nicht der Standard, weil dynamische
+Antworten dort nach 60 Sekunden enden können; der mehrstufige Streaming-Chat kann länger dauern.
+Direktes Cloud Run in Frankfurt bleibt nur der dokumentierte Fallback, falls der App-Hosting-Adapter
+mit Next.js 16 im Staging tatsächlich inkompatibel ist.
+
+Betriebsalarme werden unter `/admin/admins` einer aktiven Admin-UID zugeordnet. Ohne Auswahl gilt
+der einzige beziehungsweise am längsten bestehende aktive Admin. Firestore speichert nur die UID;
+die aktuelle E-Mail kommt beim Synchronisieren aus Firebase Auth. Eine getrennte
+Least-Privilege-Funktion mit `minInstances: 0` und `maxInstances: 1` aktualisiert ereignisgesteuert
+einen verwalteten E-Mail-Kanal sowie eingebaute Cloud-Run-Alarme für 5xx und das Instanzlimit. Es
+gibt weder Uptime-Polling noch eine eigene Log-Metrik.
+
+## Conventions
+
+- Next.js 16 Request-APIs sind asynchron (`await cookies()`, `await params`); `proxy.ts` ersetzt
+  `middleware.ts`. Vor Framework-Änderungen die installierten Guides unter
+  `node_modules/next/dist/docs/` lesen.
+- Alle externen Inputs und Firestore-Dokumente werden mit Zod validiert. Fehler an Clients bleiben
+  generisch; Serverlogs sind strukturiert und enthalten keine Tokens, Bodies, Nachrichten oder PII.
+- Serverfunktionen erhalten kleine Repository-/Store-Ports. Firebase-Typen bleiben in
+  `src/lib/firebase/`; UI und Domänenlogik kennen keine Cloud-Abfragesyntax. Datenbank-Client,
+  `Timestamp`, `FieldPath` und `FieldValue` kommen einheitlich aus `firebase-admin/firestore`, damit
+  der Produktions-Bundler keine inkompatiblen Firestore-Instanzen erzeugt.
+- `settings/chat` bleibt strikt DB-only. Admin-editierbare Prompt-Texte werden nie als Codekopie
+  ergänzt; Änderungen/Defaults laufen über eine versionierte, idempotente Datenmigration.
+- Clinic-Felder mit Mehrfachwerten bleiben `"; "`-getrennter Text und verwenden die gemeinsamen
+  Vorschläge/Parser in `src/lib/clinics/options.ts`.
+- Veröffentlichung setzt die Pflichtfelder aus `publish-requirements.ts` und
+  `approvalStatus=approved` voraus. Auto-Veröffentlichung ist nur bei der ersten Aktivierung erlaubt.
+- Gemeinsame UI-Elemente und Designtokens werden nicht kopiert, sondern über Komponentenvarianten
+  und CSS-Custom-Properties erweitert.
+- Öffentliche Inhalte haben neun Sprachen; `ar`/`fa` sind RTL. Portal, Login und Signup bleiben
+  deutsch. Die bewusst deutschen Landing-Texte liegen einmalig in `deOnly`.
+- `console.log`, Klartext-Secrets, Service-Account-Dateien und `.env`-Dateien gehören nicht in
+  ausgelieferten Code oder Git.
+- Wachsende Daten erhalten TTL: Auth-/Quota-State kurzlebig, Logs sieben Tage, Conversation/Event-
+  Statistik etwa zwölf Monate; nur die neuesten 200 Transkripte bleiben detailliert.
+- Per-IP-Limits verwenden bei App Hosting die validierte, vorletzte Adresse der von Google
+  ergänzten `X-Forwarded-For`-Kette; ein vom Client gesetzter Präfix wird nie vertraut.
+- Tests liegen neben der Implementierung. Kritische Transaktionen benötigen Emulator-Integration;
+  Regeln werden separat mit `npm run test:rules` geprüft.
+
+## Spec & Status
+
+Zielprojekt: `law-clinic-finder`. Zielregion: `europe-west4`. Supabase ist derzeit nicht öffentlich
+in Benutzung und bleibt als Quelle/Backup vollständig erhalten. Die Migration kopiert ausschließlich;
+kein Transfer-Skript enthält eine Supabase-Delete-/Update-Operation.
+
+GitHub-Meilenstein: Branch `feat/firebase-migration` ist der erste zu GitHub gepushte Projektstand,
+der die Anwendung auf Firebase umstellt. Dieser Meilenstein ist ein zugriffsgeschützter
+Staging-Stand und ausdrücklich noch keine öffentliche Veröffentlichung.
+
+Aktueller Stand (2026-08-22): lokale App-Umstellung 100%, vollständige Migration bis zum
+produktiven Cutover ungefähr 94%. Runtime-Pfade für Public Site, Chat, Clinic/Admin, Auth, Signup,
+Branding, Logs, Quota und Metriken verwenden Firebase. `primary-eu`, Storage, Identity Platform mit
+Blocking Function und App Hosting liegen in `europe-west4`; Client-Regeln, Least-Privilege-IAM,
+API-Key-Einschränkung, regionale Secrets, Runtime-Limits, Abrechnungssicherung und tägliche
+Sieben-Tage-Backups sind eingerichtet. Der Brevo-Sender ist für Staging verifiziert und DMARC ist
+konfiguriert; die eigene DKIM-Domainauthentifizierung bleibt vor Produktion offen.
+
+Die freigegebene Kopie `copy-20260822-staging`, ihre abschließende Reconciliation und eine neue
+unabhängige Prüfung stimmen über 169 vorbereitete Dokumente, die reale Auth-Identität, den
+Branding-Datensatz und alle sechs Checksummen mit der Quelle überein. Die Quelle enthält kein eigenes
+Logo-Objekt. Direkte Semantikprüfungen bestätigen 59 Clinics, davon 47 veröffentlicht, sowie
+gültige Identity-, Clinic-, Reservation-, Settings-, Branding- und Checkpoint-Referenzen. Supabase
+wurde ausschließlich gelesen und bleibt vollständig erhalten; nur die zwei reservierten
+`@example.com`-Entwicklungsidentitäten wurden im Firebase-Ziel ausgelassen.
+
+Rollout `web-build-2026-08-22-007` läuft zu 100% hinter dem Secret-Manager-gestützten
+Staging-Schutz. Ein frischer, gehärteter Fragment-plus-POST-Magic-Link wurde durch den Nutzer bis
+`/admin` bestätigt und durch PII-freie, query-lose Cloud-Logs unabhängig belegt. Der Login zeigt
+jetzt den ausdrücklich gewünschten Fehler für nicht registrierte Adressen. Unter `/admin/admins`
+kann ein aktiver Admin als Empfänger der Google-Cloud-Betriebsalarme gewählt werden; Standard ist
+der einzige beziehungsweise älteste aktive Admin. Der ereignisgesteuerte Sync hat einen aktivierten
+E-Mail-Kanal und eingebaute Cloud-Run-Alarme für 5xx und das Instanzlimit angelegt. Die Auswahl wird
+im selben Schreibvorgang nochmals auf aktive Adminrolle geprüft, damit eine gleichzeitige Sperrung
+nicht zwischen Listenansicht und Speicherung geraten kann. Neun Playwright-E2E-Journeys laufen
+ausschließlich gegen Auth-/Firestore-/Storage-Emulatoren. Live-Staging-Prüfungen belegen zusätzlich
+strikte Browserregeln, echte Brevo-Anmeldung, inkrementelles NDJSON-Streaming und die verzögerte
+`after()`-Persistenz; die dabei exakt erzeugten Testdatensätze wurden anschließend entfernt.
+
+Der freigegebene Restore von `restore-drill-20260822` bewies Wiederherstellung und Isolation; nur die
+temporäre Datenbank wurde anschließend gelöscht, `primary-eu` blieb löschgeschützt und das Backup
+READY. Da der verwendete Snapshot vom 21. August vor der Datenkopie liegt, enthielt er erwartungsgemäß
+keine App-Collections. Eine Inhaltsprüfung mit dem ersten READY-Backup nach der Kopie bleibt offen.
+Der Betreiber hat noch keine öffentliche Domain, kein endgültiges Impressum/keine endgültige
+Datenschutzerklärung und noch keine vollständige Brevo-Domainauthentifizierung. Diese Punkte bleiben
+bewusst als Go-live-Erinnerungen offen. Ebenfalls offen bleibt ein Inhalts-Restore aus dem ersten
+READY-Backup nach der finalen Kopie; das Erstellen und anschließende Löschen einer neuen temporären
+Datenbank benötigt weiterhin eine genaue Freigabe. Danach folgen Domain-/Link-Konfiguration,
+öffentlicher Trafficwechsel und Beobachtung. Die gewünschte Auth-Mail-Gestaltung und
+SMTP-Administration bleiben Phase 10.
+
+Der vollständige, fortlaufend markierte Arbeitsplan steht in
+[`docs/firebase-migration-plan.md`](docs/firebase-migration-plan.md). Er enthält die Resume-Reihenfolge,
+Entscheidungen, Exit-Gates und Prüfsummen-Tabelle.
+
+### Sichere Datenkopie
+
+Die Quelle wird direkt und seitenweise gelesen; es entsteht kein PII-Export im Repo. Das Tool
+validiert jede Zeile, normalisiert das Logo zu PNG, erhält Auth-UIDs, baut Reservations/Metriken neu
+und setzt keine Supabase-Schreiboperation ab.
+
+```bash
+# 1. Standard: nur lesen, validieren, zählen und Checksummen ausgeben
+npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD
+
+# 2. Erst nach geprüftem Dry-Run und vorbereiteten Firebase-Ressourcen schreiben
+npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD \
+  --apply --confirm-target law-clinic-finder
+
+# 3. Ziel danach erneut read-only verifizieren
+npm run migrate:firebase:verify -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD
+
+# 4. Nur bei Drift erwarteter Quellpfade: denselben geprüften Run gezielt abgleichen
+npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD \
+  --apply --reconcile --confirm-target law-clinic-finder
+```
+
+Beim ersten Apply verweigert das Tool ein nicht leeres Firebase-Daten-/Auth-Ziel ohne passenden
+`migrationRuns/{runId}`-Checkpoint. Wiederholungen mit demselben Run sind idempotent und überspringen
+nur Phasen mit identischer Anzahl und Checksumme. Bestehende Firebase- oder Supabase-Daten werden nie
+automatisch gelöscht. Supabase-Sessions sind nicht übertragbar; nach Cutover ist ein neuer Magic Link
+erforderlich. `--reconcile` verlangt einen bereits passenden Run, prüft dessen Checkpoints erneut und
+überschreibt ausschließlich die exakten erwarteten Quelldokumentpfade; zusätzliche Firebase-
+Runtime-Dokumente werden weder verändert noch gelöscht. Danach immer erneut mit `verify` prüfen.
+
+### Cloud-Schritte vor Staging
+
+- [x] Blaze aktivieren; App-Hosting- und Firestore-API sind freigeschaltet.
+- [x] Leere Fehlanlage nach Freigabe löschen; `primary-eu` geschützt in `europe-west4` anlegen.
+- [x] Identity Platform, Web-App, Storage und App-Hosting-Backend `web` in `europe-west4` anlegen.
+- [x] Authorized Domains, Signup-/Löschsperre und `beforeAccountCreated` konfigurieren/deployen.
+- [x] Rules, Indizes/TTL, Least-Privilege-IAM, API-Key-Einschränkung und tägliche Backups setzen.
+- [x] Site-URL, Firebase-Auth-Key und Anthropic-Key regional in Secret Manager setzen.
+- [x] SMTP-Secrets mit Zugriff nur über die dedizierte Runtime-Identität einrichten.
+- [x] Live SMTP-Secret-Referenzen und Brevo-Authentifizierung über TLS auf Port 587 ohne Mailversand
+      verifizieren; die gespeicherten Zugangsdaten werden akzeptiert.
+- [x] Brevo-Sender für Testversand verifizieren und Abrechnungssicherung konfigurieren.
+- [ ] Eigene Brevo-DKIM-Domainauthentifizierung vor Produktion abschließen.
+- [x] Admin-Auswahl sowie günstige Cloud-Run-5xx-/Instanzlimit-Betriebsalarme einrichten.
+- [x] Das starke `stagingAccessPassword`-Secret erstellen und dem Backend gewähren.
+- [x] Den App-Hosting-Backend erstmals aus lokalem Quellstand hinter dem Zugriffsschutz ausrollen
+      und die automatisch wiederhergestellte breite Build-Rolle erneut entfernen.
+- [x] Erste freigegebene Datenkopie mit exakten Checksummen, Auth-Identität und Branding-Datensatz
+      ausführen und unabhängig verifizieren; Supabase bleibt unverändert.
+- [x] Geschützte Staging-Seite mit den privaten Vorschau-Zugangsdaten im Browser öffnen.
+- [x] Reale Magic-Link-Zustellung über Brevo und Weiterleitung in den Admin-Bereich auf dem
+      vorherigen und gehärteten Fragment-plus-POST-Rollout live nachweisen.
+- [x] Restore-Mechanik in der freigegebenen getrennten Testdatenbank prüfen und nur diese löschen.
+- [ ] Inhaltlichen Restore mit einem READY-Backup nach der Staging-Kopie prüfen.
+- [x] Streaming/Auth/SMTP/Rollen und Accessibility im geschützten Staging prüfen.
+
+Die ausdrücklich freigegebene erste Datenkopie und ihre unabhängige Verifikation sind abgeschlossen;
+Backend `web` bleibt zugriffsgeschützt. Der öffentliche Trafficwechsel, weitere Datenbanklöschungen
+und eine spätere Supabase-Deaktivierung benötigen weiterhin die im Plan festgelegten Eingaben,
+Prüfungen beziehungsweise ausdrücklichen Freigaben.
+
+Nach vollständig abgeschlossenem und abgenommenem Firebase-Cutover folgen bewusst separat ein
+Admin-Bereich für provider-neutrale SMTP-Konfiguration und die gewünschte visuelle Überarbeitung
+aller Auth-Mails. Passwörter/Keys bleiben dabei ausschließlich versioniert in Secret Manager und
+sind im Browser nur als „gesetzt“ sichtbar; die vollständigen Sicherheits-, Darstellungs- und
+Testanforderungen stehen als Phase 10 im Migrationsplan. Diese späteren Funktionen zählen nicht zum
+aktuellen Migrationsfortschritt.
+
+Nach Abschluss aller Produktfeatures folgt als eigene Phase 11 die gewünschte kanonische Anleitung
+für zukünftige Agenten: sichere und kosteneffiziente Firebase-Konventionen, Emulator-first/TDD,
+feste Projekt-/Datenbank-/Regionsgrenzen, Least Privilege, Secret Manager, idempotente Migrationen,
+Freigabegrenzen, Backups, Monitoring und Rollback. Auch diese Phase ist bewusst nicht in den
+aktuellen Migrationsprozenten enthalten.
 
 ## Versionierung
 
-Das Projekt folgt [Semantic Versioning 2.0.0](https://semver.org/lang/de/). Alle Änderungen werden
-in [`CHANGELOG.md`](CHANGELOG.md) nach dem Format
-[Keep a Changelog](https://keepachangelog.com/de/1.1.0/) dokumentiert.
-
-Aktuelle Version: **`0.1.0-alpha.1`** — Vorabversion.
-
-- Vor `1.0.0` gilt keine Kompatibilitätsgarantie: Änderungen können in jeder Version brechen.
-- Vorabstufen laufen in der Reihenfolge `alpha` → `beta` → `rc` → stabiles `0.1.0`.
-- Version anheben und passenden Tag erzeugen:
-
-  ```bash
-  npm version prerelease --preid=alpha   # 0.1.0-alpha.1 → 0.1.0-alpha.2
-  npm version prerelease --preid=beta    # Wechsel der Vorabstufe
-  npm version minor                      # Vorabphase verlassen → 0.1.0
-  ```
-
-- Jede Version erhält einen annotierten Git-Tag im Format `v<version>` sowie einen Eintrag im
-  Changelog.
+Das Projekt folgt Semantic Versioning und Keep a Changelog. Aktuelle Version:
+`0.1.0-alpha.1`. Änderungen stehen in [`CHANGELOG.md`](CHANGELOG.md).

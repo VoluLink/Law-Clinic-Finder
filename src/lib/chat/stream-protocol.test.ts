@@ -11,7 +11,7 @@ const recommendation: ClinicRecommendation = {
   areas: ['Mietrecht'],
   reason: 'Spezialisiert auf Mietrecht.',
   website: 'https://milcc.de/',
-  email: 'kontakt@milcc.de',
+  email: 'contact@example.org',
 };
 
 function roundTrip(events: ChatEvent[]): ChatEvent[] {

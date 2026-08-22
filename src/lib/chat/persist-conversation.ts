@@ -1,14 +1,24 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 import type { Logger } from '@/lib/logger';
 
 import type { RedactionOutcome } from './redact';
 import type { ChatMessage } from './schema';
 
 export type PersistDeps = {
-  adminClient: SupabaseClient;
+  store: ConversationStore;
   redact: (transcript: ChatMessage[]) => Promise<RedactionOutcome>;
   logger: Logger;
+};
+
+export type ConversationRecord = PersistRunInfo & {
+  sessionId: string | null;
+  redactedTranscript: ChatMessage[] | null;
+  redactionStatus: 'ok' | 'failed';
+  detectedCity: string | null;
+  messageCount: number;
+};
+
+export type ConversationStore = {
+  record: (conversation: ConversationRecord) => Promise<void>;
 };
 
 export type PersistRunInfo = {
@@ -34,18 +44,19 @@ export async function persistConversation(
 ): Promise<void> {
   const outcome = await deps.redact(transcript);
   const redacted = outcome.status === 'ok' ? outcome : null;
-  const { error } = await deps.adminClient.rpc('record_conversation', {
-    p_session_id: sessionId,
-    p_redacted_transcript: redacted?.transcript ?? null,
-    p_redaction_status: outcome.status,
-    p_detected_legal_area: run.detectedLegalArea ?? redacted?.legalArea ?? null,
-    p_detected_city: redacted?.city ?? null,
-    p_matched_clinic_count: run.matchedClinicCount,
-    p_message_count: transcript.length,
-    p_model: run.model,
-    p_input_tokens: run.inputTokens,
-    p_output_tokens: run.outputTokens,
-    p_recommended_clinic_ids: run.recommendedClinicIds,
-  });
-  if (error) deps.logger.error('conversation persist failed', { reason: error.message });
+  try {
+    await deps.store.record({
+      ...run,
+      sessionId,
+      redactedTranscript: redacted?.transcript ?? null,
+      redactionStatus: outcome.status,
+      detectedLegalArea: run.detectedLegalArea ?? redacted?.legalArea ?? null,
+      detectedCity: redacted?.city ?? null,
+      messageCount: transcript.length,
+    });
+  } catch (error) {
+    deps.logger.error('conversation persist failed', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
+  }
 }

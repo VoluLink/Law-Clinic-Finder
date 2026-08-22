@@ -1,9 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { parseMultiValue } from '@/lib/clinics/options';
-
-const TERM_COLUMNS = 'legal_areas, region, languages, target_clients';
+import type { ClinicDirectoryRepository } from '@/lib/clinics/directory-repository';
 
 /** Beyond this a cell is prose, not a term — keep it out of the vocabulary. */
 const MAX_TERM_CHARS = 60;
@@ -27,6 +25,14 @@ export type DirectoryTerms = {
   target_groups: string[];
 };
 
+async function loadRows(repository: ClinicDirectoryRepository): Promise<unknown[]> {
+  try {
+    return await repository.listPublished();
+  } catch (cause) {
+    throw new Error('directory terms lookup failed', { cause });
+  }
+}
+
 /**
  * Lists the distinct legal areas, regions, languages and target groups that
  * actually appear across published clinics, as JSON. The columns are free text,
@@ -34,14 +40,9 @@ export type DirectoryTerms = {
  * the next lookup. The model consults it to search with real directory terms
  * instead of synonyms that would not substring-match.
  */
-export async function listDirectoryTerms(client: SupabaseClient): Promise<string> {
-  const { data, error } = await client
-    .from('clinics')
-    .select(TERM_COLUMNS)
-    .eq('is_published', true);
-  if (error) throw new Error('directory terms lookup failed');
-
-  const rows = (data ?? []).flatMap((row) => {
+export async function listDirectoryTerms(repository: ClinicDirectoryRepository): Promise<string> {
+  const data = await loadRows(repository);
+  const rows = data.flatMap((row) => {
     const parsed = rowSchema.safeParse(row);
     return parsed.success ? [parsed.data] : [];
   });

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { aggregateConversationStats, matchRate, monthWeekCounts, weeklyCounts } from './stats';
+import {
+  aggregateConversationStats,
+  matchRate,
+  monthWeekCounts,
+  monthWeekCountsFromDays,
+  weeklyCounts,
+  weeklyCountsFromDays,
+} from './stats';
 
 const rows = [
   { created_at: '2026-07-16T09:00:00Z', detected_legal_area: 'Mietrecht' },
@@ -56,6 +63,14 @@ describe(weeklyCounts, () => {
   });
 });
 
+describe(weeklyCountsFromDays, () => {
+  it('adds pre-aggregated day counts without expanding event rows', () => {
+    const now = new Date('2026-07-20T12:00:00Z').getTime();
+    const weeks = weeklyCountsFromDays({ '2026-07-19': 3 }, now, 8);
+    expect(weeks[7].value).toBe(3);
+  });
+});
+
 describe(monthWeekCounts, () => {
   it('returns five zeroed columns for no rows', () => {
     expect(monthWeekCounts([])).toEqual([
@@ -75,6 +90,18 @@ describe(monthWeekCounts, () => {
       '2026-10-31T09:00:00Z', // day 31 -> column 4 (clamped)
     ]);
     expect(counts.map((column) => column.value)).toEqual([1, 1, 0, 0, 2]);
+  });
+});
+
+describe(monthWeekCountsFromDays, () => {
+  it('buckets pre-aggregated daily counters without expanding rows', () => {
+    expect(
+      monthWeekCountsFromDays({
+        '2026-10-03': 2,
+        '2026-10-10': 1,
+        '2026-10-31': 4,
+      }).map((column) => column.value),
+    ).toEqual([2, 1, 0, 0, 4]);
   });
 });
 

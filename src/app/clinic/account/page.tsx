@@ -3,24 +3,21 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { AuthError, requireRole, type Profile } from '@/lib/auth/require-role';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 import { AccountDeletePanel } from './AccountDeletePanel';
 
 export const metadata: Metadata = { title: 'Konto – Law Clinic Finder' };
 
 export default async function ClinicAccountPage() {
-  const supabase = await createSupabaseServerClient();
-  let profile: Profile;
+  let profile: Profile & { email?: string };
   try {
-    profile = await requireRole(supabase, ['clinic', 'admin']);
+    profile = await requireRole(['clinic', 'admin']);
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
   }
   if (!profile.clinic_id) return <AdminHint />;
-  const { data } = await supabase.auth.getClaims();
-  const email = typeof data?.claims?.email === 'string' ? data.claims.email : '';
+  const email = profile.email ?? '';
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <section>

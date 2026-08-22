@@ -1,200 +1,93 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { z } from 'zod';
 
+import { MonthStepper } from '@/components/admin/MonthStepper';
 import { BarChart } from '@/components/ui/BarChart';
 import { MeterList } from '@/components/ui/MeterList';
 import { Panel } from '@/components/ui/Panel';
 import { StatCard } from '@/components/ui/StatCard';
-import { MonthStepper } from '@/components/admin/MonthStepper';
-import { deriveAccessState, loadLastSignInMap } from '@/lib/admin/clinic-access';
-import { AuthError, requireRole } from '@/lib/auth/require-role';
-import {
-  clampMonthKey,
-  currentMonthKey,
-  formatMonthLabel,
-  monthRange,
-} from '@/lib/admin/month-window';
-import { aggregateConversationStats, matchRate, monthWeekCounts } from '@/lib/admin/stats';
+import { signInState } from '@/lib/admin/clinic-access';
+import { clampMonthKey, currentMonthKey, formatMonthLabel } from '@/lib/admin/month-window';
+import { monthWeekCountsFromDays } from '@/lib/admin/stats';
 import { formatEngagement, loadGaMetrics } from '@/lib/analytics/ga-metrics';
-import { parseMultiValue } from '@/lib/clinics/options';
+import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { estimateCostUsd, formatUsd } from '@/lib/chat/usage';
 import { cn } from '@/lib/cn';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-
 import {
-  ConversationsPanel,
-  type ConversationRecommendation,
-  type ConversationRow,
-} from './ConversationsPanel';
+  loadAdminDashboard,
+  type AdminMetric,
+  type FirebaseDashboard,
+} from '@/lib/firebase/admin-dashboard';
+
+import { ConversationsPanel } from './ConversationsPanel';
 
 export const metadata: Metadata = { title: 'Dashboard – Admin' };
 
-const CONV_LIST_LIMIT = 12;
+const CONVERSATION_LIST_LIMIT = 12;
 const TOP_AREAS = 5;
-const CONV_LIST_COLUMNS =
-  'id, created_at, redacted_transcript, redaction_status, detected_legal_area, ' +
-  'detected_city, matched_clinic_count, message_count, model, input_tokens, output_tokens';
-
-type ClinicAccessRow = {
-  is_published: boolean;
-  contact_email: string | null;
-  profiles: { user_id: string }[] | { user_id: string } | null;
-};
-type WindowRow = {
-  created_at: string;
-  detected_legal_area: string | null;
-  matched_clinic_count: number | null;
-};
-type CostRow = { input_tokens: number; output_tokens: number; model: string };
-type StoredConversationRow = Omit<ConversationRow, 'recommendations'>;
-const recommendationClinicSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  region: z.string().nullable(),
-  legal_areas: z.string().nullable(),
-  website: z.string().nullable(),
-});
-const recommendationEventSchema = z.object({
-  conversation_id: z.string().nullable(),
-  clinics: z.union([recommendationClinicSchema, z.array(recommendationClinicSchema), z.null()]),
-});
-type RecommendationEventRow = z.infer<typeof recommendationEventSchema>;
-
-function sumCostUsd(rows: CostRow[]): number {
-  return rows.reduce(
-    (sum, row) =>
-      sum +
-      estimateCostUsd(row.model, {
-        inputTokens: row.input_tokens,
-        outputTokens: row.output_tokens,
-      }),
-    0,
-  );
-}
 
 function fmt(value: number): string {
   return value.toLocaleString('de-DE');
 }
 
-async function loadDashboard(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  monthParam: string | undefined,
-) {
-  const now = Date.now();
-  const month = clampMonthKey(monthParam ?? currentMonthKey(now), now);
-  const { startIso, endIso } = monthRange(month);
-  const [clinicsRes, monthRows, monthCount, listRes, costRes] = await Promise.all([
-    admin.from('clinics').select('is_published, contact_email, profiles(user_id)'),
-    // Chat-derived widgets are scoped to the selected month; the stepper pages
-    // through the retained 12-month window.
-    admin
-      .from('conversations')
-      .select('created_at, detected_legal_area, matched_clinic_count')
-      .gte('created_at', startIso)
-      .lt('created_at', endIso),
-    admin
-      .from('conversations')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', startIso)
-      .lt('created_at', endIso),
-    // The "Anonymisierte Gespräche" list stays newest-first (not month-scoped) and
-    // always sits inside the newest-200 transcript cap, so it always has a verlauf.
-    admin
-      .from('conversations')
-      .select(CONV_LIST_COLUMNS)
-      .order('created_at', { ascending: false })
-      .limit(CONV_LIST_LIMIT),
-    admin
-      .from('conversations')
-      .select('input_tokens, output_tokens, model')
-      .gte('created_at', startIso)
-      .lt('created_at', endIso),
-  ]);
+function metricCost(metric: AdminMetric | null): number {
+  return Object.values(metric?.modelUsage ?? {}).reduce(
+    (sum, usage) =>
+      sum +
+      estimateCostUsd(usage.model, {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      }),
+    0,
+  );
+}
 
-  const storedConversations = (listRes.data ?? []) as unknown as StoredConversationRow[];
-  const [lastSignIn, conversations] = await Promise.all([
-    loadLastSignInMap(admin).catch(() => new Map<string, string | null>()),
-    loadConversationRecommendations(admin, storedConversations),
-  ]);
+function topAreas(metric: AdminMetric | null) {
+  const total = metric?.conversationCount ?? 0;
+  return Object.values(metric?.legalAreas ?? {})
+    .filter((area) => area.count > 0)
+    .sort((left, right) => right.count - left.count)
+    .slice(0, TOP_AREAS)
+    .map((area) => ({
+      label: area.label,
+      value: fmt(area.count),
+      percent: total === 0 ? 0 : (area.count / total) * 100,
+    }));
+}
 
-  const clinics = (clinicsRes.data ?? []) as unknown as ClinicAccessRow[];
-  const windowRows = (monthRows.data ?? []) as unknown as WindowRow[];
-  const access = clinics.map((clinic) => deriveAccessState(clinic, lastSignIn));
-
+function accessCounts(data: FirebaseDashboard) {
+  const states = data.clinics.flatMap((clinic) =>
+    clinic.profile ? [signInState(clinic.profile.lastSignInAt)] : [],
+  );
   return {
-    month,
-    now,
-    totalClinics: clinics.length,
-    published: clinics.filter((clinic) => clinic.is_published).length,
-    accessActive: access.filter((state) => state === 'active').length,
-    accessInvited: access.filter((state) => state === 'invited').length,
-    conversationTotal: monthCount.count ?? 0,
-    costUsd: sumCostUsd((costRes.data ?? []) as unknown as CostRow[]),
-    ga: await loadGaMetrics(),
-    matchRate: matchRate(windowRows),
-    chart: monthWeekCounts(windowRows.map((row) => row.created_at)),
-    areas: topAreas(windowRows),
-    conversations,
+    active: states.filter((state) => state === 'active').length,
+    invited: states.filter((state) => state === 'invited').length,
   };
 }
 
-async function loadConversationRecommendations(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  conversations: StoredConversationRow[],
-): Promise<ConversationRow[]> {
-  const ids = conversations.map((row) => row.id);
-  if (ids.length === 0) return [];
-  const { data, error } = await admin
-    .from('clinic_events')
-    .select(
-      'conversation_id, clinics!clinic_events_clinic_id_fkey(id, name, region, legal_areas, website)',
-    )
-    .eq('kind', 'recommended')
-    .in('conversation_id', ids);
-  if (error) throw new Error('recommendation lookup failed');
-  const events = (data ?? []).flatMap((row) => {
-    const parsed = recommendationEventSchema.safeParse(row);
-    return parsed.success ? [parsed.data] : [];
-  });
-  const recommendations = recommendationCards(events);
-  return conversations.map((row) => ({
-    ...row,
-    recommendations: recommendations.get(row.id) ?? [],
-  }));
-}
-
-function recommendationCards(
-  rows: RecommendationEventRow[],
-): Map<string, ConversationRecommendation[]> {
-  const cards = new Map<string, ConversationRecommendation[]>();
-  for (const row of rows) {
-    if (!row.conversation_id) continue;
-    const clinics = Array.isArray(row.clinics) ? row.clinics : row.clinics ? [row.clinics] : [];
-    const clinic = clinics[0];
-    if (!clinic) continue;
-    cards.set(row.conversation_id, [
-      ...(cards.get(row.conversation_id) ?? []),
-      {
-        id: clinic.id,
-        name: clinic.name,
-        region: clinic.region,
-        legalAreas: parseMultiValue(clinic.legal_areas),
-        website: clinic.website,
-      },
-    ]);
-  }
-  return cards;
-}
-
-function topAreas(rows: WindowRow[]) {
-  const { byLegalArea } = aggregateConversationStats(rows);
-  return byLegalArea.slice(0, TOP_AREAS).map((area) => ({
-    label: area.legalArea,
-    value: fmt(area.count),
-    percent: rows.length === 0 ? 0 : (area.count / rows.length) * 100,
-  }));
+async function loadDashboard(monthParam: string | undefined) {
+  const now = Date.now();
+  const month = clampMonthKey(monthParam ?? currentMonthKey(now), now);
+  const [firebase, ga] = await Promise.all([
+    loadAdminDashboard(month, CONVERSATION_LIST_LIMIT),
+    loadGaMetrics(),
+  ]);
+  const total = firebase.metric?.conversationCount ?? 0;
+  const matched = firebase.metric?.matchedConversationCount ?? 0;
+  return {
+    month,
+    now,
+    ga,
+    totalClinics: firebase.clinics.length,
+    published: firebase.clinics.filter((clinic) => clinic.is_published).length,
+    access: accessCounts(firebase),
+    conversationTotal: total,
+    costUsd: metricCost(firebase.metric),
+    matchRate: total === 0 ? 0 : Math.round((matched / total) * 100),
+    chart: monthWeekCountsFromDays(firebase.metric?.dayBuckets ?? {}),
+    areas: topAreas(firebase.metric),
+    conversations: firebase.conversations,
+  };
 }
 
 export default async function AdminDashboardPage({
@@ -203,14 +96,13 @@ export default async function AdminDashboardPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const { month } = await searchParams;
-  const supabase = await createSupabaseServerClient();
   try {
-    await requireRole(supabase, ['admin']);
+    await requireRole(['admin']);
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
   }
-  const data = await loadDashboard(createSupabaseAdminClient(), month);
+  const data = await loadDashboard(month);
   const monthLabel = formatMonthLabel(data.month);
   return (
     <div className="flex flex-col gap-[18px]">
@@ -293,8 +185,8 @@ function DbGlance({ data }: { data: Awaited<ReturnType<typeof loadDashboard>> })
       value: data.totalClinics - data.published,
       tone: 'text-primary',
     },
-    { label: 'Mitglieder-Zugang aktiv', value: data.accessActive, tone: 'text-success-strong' },
-    { label: 'Einladung offen', value: data.accessInvited, tone: 'text-warning' },
+    { label: 'Mitglieder-Zugang aktiv', value: data.access.active, tone: 'text-success-strong' },
+    { label: 'Einladung offen', value: data.access.invited, tone: 'text-warning' },
   ];
   return (
     <div className="flex flex-col">

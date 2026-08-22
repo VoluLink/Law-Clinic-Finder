@@ -45,7 +45,7 @@ export async function Footer() {
               <Image src={srLogoWhite} alt="Start Right" className="h-[34px] w-auto" />
             </a>
           </div>
-          <span className="text-[13px] text-primary-foreground/60">
+          <span className="text-[13px] text-primary-foreground/70">
             Ein Projekt von{' '}
             <a
               href="https://law-clinics.de/"
@@ -78,7 +78,7 @@ export async function Footer() {
               {dict.footerAccount}
             </Link>
           </div>
-          <span className="text-[15px] text-primary-foreground/60">
+          <span className="text-[15px] text-primary-foreground/70">
             © 2026 Law Clinics Deutschland e.V.
           </span>
         </div>

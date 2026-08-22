@@ -4,13 +4,15 @@ import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
 import type { ChatSettings, ChatSettingsResult } from '@/lib/settings';
 
+import type { DailyQuotaClaim } from './daily-quota';
 import { redactPatterns } from './redact';
 import type { ChatRunResult } from './run-chat';
-import { chatRequestSchema, type ChatMessage } from './schema';
+import { chatRequestSchema, type ChatMessage, type ChatRequest } from './schema';
 import { CHAT_STREAM_CONTENT_TYPE } from './stream-protocol';
 
 export type ChatHandlerDeps = {
   limiter: ScopedRateLimiter;
+  claimQuota: (request: Request, sessionId: string) => Promise<DailyQuotaClaim>;
   loadSettings: () => Promise<ChatSettingsResult>;
   run: (
     settings: ChatSettings,
@@ -29,6 +31,12 @@ function jsonError(status: number, message: string): Response {
   return Response.json({ error: message }, { status });
 }
 
+function responseHeaders(contentType: string, setCookie?: string): Headers {
+  const headers = new Headers({ 'Content-Type': contentType });
+  if (setCookie) headers.set('Set-Cookie', setCookie);
+  return headers;
+}
+
 const LIMIT_MESSAGES = {
   minute: 'Zu viele Anfragen. Bitte warte einen Moment.',
   day: 'Tageslimit erreicht. Bitte versuche es morgen erneut.',
@@ -40,25 +48,60 @@ export async function handleChatRequest(
 ): Promise<Response> {
   if (!isSameOrigin(request)) return jsonError(403, 'Nicht erlaubt.');
   const limitScope = deps.limiter.check(clientIp(request));
-  if (limitScope) {
-    return Response.json({ error: LIMIT_MESSAGES[limitScope], scope: limitScope }, { status: 429 });
-  }
-  const body = await request.json().catch(() => null);
-  const parsed = chatRequestSchema.safeParse(body);
-  if (!parsed.success) return jsonError(400, 'Ungültige Anfrage.');
+  if (limitScope) return burstLimitResponse(limitScope);
+  const parsed = await parseChatRequest(request);
+  if (!parsed) return jsonError(400, 'Ungültige Anfrage.');
   const loaded = await deps.loadSettings();
   if (!loaded.ok) return jsonError(503, 'Der Chat ist derzeit nicht konfiguriert.');
   if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
+  const quota = await enforceDailyQuota(deps, request, parsed.sessionId);
+  if (quota instanceof Response) return quota;
+  return startChat(deps, loaded.settings, parsed, quota);
+}
+
+async function parseChatRequest(request: Request): Promise<ChatRequest | null> {
+  const body = await request.json().catch(() => null);
+  const parsed = chatRequestSchema.safeParse(body);
+  return parsed.success ? parsed.data : null;
+}
+
+async function enforceDailyQuota(deps: ChatHandlerDeps, request: Request, sessionId: string) {
+  const quota = await deps.claimQuota(request, sessionId);
+  if (!quota.ok) {
+    deps.logger.error('chat quota claim failed', { reason: quota.reason });
+    return jsonError(503, 'Der Chat ist derzeit nicht verfügbar.');
+  }
+  if (!quota.allowed) {
+    const headers = responseHeaders('application/json', quota.setCookie);
+    return Response.json(
+      { error: LIMIT_MESSAGES.day, scope: 'day', resetAt: quota.resetAt },
+      { status: 429, headers },
+    );
+  }
+  return quota;
+}
+
+function startChat(
+  deps: ChatHandlerDeps,
+  settings: ChatSettings,
+  request: ChatRequest,
+  quota: Extract<DailyQuotaClaim, { ok: true }>,
+): Response {
   // Apply the same deterministic PII boundary before API transit and storage;
   // the chat model never acts as the redactor and never needs the matched data.
-  const messages = parsed.data.messages.map((message) => ({
+  const messages = request.messages.map((message) => ({
     role: message.role,
     content: redactPatterns(message.content),
   }));
-  const { stream, result } = deps.run(loaded.settings, messages);
-  const sessionId = parsed.data.sessionId ?? null;
-  deps.schedule(() => finishRun(deps, messages, result, sessionId));
-  return new Response(stream, { headers: { 'Content-Type': CHAT_STREAM_CONTENT_TYPE } });
+  const { stream, result } = deps.run(settings, messages);
+  deps.schedule(() => finishRun(deps, messages, result, request.sessionId));
+  return new Response(stream, {
+    headers: responseHeaders(CHAT_STREAM_CONTENT_TYPE, quota.setCookie),
+  });
+}
+
+function burstLimitResponse(scope: 'minute' | 'day'): Response {
+  return Response.json({ error: LIMIT_MESSAGES[scope], scope }, { status: 429 });
 }
 
 async function finishRun(

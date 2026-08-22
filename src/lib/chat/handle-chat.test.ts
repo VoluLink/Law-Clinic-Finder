@@ -5,7 +5,8 @@ import { makeChatSettings } from '@/lib/settings.fixtures';
 
 import { handleChatRequest, type ChatHandlerDeps } from './handle-chat';
 
-const validBody = { messages: [{ role: 'user', content: 'Hilfe bei Mietrecht?' }] };
+const sessionId = '3f1c2b4a-5d6e-4f70-8a91-b2c3d4e5f607';
+const validBody = { sessionId, messages: [{ role: 'user', content: 'Hilfe bei Mietrecht?' }] };
 const settings = makeChatSettings();
 
 function chatRequest(body: unknown, headers: Record<string, string> = {}): Request {
@@ -13,7 +14,7 @@ function chatRequest(body: unknown, headers: Record<string, string> = {}): Reque
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-forwarded-for': '203.0.113.7',
+      'x-forwarded-for': '203.0.113.7, 192.0.2.1',
       origin: 'http://localhost',
       host: 'localhost',
       ...headers,
@@ -29,6 +30,12 @@ function minuteLimiter(config: RateLimitConfig) {
 function createDeps(overrides?: Partial<ChatHandlerDeps>): ChatHandlerDeps {
   return {
     limiter: minuteLimiter({ maxRequests: 100, windowMs: 60_000 }),
+    claimQuota: vi.fn().mockResolvedValue({
+      ok: true,
+      allowed: true,
+      scope: null,
+      resetAt: '2026-08-16T22:00:00.000Z',
+    }),
     loadSettings: vi.fn().mockResolvedValue({ ok: true, settings }),
     run: vi.fn().mockReturnValue({
       stream: new Response('Antwort').body,
@@ -76,17 +83,48 @@ describe(handleChatRequest, () => {
     expect(await response.json()).toMatchObject({ scope: 'minute' });
   });
 
-  it('reports the day scope when the daily budget is used up', async () => {
+  it('rejects a third conversation before starting the model', async () => {
     const deps = createDeps({
-      limiter: combineRateLimiters({
+      claimQuota: vi.fn().mockResolvedValue({
+        ok: true,
+        allowed: false,
         scope: 'day',
-        limiter: createRateLimiter({ maxRequests: 1, windowMs: 86_400_000 }),
+        resetAt: '2026-08-16T22:00:00.000Z',
       }),
     });
-    await handleChatRequest(chatRequest(validBody), deps);
     const response = await handleChatRequest(chatRequest(validBody), deps);
     expect(response.status).toBe(429);
-    expect(await response.json()).toMatchObject({ scope: 'day' });
+    expect(await response.json()).toMatchObject({
+      scope: 'day',
+      resetAt: '2026-08-16T22:00:00.000Z',
+    });
+    expect(deps.run).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the quota store is unavailable', async () => {
+    const deps = createDeps({
+      claimQuota: vi.fn().mockResolvedValue({ ok: false, reason: 'database unavailable' }),
+    });
+    const response = await handleChatRequest(chatRequest(validBody), deps);
+    expect(response.status).toBe(503);
+    expect(deps.run).not.toHaveBeenCalled();
+    expect(deps.logger.error).toHaveBeenCalledWith('chat quota claim failed', {
+      reason: 'database unavailable',
+    });
+  });
+
+  it('sets the opaque quota cookie before streaming starts', async () => {
+    const deps = createDeps({
+      claimQuota: vi.fn().mockResolvedValue({
+        ok: true,
+        allowed: true,
+        scope: null,
+        resetAt: '2026-08-16T22:00:00.000Z',
+        setCookie: 'lcf_chat_quota=opaque; HttpOnly',
+      }),
+    });
+    const response = await handleChatRequest(chatRequest(validBody), deps);
+    expect(response.headers.get('set-cookie')).toBe('lcf_chat_quota=opaque; HttpOnly');
   });
 
   it('returns 503 when the chat is disabled', async () => {
@@ -120,14 +158,13 @@ describe(handleChatRequest, () => {
         { role: 'assistant', content: 'Antwort' },
       ],
       expect.objectContaining({ matchedClinicCount: 1 }),
-      null,
+      sessionId,
     );
   });
 
   it('forwards the client session id to persistence', async () => {
     const deps = createDeps();
-    const sessionId = '3f1c2b4a-5d6e-4f70-8a91-b2c3d4e5f607';
-    await handleChatRequest(chatRequest({ ...validBody, sessionId }), deps);
+    await handleChatRequest(chatRequest(validBody), deps);
     await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
     expect(deps.persist).toHaveBeenCalledWith(expect.anything(), expect.anything(), sessionId);
   });
@@ -135,6 +172,7 @@ describe(handleChatRequest, () => {
   it('strips sensitive details before the messages reach the model', async () => {
     const deps = createDeps();
     const body = {
+      sessionId,
       messages: [
         {
           role: 'user',
@@ -154,7 +192,10 @@ describe(handleChatRequest, () => {
 
   it('persists the redacted text, not what the user typed', async () => {
     const deps = createDeps();
-    const body = { messages: [{ role: 'user', content: 'Meine Mail: anna@example.de' }] };
+    const body = {
+      sessionId,
+      messages: [{ role: 'user', content: 'Meine Mail: anna@example.org' }],
+    };
     await handleChatRequest(chatRequest(body), deps);
     await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
     const [transcript] = vi.mocked(deps.persist).mock.calls[0];

@@ -17,7 +17,7 @@ const milcc: Row = {
   region: 'Stadtgebiet Köln',
   legal_areas: 'Mietrecht',
   website: 'https://milcc.de/',
-  contact_email: 'kontakt@milcc.de',
+  contact_email: 'contact@example.org',
 };
 
 const srk: Row = {
@@ -33,16 +33,13 @@ type CallLog = Array<[string, unknown[]]>;
 
 function createSupabaseMock(rows: Row[]) {
   const calls: CallLog = [];
-  const query: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'in']) {
-    query[method] = (...args: unknown[]) => {
-      calls.push([method, args]);
-      return query;
-    };
-  }
-  (query as { then: unknown }).then = (resolve: (value: unknown) => void) =>
-    resolve({ data: rows, error: null });
-  const client = { from: (table: string) => (calls.push(['from', [table]]), query) };
+  const client = {
+    listPublished: async () => [],
+    findPublishedByIds: async (ids: string[]) => {
+      calls.push(['findPublishedByIds', [ids]]);
+      return rows;
+    },
+  };
   return { client, calls };
 }
 
@@ -151,16 +148,16 @@ describe('recommendClinics', () => {
     expect(recommendations[0].areas).toEqual(['Mietrecht']);
   });
 
-  it('only ever reads published clinics', async () => {
+  it('only ever reads through the published-directory boundary', async () => {
     const { client, calls } = createSupabaseMock([milcc]);
     await recommendClinics(client as never, { clinics: [picks[0]] });
-    expect(calls).toContainEqual(['eq', ['is_published', true]]);
+    expect(calls).toContainEqual(['findPublishedByIds', [[milcc.id]]]);
   });
 
   it('looks selected clinics up by their unique ids', async () => {
     const { client, calls } = createSupabaseMock([milcc, srk]);
     await recommendClinics(client as never, { clinics: picks });
-    expect(calls).toContainEqual(['in', ['id', [milcc.id, srk.id]]]);
+    expect(calls).toContainEqual(['findPublishedByIds', [[milcc.id, srk.id]]]);
   });
 
   it('drops a hallucinated clinic instead of inventing a card for it', async () => {

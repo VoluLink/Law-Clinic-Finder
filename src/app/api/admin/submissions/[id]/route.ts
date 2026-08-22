@@ -3,8 +3,9 @@ import { z } from 'zod';
 
 import { approveAccess, rejectAccess } from '@/lib/admin/approve-access';
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
-import { logger } from '@/lib/logger';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { firebaseAccessReviewStore } from '@/lib/firebase/access-review-store';
+import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
+import { requestLogger } from '@/lib/http/request-id';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -20,25 +21,35 @@ function respond(status: 'ok' | 'not_found' | 'error', failure: string): Respons
 }
 
 /** Approve: the entry joins the directory and its login becomes active. */
-export async function POST(_request: NextRequest, context: RouteContext): Promise<Response> {
-  const guard = await requireAdminRoute();
+export async function POST(request: NextRequest, context: RouteContext): Promise<Response> {
+  const logger = requestLogger(request);
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
   const clinicId = await clinicIdFrom(context);
   if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
 
-  const deps = { adminClient: createSupabaseAdminClient(), logger };
+  const deps = {
+    reviewStore: firebaseAccessReviewStore,
+    accessStore: firebaseClinicAccessStore,
+    logger,
+  };
   const result = await approveAccess(deps, clinicId);
   return respond(result.status, 'Freischalten fehlgeschlagen.');
 }
 
 /** Reject: remove the login and free the claim slot. */
-export async function DELETE(_request: NextRequest, context: RouteContext): Promise<Response> {
-  const guard = await requireAdminRoute();
+export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
+  const logger = requestLogger(request);
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
   const clinicId = await clinicIdFrom(context);
   if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
 
-  const deps = { adminClient: createSupabaseAdminClient(), logger };
+  const deps = {
+    reviewStore: firebaseAccessReviewStore,
+    accessStore: firebaseClinicAccessStore,
+    logger,
+  };
   const result = await rejectAccess(deps, clinicId);
   return respond(result.status, 'Ablehnen fehlgeschlagen.');
 }

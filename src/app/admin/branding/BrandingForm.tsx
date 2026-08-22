@@ -68,7 +68,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
           <Panel title="Logo" hint="PNG oder SVG, transparenter Hintergrund empfohlen.">
             <div className="flex flex-col gap-4">
               {value.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- user-uploaded logo from Supabase Storage
+                // eslint-disable-next-line @next/next/no-img-element -- runtime branding URL from Cloud Storage
                 <img src={value.logo_url} alt="Aktuelles Logo" className="h-12 w-auto" />
               ) : (
                 <span className="text-sm text-muted">

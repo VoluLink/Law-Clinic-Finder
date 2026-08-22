@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeChatSettings } from './settings.fixtures';
 import {
   chatSettingsUpdateSchema,
   MAX_CHAT_MAX_TOKENS,
   MAX_CHAT_RECOMMENDATIONS,
+  loadChatSettings,
   parseChatSettings,
   readAssistantFormView,
   type SettingRow,
@@ -57,6 +58,17 @@ describe(parseChatSettings, () => {
     expect(
       parseChatSettings(rowsWith('chat_max_recommendations', MAX_CHAT_RECOMMENDATIONS + 1)),
     ).toEqual({ ok: false, missing: ['chat_max_recommendations'] });
+  });
+});
+
+describe(loadChatSettings, () => {
+  it('loads through the provider-neutral settings repository', async () => {
+    const settings = makeChatSettings();
+    const repository = {
+      list: vi.fn().mockResolvedValue(rowsFrom(settings)),
+      updateEditable: vi.fn(),
+    };
+    expect(await loadChatSettings(repository)).toEqual({ ok: true, settings });
   });
 });
 

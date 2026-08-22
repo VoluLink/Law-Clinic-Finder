@@ -14,7 +14,7 @@ const unclaimed: DirectoryMatch = {
   region: 'Köln',
   claimed: false,
   hasContactEmail: true,
-  maskedEmail: 'k****t@milcc.de',
+  maskedEmail: 'k****t@example.org',
 };
 
 const claimed: DirectoryMatch = {
@@ -62,11 +62,12 @@ describe('SignupFlow', () => {
   it('walks search → claim → verify for an unclaimed clinic', async () => {
     stubRoutes({
       '/api/signup/search': () => Response.json({ results: [unclaimed] }),
-      '/api/signup/claim': () => Response.json({ status: 'sent', maskedEmail: 'k****t@milcc.de' }),
+      '/api/signup/claim': () =>
+        Response.json({ status: 'sent', maskedEmail: 'k****t@example.org' }),
     });
     render(<SignupFlow />);
     await userEvent.click(await screen.findByRole('button', { name: 'Das ist meine' }));
-    expect(screen.getByText('k****t@milcc.de')).toBeInTheDocument();
+    expect(screen.getByText('k****t@example.org')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Anmeldelink anfordern' }));
     expect(await screen.findByText('Prüfe dein Postfach')).toBeInTheDocument();
   });

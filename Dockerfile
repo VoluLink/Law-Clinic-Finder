@@ -8,11 +8,16 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Public Supabase config is inlined into the client bundle at build time
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Public identifiers/origin needed while Next.js builds the standalone server.
+# Credentials and SMTP/Anthropic secrets stay runtime-only.
+ARG FIREBASE_PROJECT_ID=law-clinic-finder
+ARG FIREBASE_STORAGE_BUCKET
+ARG IDENTITY_PLATFORM_API_KEY
+ARG NEXT_PUBLIC_SITE_URL
+ENV FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID \
+    FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET \
+    IDENTITY_PLATFORM_API_KEY=$IDENTITY_PLATFORM_API_KEY \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 
 FROM node:22-alpine AS runner

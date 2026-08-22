@@ -41,11 +41,7 @@ function StepArrow({ target, enabled, icon, label }: StepArrowProps) {
   const className = cn(buttonClasses('secondary'), 'px-3');
   if (!enabled) {
     return (
-      <span
-        aria-disabled
-        aria-label={label}
-        className={cn(className, 'pointer-events-none opacity-40')}
-      >
+      <span aria-hidden="true" className={cn(className, 'pointer-events-none opacity-40')}>
         <Icon name={icon} className="h-3.5 w-3.5" />
       </span>
     );

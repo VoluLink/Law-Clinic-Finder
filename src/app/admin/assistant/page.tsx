@@ -1,16 +1,14 @@
 import type { Metadata } from 'next';
 
+import { firebaseSettingsRepository } from '@/lib/firebase/settings-repository';
 import { readAssistantFormView } from '@/lib/settings';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 import { AssistantForm } from './AssistantForm';
 
 export const metadata: Metadata = { title: 'KI-Assistent – Admin' };
 
 export default async function AdminAssistantPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from('settings').select('key, value');
-  const view = readAssistantFormView(data ?? []);
+  const view = readAssistantFormView(await firebaseSettingsRepository.list());
   return (
     <>
       <h1 className="text-xl font-semibold text-foreground">KI-Assistent</h1>

@@ -9,13 +9,16 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Panel } from '@/components/ui/Panel';
 import type { AdminAccount } from '@/lib/admin/manage-admins';
+import type { OperationalAlertRecipient } from '@/lib/admin/operational-alerts';
 
 import { AccountForm } from '../account/AccountForm';
+import { OperationalAlertsPanel } from './OperationalAlertsPanel';
 
 type AdminsManagerProps = {
   admins: AdminAccount[];
   currentEmail: string;
   currentUserId: string;
+  operationalAlertRecipient: OperationalAlertRecipient | null;
 };
 
 async function readError(response: Response): Promise<string> {
@@ -23,7 +26,12 @@ async function readError(response: Response): Promise<string> {
   return body?.error ?? 'Aktion fehlgeschlagen.';
 }
 
-export function AdminsManager({ admins, currentEmail, currentUserId }: AdminsManagerProps) {
+export function AdminsManager({
+  admins,
+  currentEmail,
+  currentUserId,
+  operationalAlertRecipient,
+}: AdminsManagerProps) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
@@ -63,6 +71,8 @@ export function AdminsManager({ admins, currentEmail, currentUserId }: AdminsMan
   return (
     <div className="flex flex-col gap-6">
       <AccountForm currentEmail={currentEmail} />
+
+      <OperationalAlertsPanel admins={admins} recipient={operationalAlertRecipient} />
 
       <Panel
         title="Admin-Konten"

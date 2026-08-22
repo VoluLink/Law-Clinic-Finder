@@ -4,7 +4,7 @@ import { redactPatterns, redactTranscript } from './redact';
 
 describe(redactPatterns, () => {
   it('replaces email addresses', () => {
-    expect(redactPatterns('Schreiben Sie an max.mustermann@web.de bitte')).toBe(
+    expect(redactPatterns('Schreiben Sie an max.mustermann@example.org bitte')).toBe(
       'Schreiben Sie an [E-MAIL] bitte',
     );
   });

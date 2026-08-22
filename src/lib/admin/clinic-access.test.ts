@@ -20,16 +20,18 @@ describe(deriveAccessState, () => {
   });
 
   it('is none when an email exists but no login profile', () => {
-    expect(deriveAccessState({ contact_email: 'a@b.de', profiles: null }, signedIn)).toBe('none');
+    expect(
+      deriveAccessState({ contact_email: 'alpha@example.org', profiles: null }, signedIn),
+    ).toBe('none');
   });
 
   it('is invited when a profile exists but the user never signed in', () => {
-    const clinic = { contact_email: 'a@b.de', profiles: [{ user_id: 'u-invited' }] };
+    const clinic = { contact_email: 'alpha@example.org', profiles: [{ user_id: 'u-invited' }] };
     expect(deriveAccessState(clinic, invitedOnly)).toBe('invited');
   });
 
   it('is active when the linked user has signed in', () => {
-    const clinic = { contact_email: 'a@b.de', profiles: [{ user_id: 'u-active' }] };
+    const clinic = { contact_email: 'alpha@example.org', profiles: [{ user_id: 'u-active' }] };
     expect(deriveAccessState(clinic, signedIn)).toBe('active');
   });
 });

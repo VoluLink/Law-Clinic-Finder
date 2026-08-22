@@ -9,12 +9,9 @@ import { headers } from 'next/headers';
  * emailed link to the project's Site URL (the landing page) instead.
  *
  * `NEXT_PUBLIC_SITE_URL` wins so production pins one canonical origin. The
- * request origin is the development fallback, which is only safe because
- * Supabase refuses any `redirect_to` that is not in the project's redirect
- * allow list — that list, not this header, is the security control.
- *
- * A template built on `{{ .TokenHash }}` does not depend on this at all: it
- * carries the confirm path itself.
+ * request origin is the development fallback. Production always supplies the
+ * configured canonical origin, which must also be present in Firebase Auth's
+ * authorized-domain list.
  */
 export async function authConfirmUrl(): Promise<string | null> {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '');

@@ -4,7 +4,7 @@ import { maskEmail } from './mask-email';
 
 describe(maskEmail, () => {
   it('keeps first and last local character plus the domain', () => {
-    expect(maskEmail('kontakt@milcc.de')).toBe('k****t@milcc.de');
+    expect(maskEmail('kontakt@example.org')).toBe('k****t@example.org');
   });
 
   it('masks single-character local parts without repeating them', () => {

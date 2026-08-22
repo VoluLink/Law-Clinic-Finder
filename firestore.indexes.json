@@ -1,0 +1,96 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "clinics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "authEmailStates",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pendingEmailOwners",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "chatDailyQuotas",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "claimLimits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "clinicEvents",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "conversationTranscripts",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "months",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "adminMetrics",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "conversations",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "idempotencyKeys",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "logs",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "conversationTranscripts",
+      "fieldPath": "messages",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "logs",
+      "fieldPath": "fields",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "settings",
+      "fieldPath": "values",
+      "indexes": []
+    }
+  ]
+}

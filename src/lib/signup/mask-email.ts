@@ -1,5 +1,5 @@
 /**
- * `kontakt@milcc.de` → `k****t@milcc.de`. Fixed-width mask so the local-part
+ * `kontakt@example.org` → `k****t@example.org`. Fixed-width mask so the local-part
  * length is not leaked; the domain stays readable so the clinic recognises
  * its own address.
  */

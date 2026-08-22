@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { parseMultiValue } from '@/lib/clinics/options';
+import type { ClinicDirectoryRepository } from '@/lib/clinics/directory-repository';
 import { MAX_CHAT_RECOMMENDATIONS } from '@/lib/settings';
 
 import type { ClinicRecommendation } from './stream-protocol';
@@ -30,8 +30,6 @@ export const recommendClinicsInputSchema = z.object({
 
 export type RecommendClinicsInput = z.infer<typeof recommendClinicsInputSchema>;
 
-const CARD_COLUMNS = 'id, name, region, legal_areas, website, contact_email';
-
 const rowSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -47,6 +45,14 @@ export type RecommendClinicsResult = {
   recommendations: ClinicRecommendation[];
 };
 
+async function loadRows(repository: ClinicDirectoryRepository, ids: string[]): Promise<unknown[]> {
+  try {
+    return await repository.findPublishedByIds(ids);
+  } catch (cause) {
+    throw new Error('clinic lookup failed', { cause });
+  }
+}
+
 /**
  * Turns the model's shortlist into cards the UI can render.
  *
@@ -56,20 +62,14 @@ export type RecommendClinicsResult = {
  * a hallucinated clinic can never reach the user as a real recommendation.
  */
 export async function recommendClinics(
-  client: SupabaseClient,
+  repository: ClinicDirectoryRepository,
   input: unknown,
   maxCards: number = MAX_CHAT_RECOMMENDATIONS,
 ): Promise<RecommendClinicsResult> {
   const { clinics } = recommendClinicsInputSchema.parse(input);
   const ids = clinics.map((pick) => pick.id);
-  const { data, error } = await client
-    .from('clinics')
-    .select(CARD_COLUMNS)
-    .eq('is_published', true)
-    .in('id', ids);
-  if (error) throw new Error('clinic lookup failed');
-
-  const byId = indexRows(data ?? []);
+  const rows = await loadRows(repository, ids);
+  const byId = indexRows(rows);
   const unknown = ids.filter((id) => !byId.has(id));
   const recommendations = buildCards(clinics, byId, maxCards);
 

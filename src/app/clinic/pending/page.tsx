@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 
 import { Panel } from '@/components/ui/Panel';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Freigabe ausstehend – Law Clinic Finder' };
 
@@ -13,17 +12,15 @@ export const metadata: Metadata = { title: 'Freigabe ausstehend – Law Clinic F
  * that, and until then there is nothing here to edit.
  */
 export default async function ClinicPendingPage() {
-  const supabase = await createSupabaseServerClient();
+  let email = '';
   try {
-    const profile = await requireRole(supabase, ['clinic', 'admin']);
+    const profile = await requireRole(['clinic', 'admin']);
+    email = profile.email ?? '';
     if (profile.access_status === 'active') redirect('/clinic');
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;
   }
-  const { data } = await supabase.auth.getClaims();
-  const email = typeof data?.claims?.email === 'string' ? data.claims.email : '';
-
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <section>

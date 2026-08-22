@@ -6,50 +6,29 @@ import { BarChart } from '@/components/ui/BarChart';
 import { Panel } from '@/components/ui/Panel';
 import { StatCard } from '@/components/ui/StatCard';
 import { AuthError, requireRole, type Profile } from '@/lib/auth/require-role';
-import { weeklyCounts } from '@/lib/admin/stats';
-import { summarizeClinicStats, type ClinicEventCounts } from '@/lib/clinic/stats';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { weeklyCountsFromDays } from '@/lib/admin/stats';
+import { summarizeClinicStats } from '@/lib/clinic/stats';
+import { loadClinicMetrics } from '@/lib/firebase/clinic-events';
 
 export const metadata: Metadata = { title: 'Statistiken – Law Clinic Finder' };
 
 const CHART_WEEKS = 8;
-const WINDOW_MS = CHART_WEEKS * 7 * 86_400_000;
-const COUNT_COLUMNS = 'recommended_count, website_click_count, email_click_count';
-
 function fmt(value: number): string {
   return value.toLocaleString('de-DE');
 }
 
 async function loadClinicStats(clinicId: string) {
-  const supabase = await createSupabaseServerClient();
-  const since = new Date(Date.now() - WINDOW_MS).toISOString();
-  const [countsRes, recentRes] = await Promise.all([
-    supabase
-      .from('clinic_event_counts')
-      .select(COUNT_COLUMNS)
-      .eq('clinic_id', clinicId)
-      .maybeSingle(),
-    supabase
-      .from('clinic_events')
-      .select('created_at')
-      .eq('clinic_id', clinicId)
-      .eq('kind', 'recommended')
-      .gte('created_at', since),
-  ]);
-  const recommendedAt = ((recentRes.data ?? []) as { created_at: string }[]).map(
-    (row) => row.created_at,
-  );
+  const metrics = await loadClinicMetrics(clinicId);
   return {
-    stats: summarizeClinicStats((countsRes.data as ClinicEventCounts | null) ?? null),
-    chart: weeklyCounts(recommendedAt, Date.now(), CHART_WEEKS),
+    stats: summarizeClinicStats(metrics.counts),
+    chart: weeklyCountsFromDays(metrics.recommendationDays, Date.now(), CHART_WEEKS),
   };
 }
 
 export default async function ClinicStatisticsPage() {
-  const supabase = await createSupabaseServerClient();
   let profile: Profile;
   try {
-    profile = await requireRole(supabase, ['clinic', 'admin']);
+    profile = await requireRole(['clinic', 'admin']);
   } catch (error) {
     if (error instanceof AuthError) redirect('/login');
     throw error;

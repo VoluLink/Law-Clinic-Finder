@@ -1,27 +1,30 @@
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
-import { brandingSchema, loadBranding } from '@/lib/branding/branding';
-import { logger } from '@/lib/logger';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { brandingUpdateSchema, loadBranding } from '@/lib/branding/branding';
+import { firebaseBrandingRepository } from '@/lib/firebase/branding-repository';
+import { requestLogger } from '@/lib/http/request-id';
 
-export async function GET(): Promise<Response> {
-  const guard = await requireAdminRoute();
+export async function GET(request?: Request): Promise<Response> {
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
-  return Response.json({ branding: await loadBranding(guard.supabase) });
+  return Response.json({ branding: await loadBranding(firebaseBrandingRepository) });
 }
 
 export async function PUT(request: Request): Promise<Response> {
-  const guard = await requireAdminRoute();
+  const logger = requestLogger(request);
+  const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
   const body = await request.json().catch(() => null);
-  const parsed = brandingSchema.safeParse(body);
+  const parsed = brandingUpdateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
-  const { error } = await createSupabaseAdminClient()
-    .from('branding')
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
-    .eq('id', true);
-  if (error) {
-    logger.error('branding update failed', { reason: error.message });
+  try {
+    await firebaseBrandingRepository.update(parsed.data);
+  } catch (error) {
+    logger.error('branding update failed', { reason: errorMessage(error) });
     return Response.json({ error: 'Speichern fehlgeschlagen.' }, { status: 500 });
   }
   return Response.json({ ok: true });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown';
 }

@@ -4,11 +4,11 @@ import { emailValue, INVALID_EMAIL_MESSAGE, isValidEmail } from './email';
 
 describe('isValidEmail', () => {
   it('accepts a well-formed address', () => {
-    expect(isValidEmail('team@law-clinic.de')).toBe(true);
+    expect(isValidEmail('team@example.org')).toBe(true);
   });
 
   it('trims surrounding whitespace before checking', () => {
-    expect(isValidEmail('  team@law-clinic.de  ')).toBe(true);
+    expect(isValidEmail('  team@example.org  ')).toBe(true);
   });
 
   it('rejects a value that is not an email', () => {

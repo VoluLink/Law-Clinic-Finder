@@ -112,7 +112,7 @@ function SidebarHeader({ sectionLabel }: { sectionLabel: string }) {
       <div className="px-2 pb-[26px]">
         <Wordmark variant="light" size="sm" />
       </div>
-      <div className="px-3 pb-2.5 text-[11px] font-bold tracking-[0.14em] text-primary-foreground/[0.45] uppercase">
+      <div className="px-3 pb-2.5 text-[11px] font-bold tracking-[0.14em] text-primary-foreground/70 uppercase">
         {sectionLabel}
       </div>
     </>
@@ -190,7 +190,7 @@ function FooterIdentity({ footer }: { footer: PortalFooter }) {
     <>
       <div className="truncate text-sm font-bold text-primary-foreground">{footer.title}</div>
       {footer.subtitle && (
-        <div className="truncate text-[13px] text-primary-foreground/[0.6]">{footer.subtitle}</div>
+        <div className="truncate text-[13px] text-primary-foreground/70">{footer.subtitle}</div>
       )}
     </>
   );

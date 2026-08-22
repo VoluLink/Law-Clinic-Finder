@@ -1,5 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+
+import type { ClinicDirectoryRepository, PublicClinic } from '@/lib/clinics/directory-repository';
 
 export const searchClinicsInputSchema = z.object({
   query: z.string().max(200).optional(),
@@ -7,120 +8,82 @@ export const searchClinicsInputSchema = z.object({
   legal_area: z.string().max(100).optional(),
   language: z.string().max(100).optional(),
   target_group: z.string().max(100).optional(),
-  offset: z
-    .number()
-    .int()
-    .nonnegative()
-    .default(0)
-    .describe("Zero-based offset from a previous response's next_offset."),
+  offset: z.number().int().nonnegative().default(0),
 });
 
 export type SearchClinicsInput = z.infer<typeof searchClinicsInputSchema>;
 
-const CLINIC_COLUMNS =
-  'id, name, description, region, website, legal_areas, ' +
-  'target_clients, languages, requirements';
-/**
- * Bounded pages keep a large directory from exhausting the model context. The
- * response exposes the exact total and next offset, so no later row is hidden.
- */
 const RESULTS_PER_PAGE = 100;
-
-/**
- * Free-text columns are capped per row before the result reaches the model:
- * `requirements` alone may hold 4 000 characters, and a full-directory scan of
- * untrimmed rows would dominate the context window. The cap keeps enough to
- * judge fit; the card and the clinic's own site carry the full text.
- */
-const TRUNCATED_FIELDS = ['description', 'requirements', 'target_clients'] as const;
-const FILTER_COLUMNS = [
-  ['legal_areas', 'legal_area'],
-  ['languages', 'language'],
-  ['target_clients', 'target_group'],
-] as const;
 const MAX_FIELD_CHARS = 400;
 
-/**
- * Strip PostgREST filter metacharacters from free text so a user-supplied
- * term can never break out of a filter string. Wildcards are added by us
- * afterwards, never taken from the input.
- */
-function sanitizeFreeText(value: string): string {
-  return value
+function sanitizeFreeText(value: string | undefined): string {
+  return (value ?? '')
     .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .toLocaleLowerCase('de');
 }
 
-/**
- * Runs the `search_clinics` tool query against Supabase. Only published
- * clinics are ever returned. A city filter also matches nationwide clinics
- * (region "Bundesweit"). Returns a JSON string for the tool result.
- */
-export async function searchClinics(client: SupabaseClient, input: unknown): Promise<string> {
-  const filters = searchClinicsInputSchema.parse(input);
-  const { data, error, count } = await buildSearchQuery(client, filters).range(
-    filters.offset,
-    filters.offset + RESULTS_PER_PAGE - 1,
-  );
-  if (error) throw new Error('clinic search failed');
+function includes(value: string | null, term: string): boolean {
+  return !term || (value ?? '').toLocaleLowerCase('de').includes(term);
+}
 
-  const rows = data ?? [];
-  const clinics = rows.map((row) => toToolClinic(row as unknown as ClinicRow));
-  const total = count ?? filters.offset + clinics.length;
-  const hasMore =
-    count == null ? clinics.length === RESULTS_PER_PAGE : total > filters.offset + clinics.length;
+function matchesClinic(clinic: PublicClinic, input: SearchClinicsInput): boolean {
+  const city = sanitizeFreeText(input.city);
+  const cityMatches = includes(clinic.region, city) || includes(clinic.region, 'bundesweit');
+  if (city && !cityMatches) return false;
+  if (!includes(clinic.legal_areas, sanitizeFreeText(input.legal_area))) return false;
+  if (!includes(clinic.languages, sanitizeFreeText(input.language))) return false;
+  if (!includes(clinic.target_clients, sanitizeFreeText(input.target_group))) return false;
+  return matchesQuery(clinic, sanitizeFreeText(input.query));
+}
+
+function matchesQuery(clinic: PublicClinic, query: string): boolean {
+  if (!query) return true;
+  return [clinic.name, clinic.description, clinic.legal_areas, clinic.target_clients].some(
+    (value) => includes(value, query),
+  );
+}
+
+function truncate(value: string | null): string | null {
+  if (!value || value.length <= MAX_FIELD_CHARS) return value;
+  return `${value.slice(0, MAX_FIELD_CHARS)}…`;
+}
+
+function toToolClinic(clinic: PublicClinic): PublicClinic {
+  return {
+    ...clinic,
+    description: truncate(clinic.description),
+    target_clients: truncate(clinic.target_clients),
+    requirements: truncate(clinic.requirements),
+  };
+}
+
+async function loadPublished(repository: ClinicDirectoryRepository): Promise<PublicClinic[]> {
+  try {
+    return await repository.listPublished();
+  } catch (cause) {
+    throw new Error('clinic search failed', { cause });
+  }
+}
+
+export async function searchClinics(
+  repository: ClinicDirectoryRepository,
+  input: unknown,
+): Promise<string> {
+  const filters = searchClinicsInputSchema.parse(input);
+  const rows = await loadPublished(repository);
+  const matches = rows.filter((clinic) => matchesClinic(clinic, filters));
+  matches.sort((left, right) => left.id.localeCompare(right.id));
+  const clinics = matches
+    .slice(filters.offset, filters.offset + RESULTS_PER_PAGE)
+    .map(toToolClinic);
+  const nextOffset = filters.offset + clinics.length;
   return JSON.stringify({
-    count: total,
+    count: matches.length,
     offset: filters.offset,
-    has_more: hasMore,
-    next_offset: hasMore ? filters.offset + clinics.length : null,
+    has_more: nextOffset < matches.length,
+    next_offset: nextOffset < matches.length ? nextOffset : null,
     clinics,
   });
-}
-
-function buildSearchQuery(client: SupabaseClient, input: SearchClinicsInput) {
-  let builder = client
-    .from('clinics')
-    .select(CLINIC_COLUMNS, { count: 'exact' })
-    .eq('is_published', true);
-
-  const cityTerm = input.city ? sanitizeFreeText(input.city) : '';
-  if (cityTerm) {
-    builder = builder.or(`region.ilike.*${cityTerm}*,region.ilike.*bundesweit*`);
-  }
-
-  for (const [column, inputKey] of FILTER_COLUMNS) {
-    const value = input[inputKey];
-    const term = value ? sanitizeFreeText(value) : '';
-    if (term) builder = builder.ilike(column, `%${term}%`);
-  }
-
-  const queryTerm = input.query ? sanitizeFreeText(input.query) : '';
-  if (queryTerm) {
-    builder = builder.or(
-      `name.ilike.*${queryTerm}*,description.ilike.*${queryTerm}*,` +
-        `legal_areas.ilike.*${queryTerm}*,target_clients.ilike.*${queryTerm}*`,
-    );
-  }
-  return builder.order('id', { ascending: true });
-}
-
-type ClinicRow = Record<string, unknown>;
-
-function toToolClinic(row: ClinicRow): ClinicRow {
-  const publicFields = { ...row };
-  delete publicFields.contact_email;
-  return truncateLongFields(publicFields);
-}
-
-function truncateLongFields(row: ClinicRow): ClinicRow {
-  const trimmed = { ...row };
-  for (const field of TRUNCATED_FIELDS) {
-    const value = trimmed[field];
-    if (typeof value === 'string' && value.length > MAX_FIELD_CHARS) {
-      trimmed[field] = `${value.slice(0, MAX_FIELD_CHARS)}…`;
-    }
-  }
-  return trimmed;
 }

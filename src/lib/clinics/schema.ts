@@ -11,8 +11,13 @@ const optionalEmail = z
   .union([z.null(), z.literal(''), emailValue])
   .transform((value) => value || null);
 
+export const publicWebsiteUrlSchema = z
+  .url()
+  .max(500)
+  .refine((value) => /^https?:\/\//i.test(value), 'Ungültige URL.');
+
 const optionalUrl = z
-  .union([z.null(), z.literal(''), z.url().max(500)])
+  .union([z.null(), z.literal(''), publicWebsiteUrlSchema])
   .transform((value) => value || null);
 
 /**
@@ -73,7 +78,7 @@ export const clinicSubmissionSchema = z
   .object({
     name: z.string().trim().min(1).max(200),
     contact_email: emailValue,
-    website: z.url().max(500),
+    website: publicWebsiteUrlSchema,
     region: z.string().trim().min(1).max(1000),
     legal_areas: z.string().trim().min(1).max(2000),
     target_clients: z.string().trim().min(1).max(2000),

@@ -25,8 +25,10 @@ export default function DatenschutzPage() {
       </p>
       <h2 className="text-lg font-medium">Hosting und Datenbank</h2>
       <p>
-        Unsere Daten liegen bei Supabase in der EU-Region Frankfurt am Main. Beim Aufruf der Website
-        fallen technisch notwendige Zugriffsdaten an.
+        Website, Authentifizierung, Datenbank und Logo-Speicher werden über Google Firebase in der
+        EU-Region Niederlande betrieben. Authentifizierungs-E-Mails stellt der jeweils konfigurierte
+        SMTP-Anbieter zu. Beim Aufruf der Website und beim Mailversand fallen technisch notwendige
+        Verbindungsdaten an.
       </p>
       <h2 className="text-lg font-medium">Missbrauchsschutz des Chat-Assistenten</h2>
       <p>

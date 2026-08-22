@@ -1,0 +1,77 @@
+import { Timestamp } from 'firebase-admin/firestore';
+import { z } from 'zod';
+
+import type { AccessReviewStore } from '@/lib/admin/approve-access';
+
+import { firebaseAdminAuth, firebaseFirestore } from './admin';
+import { invalidateClinicDirectory } from './clinic-directory';
+import { clinicNameReservationId, readClinic } from './clinic-repository';
+import { clinicDocumentSchema, profileDocumentSchema } from './documents';
+import { firebaseClinicAccessStore } from './revoke-clinic-access';
+
+async function profileIdForClinic(clinicId: string): Promise<string> {
+  const snapshot = await firebaseFirestore()
+    .collection('profiles')
+    .where('clinicId', '==', clinicId)
+    .limit(2)
+    .get();
+  if (snapshot.size !== 1) throw new Error('clinic must have exactly one pending profile');
+  return snapshot.docs[0].id;
+}
+
+async function approve(clinicIdInput: string, publish: boolean): Promise<void> {
+  const clinicId = z.string().uuid().parse(clinicIdInput);
+  const userId = await profileIdForClinic(clinicId);
+  await firebaseAdminAuth().setCustomUserClaims(userId, {
+    role: 'clinic',
+    clinicId,
+    accessStatus: 'active',
+  });
+  const database = firebaseFirestore();
+  await database.runTransaction(async (transaction) => {
+    const clinicReference = database.collection('clinics').doc(clinicId);
+    const profileReference = database.collection('profiles').doc(userId);
+    const [clinicSnapshot, profileSnapshot] = await Promise.all([
+      transaction.get(clinicReference),
+      transaction.get(profileReference),
+    ]);
+    clinicDocumentSchema.parse(clinicSnapshot.data());
+    profileDocumentSchema.parse(profileSnapshot.data());
+    transaction.update(clinicReference, {
+      approvalStatus: 'approved',
+      isPublished: publish,
+      updatedAt: Timestamp.now(),
+    });
+    transaction.update(profileReference, { accessStatus: 'active', updatedAt: Timestamp.now() });
+  });
+  invalidateClinicDirectory();
+}
+
+async function deleteSelfRegistered(clinicIdInput: string): Promise<void> {
+  const clinicId = z.string().uuid().parse(clinicIdInput);
+  await firebaseClinicAccessStore.revoke(clinicId, {
+    unpublish: true,
+    clearContactEmail: true,
+  });
+  const database = firebaseFirestore();
+  await database.runTransaction(async (transaction) => {
+    const clinicReference = database.collection('clinics').doc(clinicId);
+    const clinic = clinicDocumentSchema.parse((await transaction.get(clinicReference)).data());
+    const nameReference = database
+      .collection('uniqueClinicNames')
+      .doc(clinicNameReservationId(clinic.name));
+    const reservation = await transaction.get(nameReference);
+    if (reservation.data()?.clinicId === clinicId) transaction.delete(nameReference);
+    transaction.delete(clinicReference);
+  });
+  invalidateClinicDirectory();
+}
+
+export const firebaseAccessReviewStore: AccessReviewStore = {
+  readClinic: async (clinicId) => {
+    const clinic = await readClinic(clinicId);
+    return clinic ? { ...clinic, approval_status: clinic.approval_status } : null;
+  },
+  approve,
+  deleteSelfRegistered,
+};

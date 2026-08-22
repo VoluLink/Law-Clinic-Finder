@@ -1,242 +1,134 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { ClinicDirectoryRepository, PublicClinic } from '@/lib/clinics/directory-repository';
 
 import { searchClinics, searchClinicsInputSchema } from './search-clinics';
 
-type CallLog = Array<[string, unknown[]]>;
-
-const sampleRow = {
-  id: 'ff000000-0000-0000-0000-000000000001',
+const sampleRow: PublicClinic = {
+  id: 'ff000000-0000-4000-8000-000000000001',
   name: 'Demo Clinic',
   description: 'Beratung',
   region: 'Hamburg',
-  contact_email: 'a@example.org',
   website: 'https://example.org',
   legal_areas: 'Mietrecht; Vertragsrecht',
-  target_clients: 'Alle',
-  languages: 'DE, EN',
+  target_clients: 'Studierende',
+  languages: 'Deutsch, Englisch',
   requirements: null,
 };
 
-function createSupabaseMock(result: {
-  data: unknown[] | null;
-  error: { message: string } | null;
-  count?: number | null;
-}) {
-  const calls: CallLog = [];
-  // Minimal chainable stand-in for the Supabase query builder (thenable at the end)
-  const query: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'ilike', 'contains', 'or', 'limit', 'order', 'range']) {
-    query[method] = (...args: unknown[]) => {
-      calls.push([method, args]);
-      return query;
-    };
-  }
-  (query as { then: unknown }).then = (resolve: (value: unknown) => void) => resolve(result);
-  const client = {
-    from: (table: string) => {
-      calls.push(['from', [table]]);
-      return query;
-    },
+function createRepository(rows: PublicClinic[]): ClinicDirectoryRepository {
+  return {
+    listPublished: vi.fn().mockResolvedValue(rows),
+    findPublishedByIds: vi.fn().mockResolvedValue([]),
   };
-  return { client, calls };
+}
+
+async function result(rows: PublicClinic[], input: unknown = {}) {
+  return JSON.parse(await searchClinics(createRepository(rows), input));
 }
 
 describe('searchClinicsInputSchema', () => {
-  it('accepts empty input (search all)', () => {
+  it('accepts an empty search', () => {
     expect(searchClinicsInputSchema.safeParse({}).success).toBe(true);
   });
 
-  it('rejects oversized query strings', () => {
+  it('rejects an oversized query', () => {
     expect(searchClinicsInputSchema.safeParse({ query: 'a'.repeat(201) }).success).toBe(false);
   });
 
-  it('accepts a non-negative page offset', () => {
-    expect(searchClinicsInputSchema.safeParse({ offset: 100 }).success).toBe(true);
-  });
-
-  it('rejects a negative page offset', () => {
+  it('rejects a negative offset', () => {
     expect(searchClinicsInputSchema.safeParse({ offset: -1 }).success).toBe(false);
   });
 });
 
 describe(searchClinics, () => {
-  it('only returns published clinics', async () => {
-    const { client, calls } = createSupabaseMock({ data: [sampleRow], error: null });
-    // Mock implements the subset of SupabaseClient the function touches
-    await searchClinics(client as never, {});
-    expect(calls).toContainEqual(['eq', ['is_published', true]]);
+  it('reads only through the published-directory boundary', async () => {
+    const repository = createRepository([sampleRow]);
+    await searchClinics(repository, {});
+    expect(repository.listPublished).toHaveBeenCalledOnce();
   });
 
-  // This filter is the ONLY thing keeping unpublished clinics out of the
-  // assistant's results: the chat route passes the service-role client, which
-  // bypasses RLS (see 20260720120000_lockdown_grants). It must survive every
-  // input shape, not just the empty one.
-  it.each([
-    ['no filters', {}],
-    ['a city', { city: 'Hamburg' }],
-    ['a legal area', { legal_area: 'Mietrecht' }],
-    ['a language', { language: 'Deutsch' }],
-    ['a target group', { target_group: 'Studierende' }],
-    ['a free-text query', { query: 'Beratung' }],
-    ['every filter at once', { query: 'Beratung', city: 'Hamburg', legal_area: 'Mietrecht' }],
-  ])('still restricts to published clinics with %s', async (_label, input) => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, input);
-    expect(calls).toContainEqual(['eq', ['is_published', true]]);
+  it('matches a city case-insensitively', async () => {
+    expect((await result([sampleRow], { city: 'HAMBURG' })).count).toBe(1);
   });
 
-  it('matches the region AND nationwide clinics when a city is given', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { city: 'Berlin' });
-    const orCall = calls.find(([method]) => method === 'or');
-    expect(String(orCall?.[1][0])).toContain('region.ilike.*Berlin*');
-    expect(String(orCall?.[1][0])).toContain('bundesweit');
+  it('matches nationwide clinics for every city', async () => {
+    const nationwide = { ...sampleRow, region: 'Bundesweit' };
+    expect((await result([nationwide], { city: 'Berlin' })).count).toBe(1);
   });
 
-  it('sanitizes PostgREST syntax out of the city filter', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { city: 'Ber)(%_lin' });
-    const orCall = calls.find(([method]) => method === 'or');
-    expect(String(orCall?.[1][0])).not.toMatch(/[)(%_]/);
+  it('sanitizes punctuation before city matching', async () => {
+    expect((await result([sampleRow], { city: 'Hamburg%_()' })).count).toBe(1);
   });
 
-  it('filters legal areas by substring match', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { legal_area: 'Mietrecht' });
-    expect(calls).toContainEqual(['ilike', ['legal_areas', '%Mietrecht%']]);
+  it('filters legal areas by substring', async () => {
+    expect((await result([sampleRow], { legal_area: 'Mietrecht' })).count).toBe(1);
   });
 
-  it('sanitizes wildcard characters out of the legal-area filter', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { legal_area: 'Miet%_recht' });
-    const ilikeCall = calls.find(
-      ([method, args]) => method === 'ilike' && args[0] === 'legal_areas',
-    );
-    expect(String(ilikeCall?.[1][1])).toMatch(/^%[^%_()]+%$/);
+  it('filters languages by substring', async () => {
+    expect((await result([sampleRow], { language: 'Englisch' })).count).toBe(1);
   });
 
-  it('filters languages by substring match', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { language: 'Arabisch' });
-    expect(calls).toContainEqual(['ilike', ['languages', '%Arabisch%']]);
+  it('filters target groups by substring', async () => {
+    expect((await result([sampleRow], { target_group: 'Studierende' })).count).toBe(1);
   });
 
-  it('filters target groups by substring match', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { target_group: 'Studierende' });
-    expect(calls).toContainEqual(['ilike', ['target_clients', '%Studierende%']]);
+  it('applies all filters together', async () => {
+    const output = await result([sampleRow], {
+      city: 'Hamburg',
+      legal_area: 'Mietrecht',
+      language: 'Deutsch',
+      target_group: 'Studierende',
+      query: 'Beratung',
+    });
+    expect(output.count).toBe(1);
   });
 
-  it('sanitizes wildcard characters out of the language and target-group filters', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { language: 'Deu%_tsch', target_group: 'Stud)(ierende' });
-    const ilikeArgs = calls
-      .filter(([method]) => method === 'ilike')
-      .map(([, args]) => String(args[1]));
-    expect(ilikeArgs.every((arg) => /^%[^%_()]+%$/.test(arg))).toBe(true);
+  it('returns no row when one filter differs', async () => {
+    expect((await result([sampleRow], { legal_area: 'Strafrecht' })).count).toBe(0);
   });
 
-  it('sanitizes PostgREST filter syntax out of free-text queries', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, { query: 'Miete,)(%_' });
-    const orCall = calls.find(([method]) => method === 'or');
-    const wildcardPayloads = String(orCall?.[1][0]).match(/\*[^*,]*\*/g);
-    expect(String(wildcardPayloads)).not.toMatch(/[)(%_]/);
+  it('sorts each result page by stable clinic id', async () => {
+    const later = { ...sampleRow, id: 'ff000000-0000-4000-8000-000000000002' };
+    const output = await result([later, sampleRow]);
+    expect(output.clinics.map((clinic: PublicClinic) => clinic.id)).toEqual([
+      sampleRow.id,
+      later.id,
+    ]);
   });
 
-  it('reads the first page in a stable order', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null });
-    await searchClinics(client as never, {});
-    expect(calls).toContainEqual(['order', ['id', { ascending: true }]]);
-    expect(calls).toContainEqual(['range', [0, 99]]);
-  });
-
-  it('requests the exact total number of matching clinics', async () => {
-    const { client, calls } = createSupabaseMock({ data: [], error: null, count: 0 });
-    await searchClinics(client as never, {});
-    expect(calls).toContainEqual(['select', [expect.any(String), { count: 'exact' }]]);
-  });
-
-  it('never gives clinic contact emails to the model', async () => {
-    const { client, calls } = createSupabaseMock({ data: [sampleRow], error: null });
-    const result = JSON.parse(await searchClinics(client as never, {}));
-    const select = calls.find(([method]) => method === 'select');
-    expect(select?.[1][0]).not.toContain('contact_email');
-    expect(result.clinics[0]).not.toHaveProperty('contact_email');
-  });
-
-  it('makes overflow beyond 100 matches visible to the assistant', async () => {
-    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+  it('reports pagination beyond one hundred matches', async () => {
+    const rows = Array.from({ length: 101 }, (_, index) => ({
       ...sampleRow,
-      id: `ff000000-0000-0000-0000-${String(index).padStart(12, '0')}`,
+      id: `ff000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
     }));
-    const { client } = createSupabaseMock({ data: firstPage, error: null, count: 101 });
-    const result = JSON.parse(await searchClinics(client as never, {}));
-    expect(result).toMatchObject({ count: 101, offset: 0, has_more: true, next_offset: 100 });
-  });
-
-  it('returns clinic 101 when the assistant requests the next page', async () => {
-    const overflowClinic = {
-      ...sampleRow,
-      id: 'ff000000-0000-0000-0000-000000000101',
-      name: 'Clinic 101',
-    };
-    const { client, calls } = createSupabaseMock({
-      data: [overflowClinic],
-      error: null,
+    expect(await result(rows)).toMatchObject({
       count: 101,
-    });
-    const result = JSON.parse(await searchClinics(client as never, { offset: 100 }));
-    const expectedClinic: Record<string, unknown> = { ...overflowClinic };
-    delete expectedClinic.contact_email;
-    expect(result.clinics).toEqual([expectedClinic]);
-    expect(calls).toContainEqual(['range', [100, 199]]);
-    expect(result.has_more).toBe(false);
-  });
-
-  it('truncates a long free-text field so a full scan cannot flood the context', async () => {
-    const long = 'a'.repeat(5000);
-    const { client } = createSupabaseMock({
-      data: [{ ...sampleRow, requirements: long }],
-      error: null,
-    });
-    const { clinics } = JSON.parse(await searchClinics(client as never, {}));
-    expect(clinics[0].requirements.length).toBeLessThan(long.length);
-    expect(clinics[0].requirements.endsWith('…')).toBe(true);
-  });
-
-  it('leaves a short field exactly as stored', async () => {
-    const { client } = createSupabaseMock({ data: [sampleRow], error: null });
-    const { clinics } = JSON.parse(await searchClinics(client as never, {}));
-    expect(clinics[0].description).toBe(sampleRow.description);
-  });
-
-  it('returns the found clinics as JSON', async () => {
-    const { client } = createSupabaseMock({ data: [sampleRow], error: null, count: 1 });
-    const result = await searchClinics(client as never, {});
-    expect(JSON.parse(result)).toEqual({
-      count: 1,
-      offset: 0,
-      has_more: false,
-      next_offset: null,
-      clinics: [
-        {
-          id: sampleRow.id,
-          name: sampleRow.name,
-          description: sampleRow.description,
-          region: sampleRow.region,
-          website: sampleRow.website,
-          legal_areas: sampleRow.legal_areas,
-          target_clients: sampleRow.target_clients,
-          languages: sampleRow.languages,
-          requirements: sampleRow.requirements,
-        },
-      ],
+      has_more: true,
+      next_offset: 100,
     });
   });
 
-  it('throws when the database returns an error', async () => {
-    const { client } = createSupabaseMock({ data: null, error: { message: 'boom' } });
-    await expect(searchClinics(client as never, {})).rejects.toThrow('clinic search failed');
+  it('returns the second page from the requested offset', async () => {
+    const rows = Array.from({ length: 101 }, (_, index) => ({
+      ...sampleRow,
+      id: `ff000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    }));
+    expect((await result(rows, { offset: 100 })).clinics).toHaveLength(1);
+  });
+
+  it('truncates long free-text fields', async () => {
+    const output = await result([{ ...sampleRow, requirements: 'a'.repeat(5000) }]);
+    expect(output.clinics[0].requirements).toHaveLength(401);
+  });
+
+  it('does not include private contact e-mail fields', async () => {
+    expect(JSON.stringify(await result([sampleRow]))).not.toContain('contact_email');
+  });
+
+  it('propagates a directory read failure', async () => {
+    const repository = createRepository([]);
+    vi.mocked(repository.listPublished).mockRejectedValue(new Error('unavailable'));
+    await expect(searchClinics(repository, {})).rejects.toThrow('clinic search failed');
   });
 });

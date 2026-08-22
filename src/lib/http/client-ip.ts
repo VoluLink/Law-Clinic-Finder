@@ -1,8 +1,13 @@
-/**
- * First entry of X-Forwarded-For. A client can send this header itself, so the
- * value is only trustworthy when the fronting proxy overwrites it — a
- * deploy-time requirement, without which the per-IP rate limits are forgeable.
- */
+import { isIP } from 'node:net';
+
+/** Google App Hosting's load balancer appends client IP, then balancer IP. */
 export function clientIp(request: Request): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const addresses = request.headers
+    .get('x-forwarded-for')
+    ?.split(',')
+    .map((address) => address.trim());
+  if (!addresses || addresses.length < 2) return 'unknown';
+  const client = addresses.at(-2) ?? '';
+  const proxy = addresses.at(-1) ?? '';
+  return isIP(client) && isIP(proxy) ? client : 'unknown';
 }

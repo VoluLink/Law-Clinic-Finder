@@ -48,7 +48,7 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
   const [chatPresentation, setChatPresentation] = useState({ dict, lang, rtl });
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
-  const [limitScope, setLimitScope] = useState<RateLimitScope | null>(null);
+  const [activeLimit, setActiveLimit] = useState<ActiveLimit | null>(null);
   // One id per chat, so the server folds every turn onto a single conversation.
   const sessionId = useRef<string | null>(null);
 
@@ -60,10 +60,12 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
   }
 
   useEffect(() => {
-    if (limitScope !== 'minute') return;
-    const timeout = window.setTimeout(() => setLimitScope(null), CHAT_RATE_LIMIT.windowMs);
+    if (!activeLimit) return;
+    const delay = limitResetDelay(activeLimit);
+    if (delay === null) return;
+    const timeout = window.setTimeout(() => setActiveLimit(null), delay);
     return () => window.clearTimeout(timeout);
-  }, [limitScope]);
+  }, [activeLimit]);
 
   async function send(content: string) {
     const presentation = resolveChatPresentation(content);
@@ -84,7 +86,7 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
         setMessages((prev) => prev.slice(0, -1));
         setInput(content);
       }
-      setLimitScope(outcome === 'unavailable' ? null : outcome);
+      setActiveLimit(outcome === 'unavailable' ? null : outcome);
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: presentation.dict.chatError }]);
     } finally {
@@ -95,11 +97,15 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const content = input.trim();
-    if (!content || pending || limitScope) return;
+    if (!content || pending || activeLimit) return;
     void send(content);
   }
 
+  const limitScope = activeLimit?.scope ?? null;
   const shared = { ...chatPresentation, input, setInput, pending, onSubmit: handleSubmit };
+  if (messages.length === 0 && limitScope === 'day') {
+    return <DailyLimitNotice dict={chatPresentation.dict} />;
+  }
   if (messages.length === 0) return <SearchCard {...shared} limitScope={limitScope} />;
   return (
     <ChatCard
@@ -113,7 +119,17 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
 }
 
 /** `'unavailable'` = the admin switched the assistant off, or it is unconfigured. */
-type ReplyOutcome = RateLimitScope | 'unavailable' | null;
+type ActiveLimit = { scope: RateLimitScope; resetAt?: string };
+type ReplyOutcome = ActiveLimit | 'unavailable' | null;
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
+function limitResetDelay(limit: ActiveLimit): number | null {
+  if (limit.scope === 'minute') return CHAT_RATE_LIMIT.windowMs;
+  if (!limit.resetAt) return null;
+  const resetAt = Date.parse(limit.resetAt);
+  if (Number.isNaN(resetAt)) return null;
+  return Math.min(MAX_TIMER_DELAY_MS, Math.max(0, resetAt - Date.now() + 250));
+}
 
 async function streamReply(
   messages: Message[],
@@ -126,13 +142,21 @@ async function streamReply(
     body: JSON.stringify({ sessionId, messages }),
   });
   if (response.status === 429) {
-    const body = (await response.json().catch(() => null)) as { scope?: string } | null;
-    return body?.scope === 'day' ? 'day' : 'minute';
+    const body: unknown = await response.json().catch(() => null);
+    return parseLimit(body);
   }
   if (response.status === 503) return 'unavailable';
   if (!response.ok || !response.body) throw new Error('chat request failed');
   await readStream(response.body, setMessages);
   return null;
+}
+
+function parseLimit(body: unknown): ActiveLimit {
+  if (!body || typeof body !== 'object') return { scope: 'minute' };
+  const payload = body as Record<string, unknown>;
+  const scope = payload.scope === 'day' ? 'day' : 'minute';
+  const resetAt = typeof payload.resetAt === 'string' ? payload.resetAt : undefined;
+  return { scope, resetAt };
 }
 
 /**
@@ -212,6 +236,31 @@ function SearchCard({ dict, rtl, input, setInput, pending, onSubmit, limitScope 
         </p>
       </div>
     </form>
+  );
+}
+
+function DailyLimitNotice({ dict }: { dict: Dictionary }) {
+  return (
+    <div
+      role="alert"
+      data-daily-limit
+      className="flex w-full items-start gap-5 rounded-3xl border border-limit-border bg-limit-surface px-6 py-8 text-start shadow-panel animate-[chat-in_0.3s_ease] sm:gap-7 sm:px-10 sm:py-10"
+    >
+      <span
+        aria-hidden
+        className="flex size-14 shrink-0 items-center justify-center rounded-full bg-limit text-3xl font-medium text-limit-foreground sm:size-16"
+      >
+        !
+      </span>
+      <div className="pt-1">
+        <h2 className="text-[clamp(24px,3vw,34px)] leading-tight font-extrabold text-limit">
+          {dict.limitDailyTitle}
+        </h2>
+        <p className="mt-4 max-w-[900px] text-[clamp(17px,2vw,21px)] leading-relaxed text-limit-text">
+          {dict.limitDailyBody}
+        </p>
+      </div>
+    </div>
   );
 }
 

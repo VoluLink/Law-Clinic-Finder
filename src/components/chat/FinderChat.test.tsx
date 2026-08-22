@@ -23,7 +23,7 @@ const card: ClinicRecommendation = {
   areas: ['Mietrecht'],
   reason: 'Berät genau zu deinem Thema.',
   website: 'https://milcc.de/',
-  email: 'kontakt@milcc.de',
+  email: 'contact@example.org',
 };
 
 const finalCard: ClinicRecommendation = {
@@ -53,7 +53,10 @@ function streamResponse(text: string): Response {
 }
 
 function limitResponse(scope: 'minute' | 'day'): Response {
-  return Response.json({ error: 'limited', scope }, { status: 429 });
+  return Response.json(
+    { error: 'limited', scope, resetAt: '2099-08-16T22:00:00.000Z' },
+    { status: 429 },
+  );
 }
 
 function renderChat() {
@@ -176,11 +179,36 @@ describe('FinderChat', () => {
     expect(screen.getByRole('button', { name: de.searchBtn })).toBeDisabled();
   });
 
-  it('shows the daily limit banner on a day-scope 429', async () => {
+  it('replaces the start form with the large daily notice on a third-chat 429', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(limitResponse('day')));
     renderChat();
-    await submitQuery('Meine zwanzigste Nachricht');
+    await submitQuery('Drittes Anliegen heute');
+
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveAttribute('data-daily-limit');
+    expect(notice).toHaveTextContent(de.limitDailyTitle);
+    expect(screen.queryByLabelText(de.searchLabel)).not.toBeInTheDocument();
+  });
+
+  it('shows the daily notice only after two completed conversations', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(eventResponse([{ t: 'clinics', v: [card] }]))
+      .mockResolvedValueOnce(eventResponse([{ t: 'clinics', v: [finalCard] }]))
+      .mockResolvedValueOnce(limitResponse('day'));
+    vi.stubGlobal('fetch', fetchMock);
+    renderChat();
+
+    await submitQuery('Erstes Anliegen');
+    await userEvent.click(await screen.findByRole('button', { name: de.chatCompletedBtnRestart }));
+    expect(screen.queryByText(de.limitDailyTitle)).not.toBeInTheDocument();
+    await submitQuery('Zweites Anliegen');
+    await userEvent.click(await screen.findByRole('button', { name: de.chatCompletedBtnRestart }));
+    expect(screen.queryByText(de.limitDailyTitle)).not.toBeInTheDocument();
+    await submitQuery('Drittes Anliegen');
+
     expect(await screen.findByText(de.limitDailyTitle)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('uses English for a rate-limit alert after an unsupported-language request', async () => {

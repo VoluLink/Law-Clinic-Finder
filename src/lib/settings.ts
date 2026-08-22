@@ -1,5 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+
+import type { SettingsRepository } from './settings-repository';
 
 export type ChatSettings = {
   chat_model: string;
@@ -82,12 +83,13 @@ export function parseChatSettings(rows: SettingRow[]): ChatSettingsResult {
 }
 
 /**
- * Reads the settings table. `anon` has no SELECT on it, so callers must pass a
- * service-role client — always from a server component or route.
+ * Reads the server-only settings repository. There is deliberately no code
+ * fallback for missing or invalid assistant settings.
  */
-export async function loadChatSettings(client: SupabaseClient): Promise<ChatSettingsResult> {
-  const { data } = await client.from('settings').select('key, value');
-  return parseChatSettings(data ?? []);
+export async function loadChatSettings(
+  repository: SettingsRepository,
+): Promise<ChatSettingsResult> {
+  return parseChatSettings(await repository.list());
 }
 
 export type AssistantFormView = {

@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/e2e/.auth
 
 # next.js
 /.next/
@@ -19,6 +22,7 @@
 
 # production
 /build
+/functions/lib
 
 # misc
 .DS_Store
@@ -29,6 +33,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 
 # env files — real values never committed; the placeholder template is tracked
 .env*

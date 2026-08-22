@@ -7,6 +7,84 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Firebase-Migration (in Arbeit)
+
+- Diese Unreleased-Fassung ist der erste GitHub-Projektstand mit der Firebase-Migration. Sie bleibt
+  als zugriffsgeschütztes Staging markiert; Domain, Rechtstexte, Brevo-DKIM und öffentlicher Cutover
+  sind bewusst noch offen.
+- Jede Antwort erhält an der vertrauenswürdigen Proxy-Grenze eine neue UUID als Request-ID; ein
+  fremder Eingabewert wird verworfen. Route Handler reichen die ID an strukturierte Child-Logger
+  weiter, ohne Request-Bodies, Tokens oder PII zu protokollieren.
+- Neun Playwright-E2E-Journeys laufen ausschließlich gegen lokale Auth-/Firestore-/Storage-
+  Emulatoren und prüfen Public Site, neun Sprachen/RTL, Analytics-Consent, unbekannte Konten,
+  Admin-/Clinic-Rollen, Cross-Role-Denial und Accessibility. Geschütztes Staging belegt zusätzlich
+  echtes NDJSON-Streaming und Next.js-`after()`-Persistenz.
+- Das Kopierwerkzeug besitzt einen ausdrücklichen, getesteten `--apply --reconcile`-Modus für einen
+  bereits passenden Migration-Run. Er prüft Checkpoints erneut und schreibt nur erwartete
+  Quelldokumentpfade; zusätzliche Firebase-Runtime-Dokumente und Supabase bleiben unverändert.
+- Die Anwendung verwendet serverseitig Firebase Authentication, Cloud Firestore und Cloud Storage
+  statt Supabase. Passwortlose Firebase-Links werden über den provider-neutralen SMTP-Adapter
+  versendet; Brevo bleibt die aktuelle Konfiguration.
+- Unter `/admin/admins` wählt ein Admin den aktiven Admin für Google-Cloud-Betriebsalarme. Ohne
+  Auswahl gilt der einzige beziehungsweise älteste aktive Admin; Firestore speichert nur dessen UID
+  und der ereignisgesteuerte Least-Privilege-Sync löst die aktuelle Adresse aus Firebase Auth auf.
+  Die Schreibtransaktion prüft Rolle und Aktivstatus erneut, um parallele Sperrungen abzufangen.
+- Eingebaute Cloud-Run-Metriken überwachen 5xx und das konfigurierte Instanzlimit. Der Sync arbeitet
+  mit null Mindest- und einer Höchstinstanz, ohne Uptime-Polling oder eigene Log-Metrik.
+- Der ausdrücklich freigegebene Restore-Drill stellte das letzte READY-Backup isoliert nach
+  `restore-drill-20260822` wieder her und löschte anschließend nur diese temporäre Datenbank. Der
+  Snapshot lag vor der Datenkopie und war deshalb inhaltlich leer; ein Post-Copy-Inhaltsdrill bleibt
+  offen. `primary-eu` und Supabase blieben unverändert geschützt.
+- Das Login meldet auf ausdrücklichen Nutzerwunsch eindeutig, wenn keine zugelassene Identität mit
+  aktivem Profil existiert. Same-Origin-Prüfung, Zod-Validierung und Rate Limits bleiben aktiv;
+  SMTP-/Infrastrukturfehler bleiben generisch.
+- Einmal-Code und State stehen in neuen Auth-Mails nur noch im URL-Fragment und gelangen deshalb
+  nicht in App-Hosting-/Cloud-Run-Request-Logs. Die Bestätigungsseite entfernt das Fragment aus der
+  Browserhistorie und sendet es validiert an einen Same-Origin- und rate-limitierten POST-Endpoint.
+- Die Auth-Bestätigungsseite initialisiert keinerlei Drittanbieter-Analytics, solange der Browser das
+  kurzlebige URL-Fragment verarbeitet. GA4-Mess-IDs werden außerdem streng validiert, bevor sie in
+  das nonce-autorisierte Initialisierungsskript gelangen.
+- Identity Platform wird durch eine immer ablehnende `beforeCreate`-Blocking-Function gegen direkte,
+  unautorisierte Kontoerstellung abgesichert. Sessions liegen nur im begrenzten HttpOnly-Cookie;
+  geschützte Operationen prüfen zusätzlich das aktuelle Firestore-Profil.
+- Firestore- und Storage-Regeln schließen Browserzugriffe standardmäßig. Private Clinic-Kontakte,
+  Auth-State und Transkripte bleiben server-only; Branding-Logos werden vor Storage als PNG neu
+  codiert.
+- Authentifizierte Schreibzugriffe verlangen zusätzlich einen exakten Same-Origin-Nachweis. Eine
+  nonce-basierte Content Security Policy und weitere HTTP-Sicherheitsheader schützen die Next.js-
+  Seiten; Clinic- und Import-URLs sind auf HTTP(S) und die Supabase-Quelle auf den exakten HTTPS-
+  Projekt-Origin begrenzt.
+- Ein dry-run-first Kopierwerkzeug liest Supabase ausschließlich seitenweise, validiert alle Daten,
+  erhält Auth-UIDs, baut Reservations/Metriken neu und schreibt nur nach exakter Projektbestätigung.
+  Checkpoints und Checksummen machen Apply/Verify wiederholbar; Supabase bleibt unverändert.
+- Die zwei reservierten Entwicklungsidentitäten `admin@example.com` und
+  `startright@example.com` samt Zugriffsprofilen werden nicht in Firebase übernommen. Die
+  entsprechenden Supabase-Zeilen bleiben gemäß der Copy-only-Vorgabe unverändert erhalten.
+- Der echte Supabase-Source-Dry-Run berücksichtigt beim Legacy-`claim_requests`-Schema `sent_at`
+  statt eines nicht vorhandenen `created_at` und validiert die Quelle erfolgreich, ohne zu schreiben.
+- Firestore-Emulatortests belegen die Transaktionsgrenzen bei gleichzeitigen Magic-Link-
+  Bestätigungen, Claim-Versuchen und Registrierungen mit demselben Clinic-Namen.
+- Firebase App Hosting, Firestore und Storage sind für `europe-west4` (Niederlande) geplant, da App
+  Hosting keine deutsche Region anbietet. Instanzlimits und Write-time-Aggregate begrenzen Kosten.
+- Nach ausdrücklicher Freigabe wurde die unbeabsichtigt in `nam5` angelegte, leere Standarddatenbank
+  gelöscht. Die benannte, löschgeschützte Firestore-Datenbank `primary-eu`, Storage und der noch
+  nicht ausgerollte App-Hosting-Backend liegen jetzt in `europe-west4`.
+- Identity Platform ist aktiv: Endnutzer-Signup/-Löschung sind deaktiviert und die registrierte
+  `beforeCreate`-Funktion lehnt direkte Kontoerstellung ab. Eine dedizierte Runtime-Identität ist auf
+  App-Hosting-Ausführung, sechs Auth-Berechtigungen, die per Bedingung auf `primary-eu` beschränkte
+  Datennutzung und ihre regionalen Secrets reduziert; die Build-Identität bleibt von App-Daten
+  getrennt.
+- Regionale Secret-Manager-Einträge, API-Key-Einschränkungen, eine tägliche Sieben-Tage-Sicherung
+  und ein eintägiges Functions-Artefakt-Cleanup begrenzen Angriffsfläche und laufende Kosten.
+- Per-IP-Limits lesen die von Google App Hosting ergänzte Client-Adresse vom vertrauenswürdigen
+  rechten Ende der `X-Forwarded-For`-Kette; ein vorgeschobener Client-Wert kann das Limit nicht mehr
+  umgehen.
+- Der temporäre Staging-Rollout wird vor Seiten und API-Routen durch HTTP Basic geschützt. Das
+  starke Passwort kommt nur aus Secret Manager, eine Fehlkonfiguration sperrt den Zugriff, und nach
+  erfolgreicher Prüfung wird der Authorization-Header nicht an die Anwendung weitergereicht.
+  Geschützte Antworten sind außerdem `private, no-store`, damit kein Shared Cache die Zugangskontrolle
+  umgehen kann.
+
 ### Hinzugefügt
 
 - **Selbstregistrierung mit echtem Zugang.** `/signup` führt jetzt auf drei Wegen zu einem Login.
@@ -29,9 +107,9 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - **Eine Adresse gehört genau einer Rolle.** Admin-Einladung und Clinic-Registrierung prüfen
   gegenseitig, ob die Adresse schon vergeben ist, und melden das verständlich statt als
   Datenbankfehler.
-- **Das Login legt keine Konten mehr an** und läuft über eine eigene, pro IP begrenzte Route. Die
-  Antwort ist immer dieselbe, sodass sich über das Formular nicht mehr herausfinden lässt, welche
-  Adressen registriert sind.
+- **Das Login legt keine Konten mehr an** und läuft über eine eigene, pro IP begrenzte Route. Es
+  unterscheidet jetzt bewusst eine nicht registrierte Adresse, während technische Zustellfehler
+  weiterhin generisch bleiben.
 - **Abgelaufene Anmeldelinks werden erklärt.** `/auth/confirm` leitete schon immer mit `?error=` auf
   das Login zurück, angezeigt wurde davon nichts — das Formular erschien einfach leer.
 - **Die Freigabe-Warteschlange im Admin liegt jetzt in `clinics`** und unterscheidet „Neuer Eintrag"

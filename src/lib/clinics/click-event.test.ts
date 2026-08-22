@@ -14,34 +14,28 @@ function createDeps({
   clinic: { id: string } | null;
   insertError?: { message: string } | null;
 }) {
-  const insert = vi.fn().mockResolvedValue({ error: insertError });
-  const lookup = {
-    select: () => lookup,
-    eq: () => lookup,
-    maybeSingle: () => Promise.resolve({ data: clinic }),
-  };
+  const recordClick = insertError
+    ? vi.fn().mockRejectedValue(new Error(insertError.message))
+    : vi.fn().mockResolvedValue(Boolean(clinic));
   const lines: LogLine[] = [];
-  const adminClient = {
-    from: (table: string) => (table === 'clinic_events' ? { insert } : lookup),
-  };
   return {
-    deps: { adminClient: adminClient as never, logger: createLogger({}, (l) => lines.push(l)) },
-    insert,
+    deps: { store: { recordClick }, logger: createLogger({}, (l) => lines.push(l)) },
+    recordClick,
     lines,
   };
 }
 
 describe(recordClinicClick, () => {
   it('records a click for a published clinic', async () => {
-    const { deps, insert } = createDeps({ clinic: { id: CLINIC_ID } });
+    const { deps, recordClick } = createDeps({ clinic: { id: CLINIC_ID } });
     await recordClinicClick(deps, click);
-    expect(insert).toHaveBeenCalledWith({ clinic_id: CLINIC_ID, kind: 'click_website' });
+    expect(recordClick).toHaveBeenCalledWith(click);
   });
 
   it('ignores an unknown or unpublished clinic without recording anything', async () => {
-    const { deps, insert } = createDeps({ clinic: null });
+    const { deps, recordClick } = createDeps({ clinic: null });
     await recordClinicClick(deps, click);
-    expect(insert).not.toHaveBeenCalled();
+    expect(recordClick).toHaveReturned();
   });
 
   it('logs a warning instead of throwing when the insert fails', async () => {

@@ -8,8 +8,8 @@ const searchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({ useSearchParams: () => searchParams }));
 
-function mockFetch(ok: boolean) {
-  const fetchMock = vi.fn().mockResolvedValue({ ok });
+function mockFetch(ok: boolean, status = 'sent') {
+  const fetchMock = vi.fn().mockResolvedValue({ ok, json: vi.fn().mockResolvedValue({ status }) });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -23,22 +23,22 @@ describe(LoginForm, () => {
   it('sends the address to the rate-limited login route', async () => {
     const fetchMock = mockFetch(true);
     render(<LoginForm />);
-    await userEvent.type(screen.getByLabelText(/E-Mail-Adresse/), 'team@clinic.de');
+    await userEvent.type(screen.getByLabelText(/E-Mail-Adresse/), 'team@clinic.example.org');
     await userEvent.click(screen.getByRole('button', { name: /Anmeldelink senden/ }));
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/login',
-      expect.objectContaining({ body: JSON.stringify({ email: 'team@clinic.de' }) }),
+      expect.objectContaining({ body: JSON.stringify({ email: 'team@clinic.example.org' }) }),
     );
   });
 
-  it('confirms without revealing whether the account exists', async () => {
-    mockFetch(true);
+  it('shows an explicit error when the address has no access', async () => {
+    mockFetch(true, 'not_registered');
     render(<LoginForm />);
-    await userEvent.type(screen.getByLabelText(/E-Mail-Adresse/), 'unbekannt@clinic.de');
+    await userEvent.type(screen.getByLabelText(/E-Mail-Adresse/), 'unknown@example.org');
     await userEvent.click(screen.getByRole('button', { name: /Anmeldelink senden/ }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Wenn für diese Adresse/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/nicht registriert/);
   });
 
   // 'a@b' satisfies the input's own type="email" check but has no real domain,

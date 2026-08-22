@@ -16,7 +16,7 @@ const validClinic = {
   name: 'Law Clinic Musterstadt',
   description: 'Studentische Rechtsberatung.',
   region: 'Musterstadt',
-  contact_email: 'kontakt@lawclinic-musterstadt.de',
+  contact_email: 'contact@example.org',
   website: 'https://lawclinic-musterstadt.de',
   legal_areas: 'Mietrecht; Vertragsrecht',
   target_clients: 'Alle',
@@ -56,6 +56,12 @@ describe('clinicEditableSchema', () => {
     );
   });
 
+  it('rejects executable website URL schemes', () => {
+    expect(
+      clinicEditableSchema.safeParse({ ...validClinic, website: 'javascript:alert(1)' }).success,
+    ).toBe(false);
+  });
+
   it('does not allow publishing through the editable schema', () => {
     const parsed = clinicEditableSchema.parse({ ...validClinic, is_published: true });
     expect(parsed).not.toHaveProperty('is_published');
@@ -72,7 +78,8 @@ describe('clinicAdminSchema', () => {
 describe('clinicInviteSchema', () => {
   it('requires name and a valid login email', () => {
     expect(
-      clinicInviteSchema.safeParse({ name: 'Neue Clinic', contact_email: 'org@clinic.de' }).success,
+      clinicInviteSchema.safeParse({ name: 'Neue Clinic', contact_email: 'org@example.org' })
+        .success,
     ).toBe(true);
     expect(clinicInviteSchema.safeParse({ name: 'Neue Clinic', contact_email: '' }).success).toBe(
       false,
@@ -125,5 +132,11 @@ describe('clinicSubmissionSchema', () => {
       description: '',
     });
     expect(issuePaths(result)).toContain('description');
+  });
+
+  it('rejects non-web homepage schemes', () => {
+    expect(
+      clinicSubmissionSchema.safeParse({ ...submission, website: 'data:text/html,test' }).success,
+    ).toBe(false);
   });
 });

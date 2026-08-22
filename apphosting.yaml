@@ -1,0 +1,58 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: FIREBASE_PROJECT_ID
+    value: law-clinic-finder
+    availability:
+      - RUNTIME
+  - variable: FIREBASE_DATABASE_ID
+    value: primary-eu
+    availability:
+      - RUNTIME
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: law-clinic-finder.firebasestorage.app
+    availability:
+      - RUNTIME
+  - variable: IDENTITY_PLATFORM_API_KEY
+    secret: firebaseWebApiKey
+  - variable: NEXT_PUBLIC_SITE_URL
+    secret: siteUrl
+  - variable: ANTHROPIC_API_KEY
+    secret: anthropicApiKey
+  - variable: SMTP_HOST
+    value: smtp-relay.brevo.com
+    availability:
+      - RUNTIME
+  - variable: SMTP_PORT
+    value: '587'
+    availability:
+      - RUNTIME
+  - variable: SMTP_LOGIN_EMAIL
+    secret: smtpLoginEmail
+  - variable: SMTP_PASSWORD
+    secret: smtpPassword
+  - variable: SMTP_FROM_EMAIL
+    secret: smtpFromEmail
+  - variable: SMTP_FROM_NAME
+    value: Law Clinics Deutschland
+    availability:
+      - RUNTIME
+  - variable: SITE_URL
+    secret: siteUrl
+  - variable: STAGING_ACCESS_ENABLED
+    value: 'true'
+    availability:
+      - RUNTIME
+  - variable: STAGING_ACCESS_USERNAME
+    value: preview
+    availability:
+      - RUNTIME
+  - variable: STAGING_ACCESS_PASSWORD
+    secret: stagingAccessPassword
+    availability:
+      - RUNTIME

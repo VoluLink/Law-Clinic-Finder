@@ -14,16 +14,6 @@ export const CHAT_RATE_LIMIT: RateLimitConfig = {
 
 const MS_PER_DAY = 86_400_000;
 
-/**
- * Sized so one IP can hold two full conversations per day: a conversation is
- * at most MAX_CHAT_MESSAGES / 2 = 8 user turns (one request each), so
- * 2 × 8 plus a little retry slack.
- */
-export const CHAT_DAILY_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 20,
-  windowMs: MS_PER_DAY,
-};
-
 /** Signup endpoints: interactive search may be chatty; email sends are precious. */
 export const SIGNUP_SEARCH_RATE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
 export const SIGNUP_CLAIM_RATE_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: MS_PER_DAY };
@@ -32,6 +22,7 @@ export const SIGNUP_REGISTER_RATE_LIMIT: RateLimitConfig = { maxRequests: 5, win
 /** Login links: generous enough for a mistyped address, tight enough that one
  *  address cannot drain the project-wide auth mail quota. */
 export const LOGIN_RATE_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 60 * 60_000 };
+export const AUTH_CONFIRM_RATE_LIMIT: RateLimitConfig = { maxRequests: 20, windowMs: 60 * 60_000 };
 
 /**
  * In-memory sliding-window limiter. Per-process only — behind multiple

@@ -22,10 +22,12 @@ function createDeps(overrides?: {
   rpcError?: { message: string };
   redactStatus?: 'ok' | 'failed';
 }) {
-  const rpc = vi.fn().mockResolvedValue({ data: 'conv-1', error: overrides?.rpcError ?? null });
+  const record = overrides?.rpcError
+    ? vi.fn().mockRejectedValue(new Error(overrides.rpcError.message))
+    : vi.fn().mockResolvedValue(undefined);
   const lines: LogLine[] = [];
   const deps: PersistDeps = {
-    adminClient: { rpc } as never,
+    store: { record },
     redact: vi
       .fn()
       .mockResolvedValue(
@@ -35,66 +37,60 @@ function createDeps(overrides?: {
       ),
     logger: createLogger({}, (line) => lines.push(line)),
   };
-  return { deps, rpc, lines };
+  return { deps, record, lines };
 }
 
 describe(persistConversation, () => {
   it('upserts the whole chat by session id with its redacted transcript and tokens', async () => {
-    const { deps, rpc } = createDeps();
+    const { deps, record } = createDeps();
     await persistConversation(deps, transcript, run, sessionId);
-    expect(rpc).toHaveBeenCalledWith('record_conversation', {
-      p_session_id: sessionId,
-      p_redacted_transcript: transcript,
-      p_redaction_status: 'ok',
-      p_detected_legal_area: 'Arbeitsrecht',
-      p_detected_city: 'Berlin',
-      p_matched_clinic_count: 2,
-      p_message_count: 2,
-      p_model: 'claude-haiku-4-5-20251001',
-      p_input_tokens: 1200,
-      p_output_tokens: 340,
-      p_recommended_clinic_ids: [],
+    expect(record).toHaveBeenCalledWith({
+      sessionId,
+      redactedTranscript: transcript,
+      redactionStatus: 'ok',
+      detectedLegalArea: 'Arbeitsrecht',
+      detectedCity: 'Berlin',
+      matchedClinicCount: 2,
+      messageCount: 2,
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: 1200,
+      outputTokens: 340,
+      recommendedClinicIds: [],
     });
   });
 
   it('passes a null session id straight through (legacy fallback)', async () => {
-    const { deps, rpc } = createDeps();
+    const { deps, record } = createDeps();
     await persistConversation(deps, transcript, run, null);
-    expect(rpc).toHaveBeenCalledWith(
-      'record_conversation',
-      expect.objectContaining({ p_session_id: null }),
-    );
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ sessionId: null }));
   });
 
   it('sends a stats-only row when redaction fails', async () => {
-    const { deps, rpc } = createDeps({ redactStatus: 'failed' });
+    const { deps, record } = createDeps({ redactStatus: 'failed' });
     await persistConversation(deps, transcript, run, sessionId);
-    expect(rpc).toHaveBeenCalledWith(
-      'record_conversation',
-      expect.objectContaining({ p_redacted_transcript: null, p_redaction_status: 'failed' }),
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ redactedTranscript: null, redactionStatus: 'failed' }),
     );
   });
 
   it('forwards the recommended clinic ids for the RPC to dedupe', async () => {
-    const { deps, rpc } = createDeps();
+    const { deps, record } = createDeps();
     await persistConversation(
       deps,
       transcript,
       { ...run, recommendedClinicIds: ['a1', 'b2'] },
       sessionId,
     );
-    expect(rpc).toHaveBeenCalledWith(
-      'record_conversation',
-      expect.objectContaining({ p_recommended_clinic_ids: ['a1', 'b2'] }),
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ recommendedClinicIds: ['a1', 'b2'] }),
     );
   });
 
   it('falls back to the locally detected area when no search area was captured', async () => {
-    const { deps, rpc } = createDeps();
+    const { deps, record } = createDeps();
     await persistConversation(deps, transcript, { ...run, detectedLegalArea: null }, sessionId);
-    expect(rpc).toHaveBeenCalledWith(
-      'record_conversation',
-      expect.objectContaining({ p_detected_legal_area: 'Mietrecht' }),
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ detectedLegalArea: 'Mietrecht' }),
     );
   });
 

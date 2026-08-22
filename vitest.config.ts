@@ -18,7 +18,9 @@ export default defineConfig({
     // globals enables @testing-library/react auto-cleanup between tests
     globals: true,
     environment: 'jsdom',
+    pool: 'threads',
+    maxWorkers: 2,
     setupFiles: ['./vitest.setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.mjs'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.{test,spec}.{ts,mjs}'],
   },
 });

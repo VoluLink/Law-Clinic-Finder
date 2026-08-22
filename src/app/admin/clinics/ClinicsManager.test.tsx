@@ -12,7 +12,7 @@ function clinic(overrides: Partial<AdminClinicRow>): AdminClinicRow {
     name: 'Mietrecht Clinic',
     description: null,
     region: 'Köln',
-    contact_email: 'a@b.de',
+    contact_email: 'alpha@example.org',
     website: 'https://x.de',
     legal_areas: 'Mietrecht',
     target_clients: null,
@@ -43,7 +43,7 @@ const pending: PendingReview[] = [
     name: 'Neue Clinic',
     region: 'Hamburg',
     legal_areas: 'Sozialrecht',
-    contact_email: 'n@c.de',
+    contact_email: 'new@example.org',
     kind: 'new',
   },
 ];
@@ -102,7 +102,7 @@ describe('ClinicsManager', () => {
     renderManager();
     await userEvent.click(screen.getByRole('button', { name: /Datenbank bearbeiten/ }));
     expect(screen.getAllByDisplayValue('https://x.de')[0]).toHaveAttribute('type', 'url');
-    expect(screen.getByDisplayValue('a@b.de')).toHaveAttribute('type', 'email');
+    expect(screen.getByDisplayValue('alpha@example.org')).toHaveAttribute('type', 'email');
   });
 
   it('renders a Ja/Nein control for the Beratungsarbeit cell', async () => {
@@ -255,7 +255,7 @@ describe('ClinicsManager', () => {
   it('blocks the save and names the clinic when a contact email is invalid', async () => {
     const fetchMock = renderManager();
     await userEvent.click(screen.getByRole('button', { name: /Datenbank bearbeiten/ }));
-    const emailCell = screen.getByDisplayValue('a@b.de');
+    const emailCell = screen.getByDisplayValue('alpha@example.org');
     await userEvent.clear(emailCell);
     await userEvent.type(emailCell, 'not-an-email');
     await userEvent.click(screen.getByRole('button', { name: 'Speichern' }));

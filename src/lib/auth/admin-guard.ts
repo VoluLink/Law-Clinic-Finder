@@ -1,21 +1,23 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-
 import { AuthError, requireRole } from './require-role';
+import { isSameOrigin } from '../http/same-origin';
 
-type GuardResult = { supabase: SupabaseClient; userId: string } | { response: Response };
+type GuardResult =
+  { userId: string; email: string | null; authTime: number | null } | { response: Response };
 
 /** Shared guard for /api/admin/* routes: session client + admin re-check. The
  *  caller's own id comes back with it, so a route can tell "this admin" from
  *  "another admin" — the self-removal guard depends on that distinction. */
-export async function requireAdminRoute(): Promise<GuardResult> {
-  const supabase = await createSupabaseServerClient();
+export async function requireAdminRoute(request?: Request): Promise<GuardResult> {
+  if (request && !isSameOrigin(request)) {
+    return { response: Response.json({ error: 'Nicht erlaubt.' }, { status: 403 }) };
+  }
   try {
-    await requireRole(supabase, ['admin']);
-    const { data } = await supabase.auth.getClaims();
-    const userId = typeof data?.claims?.sub === 'string' ? data.claims.sub : '';
-    return { supabase, userId };
+    const profile = await requireRole(['admin']);
+    return {
+      userId: profile.user_id,
+      email: profile.email ?? null,
+      authTime: profile.auth_time ?? null,
+    };
   } catch (error) {
     if (error instanceof AuthError) {
       return { response: Response.json({ error: 'Nicht berechtigt.' }, { status: error.status }) };
