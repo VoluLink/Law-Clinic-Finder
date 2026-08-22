@@ -21,7 +21,7 @@ const notoSansArabic = Noto_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: 'Law Clinic Finder',
+  title: 'Kostenlose Rechtsberatung | Law Clinic Finder',
   description:
     'Kostenlose studentische Rechtsberatung in Deutschland finden – ' +
     'der Law Clinic Finder vermittelt die passende Law Clinic für Ihr Anliegen.',

@@ -31,7 +31,7 @@ export async function downloadRecommendationPdf(options: PdfOptions): Promise<vo
 function pdfRenderOptions() {
   return {
     autoPaging: 'text' as const,
-    html2canvas: { backgroundColor: '#ffffff', scale: 1 },
+    html2canvas: { backgroundColor: '#ffffff', logging: false, scale: 2 },
     margin: 0,
     width: 595,
     windowWidth: 595,
@@ -41,6 +41,7 @@ function pdfRenderOptions() {
 function createPdfDocument({ data, dict, lang, rtl }: PdfOptions): HTMLElement {
   const root = document.createElement('article');
   root.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+  root.setAttribute('lang', lang);
   root.style.cssText = documentStyle(rtl);
   root.innerHTML = buildRecommendationPdfMarkup(data, dict, lang);
   return root;
@@ -50,14 +51,15 @@ function documentStyle(rtl: boolean): string {
   return [
     'position:fixed',
     'top:0',
-    'left:0',
-    'z-index:-1',
+    'left:-10000px',
+    'z-index:0',
     'width:595px',
     'min-height:842px',
     'box-sizing:border-box',
     'background:#ffffff',
-    'color:#202124',
-    'font-family:Arial, "Noto Sans Arabic", sans-serif',
+    'padding:14px',
+    'color:#365d68',
+    'font-family:var(--font-hanken-grotesk),Arial,"Noto Sans Arabic",sans-serif',
     'font-size:11px',
     'line-height:1.45',
     `text-align:${rtl ? 'right' : 'left'}`,
@@ -71,23 +73,24 @@ export function buildRecommendationPdfMarkup(
 ): string {
   const createdAt = formatExportDate(data.generatedAt, lang);
   const cards = data.clinics.map((clinic) => clinicMarkup(clinic, dict)).join('');
-  return `${pdfHeader(dict, createdAt)}${detailsMarkup(data.details, dict)}${cards}${pdfFooter(dict)}`;
+  const content = `${pdfHeader(dict, createdAt)}${detailsMarkup(data.details, dict)}${cards}${pdfFooter(dict)}`;
+  return `<main data-export-page style="box-sizing:border-box;min-height:814px;background:#fbf3e7;color:#365d68;padding:23px">${content}</main>`;
 }
 
 function pdfHeader(dict: Dictionary, createdAt: string): string {
-  return `<header style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #292929;margin:37px 37px 0;padding-bottom:9px"><strong style="display:flex;align-items:flex-start"><span style="font-size:13px;line-height:11px;letter-spacing:-.5px"><span style="display:block">law clinics</span><span style="display:block;margin-left:11px;font-size:10px;line-height:10px">deutschland</span></span><span style="width:4px;height:22px;margin:1px 0 0 4px;background:#202124"></span></strong><span style="font-size:9px;font-weight:700;color:#6a6a6a">${escapeHtml(dict.exportGeneratedOn)} ${escapeHtml(createdAt)}</span></header><h1 style="font-size:24px;line-height:1.1;letter-spacing:-1px;margin:13px 37px 10px;font-weight:800">${escapeHtml(dict.exportTitle)}</h1>`;
+  return `<header style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #afc5ca;padding-bottom:9px"><strong style="display:flex;align-items:flex-start;color:#07566a"><span style="font-size:13px;line-height:11px;letter-spacing:-.5px"><span style="display:block">law clinics</span><span style="display:block;margin-left:11px;font-size:10px;line-height:10px">deutschland</span></span><span style="width:4px;height:22px;margin:1px 0 0 4px;background:#07566a"></span></strong><span style="font-size:9px;font-weight:700;color:#7898a0">${escapeHtml(dict.exportGeneratedOn)} ${escapeHtml(createdAt)}</span></header><h1 style="color:#07566a;font-size:24px;line-height:1.1;letter-spacing:-1px;margin:13px 0 10px;font-weight:800">${escapeHtml(dict.exportTitle)}</h1>`;
 }
 
 function detailsMarkup(details: string[], dict: Dictionary): string {
   const detail = details[0] ?? '';
-  return `<section style="box-sizing:border-box;min-height:72px;background:#f1f1f1;border-radius:13px;padding:12px 15px;margin:0 37px 13px"><strong style="display:block;font-size:8px;line-height:10px;letter-spacing:1.15px;text-transform:uppercase;color:#535353;margin-bottom:6px">${escapeHtml(dict.exportConcern)}</strong><p data-export-detail style="margin:0;font-size:11px;line-height:16px">${escapeHtml(detail)}</p></section>`;
+  return `<section style="box-sizing:border-box;min-height:70px;background:#f1e5cf;border-radius:13px;padding:12px 15px;margin-bottom:13px"><strong style="display:block;font-size:8px;line-height:10px;letter-spacing:1.15px;text-transform:uppercase;color:#39717d;margin-bottom:6px">${escapeHtml(dict.exportConcern)}</strong><p data-export-detail style="margin:0;font-size:11px;line-height:16px">${escapeHtml(detail)}</p></section>`;
 }
 
 function clinicMarkup(clinic: RecommendationExport['clinics'][number], dict: Dictionary): string {
   const location = clinic.region
-    ? `<span style="color:#6b6b6b;font-size:11px">${escapeHtml(clinic.region)}</span>`
+    ? `<span style="color:#7898a0;font-size:11px">${escapeHtml(clinic.region)}</span>`
     : '';
-  return `<section style="border:1px solid #d1d1d1;border-radius:12px;padding:14px;margin:0 37px 8px;page-break-inside:avoid"><div style="display:flex;align-items:flex-start;gap:10px"><span style="display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#202124;color:#fff;font-size:10px;font-weight:700">${clinic.rank}</span><div style="flex:1;min-width:0"><div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap"><strong style="font-size:16px;line-height:20px">${escapeHtml(clinic.name)}</strong>${location}</div>${areaMarkup(clinic.areas)}<p style="margin:12px 0 0;font-size:11px;line-height:16px"><strong>${escapeHtml(dict.whyFits)}</strong> ${escapeHtml(clinic.reason)}</p>${contactMarkup(clinic, dict)}</div></div></section>`;
+  return `<section style="background:#ffffff;border:1px solid #cbdde1;border-radius:12px;padding:14px;margin-bottom:8px;page-break-inside:avoid"><div style="display:flex;align-items:flex-start;gap:10px"><span style="display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#07566a;color:#fff;font-size:10px;font-weight:700">${clinic.rank}</span><div style="flex:1;min-width:0"><div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap"><strong style="color:#07566a;font-size:16px;line-height:20px">${escapeHtml(clinic.name)}</strong>${location}</div>${areaMarkup(clinic.areas)}<p style="margin:12px 0 0;font-size:11px;line-height:16px"><strong style="color:#07566a">${escapeHtml(dict.whyFits)}</strong> ${escapeHtml(clinic.reason)}</p>${contactMarkup(clinic, dict)}</div></div></section>`;
 }
 
 function areaMarkup(areas: string[]): string {
@@ -95,7 +98,7 @@ function areaMarkup(areas: string[]): string {
   const tags = areas
     .map(
       (area) =>
-        `<span style="display:inline-block;border-radius:4px;background:#eeeeee;padding:3px 7px;font-size:8px;font-weight:700">${escapeHtml(area)}</span>`,
+        `<span style="display:inline-block;border-radius:4px;background:#edf3f4;color:#07566a;padding:3px 7px;font-size:8px;font-weight:700">${escapeHtml(area)}</span>`,
     )
     .join(' ');
   return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${tags}</div>`;
@@ -109,11 +112,11 @@ function contactMarkup(clinic: RecommendationExport['clinics'][number], dict: Di
   const email = clinic.email
     ? `<div><strong>${escapeHtml(dict.exportEmail)}:</strong> <span style="text-decoration:underline">${escapeHtml(clinic.email)}</span></div>`
     : '';
-  return `<div style="border-top:1px solid #d8d8d8;margin-top:10px;padding-top:8px;font-size:10px;line-height:16px">${website}${email}</div>`;
+  return `<div style="border-top:1px solid #dce7e9;margin-top:10px;padding-top:8px;font-size:10px;line-height:16px;color:#365d68">${website}${email}</div>`;
 }
 
 function pdfFooter(dict: Dictionary): string {
-  return `<footer style="display:flex;align-items:center;gap:18px;margin:20px 37px 0;page-break-inside:avoid"><img data-export-qr src="${FINDER_QR_DATA_URL}" width="52" height="52" alt=""><span><strong style="display:block;font-size:11px;line-height:14px">${escapeHtml(dict.exportFindMore)}</strong><span style="display:block;margin-top:2px;color:#666;font-size:10px;line-height:12px;text-decoration:underline">law-clinics.de/finder</span></span></footer>`;
+  return `<footer style="display:flex;align-items:center;gap:12px;margin-top:17px;page-break-inside:avoid"><span data-export-qr-frame style="display:inline-flex;background:#ffffff;border-radius:11px;padding:10px"><img data-export-qr src="${FINDER_QR_DATA_URL}" width="48" height="48" alt="" style="image-rendering:pixelated"></span><span><strong style="display:block;color:#07566a;font-size:11px;line-height:14px">${escapeHtml(dict.exportFindMore)}</strong><span style="display:block;margin-top:2px;color:#7898a0;font-size:10px;line-height:12px;text-decoration:underline">law-clinics.de/finder</span></span></footer>`;
 }
 
 function escapeHtml(value: string): string {

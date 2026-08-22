@@ -26,6 +26,16 @@ const data = {
 };
 
 describe('buildRecommendationPdfMarkup', () => {
+  it('uses the reference document palette and print-safe page structure', () => {
+    const markup = buildRecommendationPdfMarkup(data, de, 'de');
+
+    expect(markup).toContain('data-export-page');
+    expect(markup).toContain('background:#fbf3e7');
+    expect(markup).toContain('color:#07566a');
+    expect(markup).toContain('border:1px solid #cbdde1');
+    expect(markup).toContain('data-export-qr-frame');
+  });
+
   it('renders only the initial chat detail in the concern panel', () => {
     const document = new DOMParser().parseFromString(
       buildRecommendationPdfMarkup(data, de, 'de'),
