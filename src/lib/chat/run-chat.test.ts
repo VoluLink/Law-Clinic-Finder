@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { makeChatSettings } from '@/lib/settings.fixtures';
 
-import { runChat, type AnthropicLike } from './run-chat';
+import { chatErrorCode, isTransient, runChat, type AnthropicLike } from './run-chat';
 import { decodeChatEvents, type ChatEvent, type ClinicRecommendation } from './stream-protocol';
 
 const settings = makeChatSettings();
@@ -478,5 +478,68 @@ describe(runChat, () => {
 
     const events = await readEvents(runChat(deps, settings, [userMessage]).stream);
     expect(events.filter((event) => event.t === 'clinics')).toEqual([]);
+  });
+});
+
+describe(chatErrorCode, () => {
+  it.each([
+    [529, 'overloaded'],
+    [503, 'overloaded'],
+    [429, 'rate_limited'],
+    [500, 'unavailable'],
+    [502, 'unavailable'],
+  ] as const)('maps status %i to %s', (status, expected) => {
+    expect(chatErrorCode(Object.assign(new Error('provider'), { status }))).toBe(expected);
+  });
+
+  it('maps a connection timeout to timeout', () => {
+    const error = Object.assign(new Error('timed out'), { name: 'APIConnectionTimeoutError' });
+    expect(chatErrorCode(error)).toBe('timeout');
+  });
+
+  it('maps a dropped connection to unavailable', () => {
+    const error = Object.assign(new Error('socket hang up'), { name: 'APIConnectionError' });
+    expect(chatErrorCode(error)).toBe('unavailable');
+  });
+
+  it('never leaks an unrecognised provider failure as its own code', () => {
+    expect(chatErrorCode(new Error('quota_exceeded for org sk-abc'))).toBe('internal');
+  });
+});
+
+describe(isTransient, () => {
+  it('treats an overloaded provider as retryable', () => {
+    expect(isTransient(Object.assign(new Error('busy'), { status: 529 }))).toBe(true);
+  });
+
+  it('does not retry a rejected request', () => {
+    expect(isTransient(Object.assign(new Error('bad request'), { status: 400 }))).toBe(false);
+  });
+});
+
+describe('run failure reporting', () => {
+  function failingRun(error: unknown) {
+    const anthropic = {
+      messages: {
+        stream: () => {
+          throw error;
+        },
+      },
+    } as unknown as AnthropicLike;
+    return runChat({ anthropic, ...unusedTools() }, settings, [userMessage]);
+  }
+
+  it('closes the stream with an error frame instead of aborting the body', async () => {
+    const overloaded = Object.assign(new Error('overloaded'), { status: 529 });
+    const { stream, result } = failingRun(overloaded);
+    void result.catch(() => undefined);
+
+    await expect(readEvents(stream)).resolves.toEqual([{ t: 'error', code: 'overloaded' }]);
+  });
+
+  it('rejects the result promise so the failure is still logged', async () => {
+    const { stream, result } = failingRun(new Error('boom'));
+    await readEvents(stream);
+    await expect(result).rejects.toThrow('boom');
   });
 });

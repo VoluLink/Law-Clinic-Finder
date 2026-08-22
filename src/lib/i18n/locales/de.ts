@@ -88,6 +88,13 @@ export const de: Translations = {
   chatPlaceholder: 'Nachricht eingeben…',
   chatSend: 'Senden',
   chatError: 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+  chatErrorOverloaded:
+    'Der Assistent ist gerade überlastet. Versuch es in einem Moment noch einmal.',
+  chatErrorRateLimited:
+    'Gerade sind sehr viele Anfragen unterwegs. Warte kurz und versuch es erneut.',
+  chatErrorUnavailable: 'Die Verbindung zum Assistenten ist abgebrochen. Versuch es bitte erneut.',
+  chatErrorTimeout: 'Die Antwort hat zu lange gedauert. Versuch es bitte erneut.',
+  chatRetry: 'Erneut versuchen',
   chatDisabled: 'Der Assistent ist zurzeit nicht verfügbar. Bitte versuche es später erneut.',
   chatUnavailableTitle: 'Assistent zurzeit nicht verfügbar',
   limitMinuteTitle: 'Anfragelimit erreicht',

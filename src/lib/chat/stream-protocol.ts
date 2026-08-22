@@ -25,12 +25,29 @@ export const clinicRecommendationSchema = z.object({
 
 export type ClinicRecommendation = z.infer<typeof clinicRecommendationSchema>;
 
+/**
+ * Why the reply stopped. The frame carries a code rather than a message: the
+ * wording is app-owned and localised, and a model or provider string must never
+ * reach the visitor. Aborting the HTTP body instead would leave a half-written
+ * bubble with nothing to explain it.
+ */
+export const CHAT_ERROR_CODES = [
+  'overloaded',
+  'rate_limited',
+  'unavailable',
+  'timeout',
+  'internal',
+] as const;
+
+export type ChatErrorCode = (typeof CHAT_ERROR_CODES)[number];
+
 const chatEventSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('text'), v: z.string() }),
   z.object({ t: z.literal('clinics'), v: z.array(clinicRecommendationSchema) }),
   // Signals that the assistant concluded no clinic fits; the client shows a
   // fixed "ways forward" card. Carries no payload — its copy is app-owned.
   z.object({ t: z.literal('nomatch') }),
+  z.object({ t: z.literal('error'), code: z.enum(CHAT_ERROR_CODES) }),
 ]);
 
 export type ChatEvent = z.infer<typeof chatEventSchema>;

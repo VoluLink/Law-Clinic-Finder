@@ -415,4 +415,62 @@ describe('FinderChat', () => {
     expect(await screen.findByText('In welcher Stadt wohnst du?')).toBeInTheDocument();
     expect(screen.queryByText(de.recFooter)).not.toBeInTheDocument();
   });
+
+  it('explains an overloaded assistant and keeps the partial text', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        eventResponse([
+          { t: 'text', v: 'Ich schaue nach' },
+          { t: 'error', code: 'overloaded' },
+        ]),
+      ),
+    );
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(de.chatErrorOverloaded);
+    expect(screen.getByText('Ich schaue nach')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['rate_limited', de.chatErrorRateLimited],
+    ['unavailable', de.chatErrorUnavailable],
+    ['timeout', de.chatErrorTimeout],
+    ['internal', de.chatError],
+  ] as const)('renders its own message for %s', async (code, expected) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventResponse([{ t: 'error', code }])));
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(expected);
+  });
+
+  it('does not mistake an error frame for a no-match result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(eventResponse([{ t: 'error', code: 'internal' }])),
+    );
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    await screen.findByRole('alert');
+    expect(screen.queryByText(de.noMatchTitle)).not.toBeInTheDocument();
+  });
+
+  it('resends the last question without duplicating it', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(eventResponse([{ t: 'error', code: 'overloaded' }]))
+      .mockResolvedValueOnce(eventResponse([{ t: 'text', v: 'Jetzt klappt es' }]));
+    vi.stubGlobal('fetch', fetchMock);
+    renderChat();
+    await submitQuery('Meine Frage');
+
+    await userEvent.click(await screen.findByRole('button', { name: de.chatRetry }));
+
+    expect(await screen.findByText('Jetzt klappt es')).toBeInTheDocument();
+    expect(screen.getAllByText('Meine Frage')).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

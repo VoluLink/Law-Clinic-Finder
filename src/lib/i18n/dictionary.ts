@@ -58,6 +58,12 @@ export type Translations = {
   chatPlaceholder: string;
   chatSend: string;
   chatError: string;
+  /** One message per ChatErrorCode, so a failure explains what to do next. */
+  chatErrorOverloaded: string;
+  chatErrorRateLimited: string;
+  chatErrorUnavailable: string;
+  chatErrorTimeout: string;
+  chatRetry: string;
   chatDisabled: string;
   chatUnavailableTitle: string;
   limitMinuteTitle: string;

@@ -14,7 +14,11 @@ import { BrandLine } from '@/components/layout/BrandLine';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { MAX_CHAT_MESSAGE_CHARS, trimChatHistory } from '@/lib/chat/schema';
-import { decodeChatEvents, type ClinicRecommendation } from '@/lib/chat/stream-protocol';
+import {
+  decodeChatEvents,
+  type ChatErrorCode,
+  type ClinicRecommendation,
+} from '@/lib/chat/stream-protocol';
 import { cn } from '@/lib/cn';
 import type { Lang } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/dictionary';
@@ -34,6 +38,8 @@ type Message = {
   content: string;
   recommendations?: ClinicRecommendation[];
   noMatch?: boolean;
+  /** Set when the reply stopped early; renders an explanation plus a retry. */
+  errorCode?: ChatErrorCode;
 };
 
 /** Display-only opener from /admin/assistant; never sent to the model. */
@@ -52,6 +58,13 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
   // One id per chat, so the server folds every turn onto a single conversation.
   const sessionId = useRef<string | null>(null);
 
+  function retry() {
+    const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+    if (!lastUserMessage || pending) return;
+    setMessages((prev) => prev.filter((message) => !message.errorCode));
+    void send(lastUserMessage.content, true);
+  }
+
   function restart() {
     setMessages([]);
     setChatPresentation({ dict, lang, rtl });
@@ -67,12 +80,15 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
     return () => window.clearTimeout(timeout);
   }, [activeLimit]);
 
-  async function send(content: string) {
+  /** `resend` replays a turn already on screen, so it must not add a second
+   *  user bubble and must drop the failed reply before asking again. */
+  async function send(content: string, resend = false) {
     const presentation = resolveChatPresentation(content);
     setChatPresentation(presentation);
-    const history = trimChatHistory([...messages, { role: 'user', content }]);
+    const kept = resend ? messages.filter((message) => !message.errorCode) : messages;
+    const history = trimChatHistory(resend ? kept : [...kept, { role: 'user', content }]);
     sessionId.current ??= crypto.randomUUID();
-    setMessages((prev) => [...prev, { role: 'user', content }]);
+    setMessages(resend ? kept : [...kept, { role: 'user', content }]);
     setInput('');
     setPending(true);
     try {
@@ -114,6 +130,7 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
       limitScope={limitScope}
       greeting={greeting}
       onRestart={restart}
+      onRetry={retry}
     />
   );
 }
@@ -182,11 +199,44 @@ async function readStream(
     for (const event of events) {
       if (event.t === 'text') reply.content += event.v;
       else if (event.t === 'clinics') reply.recommendations = event.v;
-      else reply.noMatch = true;
+      else if (event.t === 'nomatch') reply.noMatch = true;
+      else if (event.t === 'error') reply.errorCode = event.code;
     }
     const snapshot = { ...reply };
     setMessages((prev) => [...prev.slice(0, -1), snapshot]);
   }
+}
+
+/** Explains a reply that stopped early and offers to resend the last question.
+ *  Partial text stays on screen above it — it may still be useful. */
+function ChatErrorNotice({
+  dict,
+  code,
+  onRetry,
+}: {
+  dict: Dictionary;
+  code: ChatErrorCode;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-danger/40 bg-danger/10 p-4 text-start"
+    >
+      <span className="text-sm text-foreground">{chatErrorMessage(dict, code)}</span>
+      <Button variant="secondary" onClick={onRetry}>
+        {dict.chatRetry}
+      </Button>
+    </div>
+  );
+}
+
+function chatErrorMessage(dict: Dictionary, code: ChatErrorCode): string {
+  if (code === 'overloaded') return dict.chatErrorOverloaded;
+  if (code === 'rate_limited') return dict.chatErrorRateLimited;
+  if (code === 'unavailable') return dict.chatErrorUnavailable;
+  if (code === 'timeout') return dict.chatErrorTimeout;
+  return dict.chatError;
 }
 
 type StageProps = {
@@ -265,7 +315,12 @@ function DailyLimitNotice({ dict }: { dict: Dictionary }) {
 }
 
 function ChatCard(
-  props: StageProps & { messages: Message[]; greeting: string; onRestart: () => void },
+  props: StageProps & {
+    messages: Message[];
+    greeting: string;
+    onRestart: () => void;
+    onRetry: () => void;
+  },
 ) {
   const { dict, lang, messages, pending, limitScope, greeting, onRestart, rtl } = props;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -302,6 +357,9 @@ function ChatCard(
             <MessageBubble dict={dict} message={message} />
             {message.recommendations && (
               <ClinicRecommendations dict={dict} items={message.recommendations} />
+            )}
+            {message.errorCode && (
+              <ChatErrorNotice dict={dict} code={message.errorCode} onRetry={props.onRetry} />
             )}
           </div>
         ))}

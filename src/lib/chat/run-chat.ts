@@ -14,9 +14,48 @@ import {
 import { recommendClinicsInputSchema } from './recommend-clinics';
 import type { ChatMessage } from './schema';
 import { searchClinicsInputSchema } from './search-clinics';
-import { encodeChatEvent, type ChatEvent, type ClinicRecommendation } from './stream-protocol';
+import {
+  encodeChatEvent,
+  type ChatErrorCode,
+  type ChatEvent,
+  type ClinicRecommendation,
+} from './stream-protocol';
 
 const MAX_TOOL_TURNS = 5;
+/** One retry only, and only before any text has been emitted — see `streamTurn`. */
+const TRANSIENT_RETRY_DELAY_MS = 600;
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 529]);
+
+type StatusCarrier = { status?: unknown; name?: unknown };
+
+function statusOf(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const status = (error as StatusCarrier).status;
+  return typeof status === 'number' ? status : null;
+}
+
+/**
+ * Maps a provider failure onto the closed set the client can render. Anything
+ * unrecognised becomes `internal` rather than leaking a provider message.
+ */
+export function chatErrorCode(error: unknown): ChatErrorCode {
+  const status = statusOf(error);
+  if (status === 529 || status === 503) return 'overloaded';
+  if (status === 429) return 'rate_limited';
+  if (status !== null && status >= 500) return 'unavailable';
+  const name = error instanceof Error ? error.name : '';
+  if (name === 'AbortError' || name === 'TimeoutError') return 'timeout';
+  if (name === 'APIConnectionTimeoutError') return 'timeout';
+  if (name === 'APIConnectionError') return 'unavailable';
+  return 'internal';
+}
+
+export function isTransient(error: unknown): boolean {
+  const status = statusOf(error);
+  if (status !== null) return TRANSIENT_STATUSES.has(status);
+  const name = error instanceof Error ? error.name : '';
+  return name === 'APIConnectionError' || name === 'APIConnectionTimeoutError';
+}
 
 type StreamEvent = { type: string; delta?: unknown };
 
@@ -137,15 +176,17 @@ export function runChat(
   });
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const emit = (event: ChatEvent) => controller.enqueue(encoder.encode(encodeChatEvent(event)));
       try {
-        const emit = (event: ChatEvent) =>
-          controller.enqueue(encoder.encode(encodeChatEvent(event)));
         settle.resolve(await driveConversation(deps, settings, messages, emit));
-        controller.close();
       } catch (error) {
+        // Close the body normally after an error frame. `controller.error()`
+        // aborts the response, so the client's reader throws and whatever text
+        // already rendered is left with nothing to explain it.
+        emit({ t: 'error', code: chatErrorCode(error) });
         settle.reject(error);
-        controller.error(error);
       }
+      controller.close();
     },
   });
   return { stream, result };
@@ -175,7 +216,7 @@ async function driveConversation(
   };
   for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
     let startsNewTurn = true;
-    const final = await streamTurn(deps, settings, history, (t) => {
+    const final = await streamTurnWithRetry(deps, settings, history, state, (t) => {
       const separator = startsNewTurn ? textBoundary(state.text, t) : '';
       state.text += `${separator}${t}`;
       if (separator) emit({ t: 'text', v: separator });
@@ -205,6 +246,31 @@ async function driveConversation(
 function textBoundary(previous: string, next: string): string {
   if (!previous || !next || /\s$/.test(previous) || /^\s/.test(next)) return '';
   return ' ';
+}
+
+/**
+ * Retries a transient provider failure once, and only while the run has produced
+ * no text yet — after the first token the visitor is already reading a reply, and
+ * a second attempt would duplicate or contradict it.
+ */
+async function streamTurnWithRetry(
+  deps: RunChatDeps,
+  settings: ChatSettings,
+  history: Anthropic.MessageParam[],
+  state: RunState,
+  onText: (text: string) => void,
+): Promise<FinalMessage> {
+  try {
+    return await streamTurn(deps, settings, history, onText);
+  } catch (error) {
+    if (state.text.length > 0 || !isTransient(error)) throw error;
+    await delay(TRANSIENT_RETRY_DELAY_MS);
+    return streamTurn(deps, settings, history, onText);
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function streamTurn(
