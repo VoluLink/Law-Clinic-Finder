@@ -30,10 +30,6 @@ export function OperationalAlertsPanel({ admins, recipient }: OperationalAlertsP
           onSelect={form.setSelectedUserId}
         />
         <FormFeedback {...form} />
-        <p className="text-xs text-muted">
-          Firestore speichert nur die Admin-Konto-ID. Die aktuelle Zieladresse wird bei jeder
-          Änderung sicher aus Firebase Authentication gelesen.
-        </p>
       </form>
     </Panel>
   );

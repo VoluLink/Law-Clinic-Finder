@@ -13,7 +13,7 @@ test.describe('admin session', () => {
   test('reaches the dashboard and alert selector', async ({ page }) => {
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin$/);
-    await page.goto('/admin/admins');
+    await page.goto('/admin/smtp');
     await expect(page.getByText('Admin-Benachrichtigungen')).toBeVisible();
     await expect(page.getByRole('radio', { name: /admin@example\.com/i })).toBeChecked();
   });

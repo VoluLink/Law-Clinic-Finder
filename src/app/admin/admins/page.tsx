@@ -3,10 +3,8 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { listAdmins } from '@/lib/admin/manage-admins';
-import { loadOperationalAlertRecipient } from '@/lib/admin/operational-alerts';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { firebaseAdminAccountStore } from '@/lib/firebase/admin-account-store';
-import { firebaseOperationalAlertStore } from '@/lib/firebase/operational-alert-store';
 import { requestLogger } from '@/lib/http/request-id';
 
 import { AdminsManager } from './AdminsManager';
@@ -26,17 +24,5 @@ export default async function AdminAccountsPage() {
     throw error;
   }
   const admins = await listAdmins({ store: firebaseAdminAccountStore, logger });
-  const operationalAlertRecipient = await loadOperationalAlertRecipient(
-    admins,
-    firebaseOperationalAlertStore,
-    logger,
-  );
-  return (
-    <AdminsManager
-      admins={admins}
-      currentEmail={currentEmail}
-      currentUserId={currentUserId}
-      operationalAlertRecipient={operationalAlertRecipient}
-    />
-  );
+  return <AdminsManager admins={admins} currentEmail={currentEmail} currentUserId={currentUserId} />;
 }

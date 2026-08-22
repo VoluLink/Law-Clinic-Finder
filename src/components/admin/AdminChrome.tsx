@@ -8,7 +8,7 @@ const NAV: NavItem[] = [
   { href: '/admin/assistant', label: 'KI-Assistent', icon: 'robot' },
   { href: '/admin/logs', label: 'Protokolle', icon: 'file-lines' },
   { href: '/admin/branding', label: 'Branding', icon: 'palette' },
-  { href: '/admin/smtp', label: 'E-Mail-Versand', icon: 'envelope' },
+  { href: '/admin/smtp', label: 'Benachrichtigungen', icon: 'envelope' },
   { href: '/admin/admins', label: 'Admins', icon: 'users' },
 ];
 
@@ -19,7 +19,7 @@ const TITLES: Record<string, string> = {
   '/admin/assistant': 'KI-Assistent',
   '/admin/logs': 'Protokolle',
   '/admin/branding': 'Branding & Erscheinungsbild',
-  '/admin/smtp': 'E-Mail-Versand',
+  '/admin/smtp': 'Benachrichtigungen',
 };
 
 /** Admin console chrome — the teal sidebar shell with admin navigation and identity. */
