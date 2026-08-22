@@ -12,6 +12,9 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Diese Unreleased-Fassung ist der erste GitHub-Projektstand mit der Firebase-Migration. Sie bleibt
   als zugriffsgeschütztes Staging markiert; Domain, Rechtstexte, Brevo-DKIM und öffentlicher Cutover
   sind bewusst noch offen.
+- Supabase JS und der direkte Low-Level-Firestore-Client sind nur noch Entwicklungsabhängigkeiten
+  der vom App-Hosting-Archiv ausgeschlossenen Kopier-/Importskripte. Ein Regressionstest verhindert,
+  dass sie wieder als Produktionsabhängigkeit oder Runtime-Import aufgenommen werden.
 - Jede Antwort erhält an der vertrauenswürdigen Proxy-Grenze eine neue UUID als Request-ID; ein
   fremder Eingabewert wird verworfen. Route Handler reichen die ID an strukturierte Child-Logger
   weiter, ohne Request-Bodies, Tokens oder PII zu protokollieren.

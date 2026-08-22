@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.2",
-    "@google-cloud/firestore": "^8.7.1",
     "firebase-admin": "^14.2.0",
     "jspdf": "^4.2.1",
     "next": "16.2.12",
@@ -41,6 +40,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@firebase/rules-unit-testing": "^5.0.1",
+    "@google-cloud/firestore": "^8.7.1",
     "@playwright/test": "^1.62.1",
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/postcss": "^4",

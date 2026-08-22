@@ -226,6 +226,9 @@ gibt weder Uptime-Polling noch eine eigene Log-Metrik.
   `src/lib/firebase/`; UI und Domänenlogik kennen keine Cloud-Abfragesyntax. Datenbank-Client,
   `Timestamp`, `FieldPath` und `FieldValue` kommen einheitlich aus `firebase-admin/firestore`, damit
   der Produktions-Bundler keine inkompatiblen Firestore-Instanzen erzeugt.
+- `@supabase/supabase-js` und der direkte `@google-cloud/firestore`-Client sind ausschließlich
+  Entwicklungsabhängigkeiten für die ignorierten lokalen Kopier-/Importskripte. Ein Konfigurationstest
+  verhindert ihre Aufnahme in `src/`, Produktionsabhängigkeiten oder das App-Hosting-Quellarchiv.
 - `settings/chat` bleibt strikt DB-only. Admin-editierbare Prompt-Texte werden nie als Codekopie
   ergänzt; Änderungen/Defaults laufen über eine versionierte, idempotente Datenmigration.
 - Clinic-Felder mit Mehrfachwerten bleiben `"; "`-getrennter Text und verwenden die gemeinsamen
