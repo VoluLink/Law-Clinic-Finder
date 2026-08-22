@@ -26,6 +26,7 @@ export const tr: Translations = {
   cooperation: 'Bir iş birliği projesi',
   assistantName: 'Klinik Bulucu Asistanı',
   assistantTag: 'ASİSTAN',
+  aiInteractionNotice: 'Şu anda bir yapay zekâ ile etkileşimdesiniz.',
   chatYou: 'Sen',
   whyFits: 'Neden uygun:',
   toWebsite: 'Web sitesine',

@@ -25,6 +25,7 @@ export const ku: Translations = {
   cooperation: 'Projeyeke hevkariyê ya',
   assistantName: 'Alîkarê Clinic-Finder',
   assistantTag: 'ALÎKAR',
+  aiInteractionNotice: 'Tu niha bi zîrekiya sûnî re danûstandinê dikî.',
   chatYou: 'Tu',
   whyFits: 'Çima ev guncaw e:',
   toWebsite: 'Biçe malperê',

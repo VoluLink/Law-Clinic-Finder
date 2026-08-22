@@ -26,6 +26,7 @@ export const uk: Translations = {
   cooperation: 'Спільний проєкт',
   assistantName: 'Асистент пошуку клінік',
   assistantTag: 'АСИСТЕНТ',
+  aiInteractionNotice: 'Зараз ви взаємодієте зі штучним інтелектом.',
   chatYou: 'Ти',
   whyFits: 'Чому підходить:',
   toWebsite: 'На сайт',

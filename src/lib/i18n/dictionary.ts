@@ -35,6 +35,8 @@ export type Translations = {
   cooperation: string;
   assistantName: string;
   assistantTag: string;
+  /** EU AI Act Art. 50 disclosure, shown under the chat input. */
+  aiInteractionNotice: string;
   chatYou: string;
   whyFits: string;
   toWebsite: string;

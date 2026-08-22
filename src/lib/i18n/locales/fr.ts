@@ -26,6 +26,7 @@ export const fr: Translations = {
   cooperation: 'Un projet de coopération de',
   assistantName: 'Assistant Clinic Finder',
   assistantTag: 'ASSISTANT',
+  aiInteractionNotice: 'Vous interagissez actuellement avec une intelligence artificielle.',
   chatYou: 'Toi',
   whyFits: 'Pourquoi c’est adapté :',
   toWebsite: 'Voir le site',

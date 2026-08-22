@@ -25,6 +25,7 @@ export const ar: Translations = {
   cooperation: 'مشروع تعاون من',
   assistantName: 'مساعد الباحث عن العيادات',
   assistantTag: 'المساعد',
+  aiInteractionNotice: 'أنت تتفاعل حاليًا مع ذكاء اصطناعي.',
   chatYou: 'أنت',
   whyFits: 'لماذا تناسبك:',
   toWebsite: 'إلى الموقع',

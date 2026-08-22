@@ -127,6 +127,18 @@ describe('FinderChat', () => {
     expect(await screen.findByLabelText(de.chatPlaceholder)).toBeInTheDocument();
   });
 
+  it('discloses the AI interaction under the chat input', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
+    renderChat();
+    await submitQuery('Meine Frage');
+    expect(await screen.findByText(de.aiInteractionNotice)).toBeInTheDocument();
+  });
+
+  it('does not disclose the AI interaction before the chat is open', () => {
+    renderChat();
+    expect(screen.queryByText(de.aiInteractionNotice)).not.toBeInTheDocument();
+  });
+
   it('sizes the chat panel to the viewport once the chat starts', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse('Antwort')));
     const { container } = renderChat();

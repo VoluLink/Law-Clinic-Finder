@@ -442,6 +442,9 @@ function InputDock({ dict, input, setInput, pending, onSubmit, limitScope }: Sta
       {input.length >= MAX_CHAT_MESSAGE_CHARS && (
         <div className="mt-1.5 px-1 text-end text-xs text-danger">{dict.charWarn}</div>
       )}
+      {/* AI transparency (EU AI Act Art. 50): stated where the visitor is about to
+          write, so the disclosure is present at the moment of interaction. */}
+      <p className="mt-2 px-1 text-xs text-muted-soft">{dict.aiInteractionNotice}</p>
     </form>
   );
 }

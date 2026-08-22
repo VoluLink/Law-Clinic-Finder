@@ -25,6 +25,7 @@ export const fa: Translations = {
   cooperation: 'یک پروژه همکاری از',
   assistantName: 'دستیار یابنده کلینیک',
   assistantTag: 'دستیار',
+  aiInteractionNotice: 'شما در حال تعامل با یک هوش مصنوعی هستید.',
   chatYou: 'تو',
   whyFits: 'چرا مناسب است:',
   toWebsite: 'به وب‌سایت',
