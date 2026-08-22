@@ -207,6 +207,13 @@ Arbeitsfluss: Feature-Branch → Pull Request → grüne CI → Merge nach `main
 App-Hosting-Rollout. Functions, Regeln, IAM, Secrets, Backups und Auth-Konfiguration bleiben bewusst
 explizite, zielgeprüfte Deployments.
 
+Die regionale Developer-Connect-Verknüpfung ist eingerichtet und hat einen `main`-Commit korrekt
+abgerufen und gebaut. GitHub Actions prüft dabei nur den Code; Firebase App Hosting übernimmt den
+Deploy unabhängig über Developer Connect. Ein Build im Zustand READY genügt nicht: Erst ein
+SUCCEEDED-Rollout mit passendem Commit und 100% Cloud-Run-Traffic gilt als ausgeliefert. Die exakten
+Prüf-, Fehlerbehebungs- und Berechtigungsgrenzen stehen im
+[`Firebase Agent Playbook`](docs/firebase-agent-playbook.md#automatic-app-hosting-delivery).
+
 Der erste Staging-Rollout bleibt durch HTTP Basic geschützt. Der Schutz läuft vor allen Seiten und
 API-Routen, gibt die Zugangsdaten nicht an die Anwendung weiter, verhindert Shared-Cache-Antworten
 und benötigt keine Firestore-Lese- oder Schreibvorgänge. Lokal ist er standardmäßig aus. Vor der
@@ -268,9 +275,12 @@ in Benutzung und bleibt als Quelle/Backup vollständig erhalten. Die Migration k
 kein Transfer-Skript enthält eine Supabase-Delete-/Update-Operation.
 
 GitHub-Meilenstein: `main` enthält die vollständige Firebase-Migration direkt und ohne Pull Request;
-Commit `640036e` war die geprüfte Quelle des ersten anschließend ausgerollten Staging-Builds. Der
-Stand bleibt zugriffsgeschütztes Staging und ist ausdrücklich noch keine öffentliche
-Veröffentlichung.
+Commit `640036e` war die geprüfte Quelle des ersten anschließend ausgerollten Staging-Builds. Die
+native regionale Verbindung zu `hackerFlo/Law-Clinic-Finder` ist vollständig und hat Commit
+`cc4ef327bbf7d0741c3672d56562972624bb1b3f` korrekt als READY-Build 009 erstellt. Wegen des
+Firebase-Console-Fehlers `getSourceCase` entstand dafür noch kein Rollout; 100% Traffic bleibt
+bewusst auf dem verifizierten Rollout 008. Der Stand bleibt zugriffsgeschütztes Staging und ist
+ausdrücklich noch keine öffentliche Veröffentlichung.
 
 Aktueller Stand (2026-08-22): lokale App-Umstellung 100%, vollständige Migration bis zum
 produktiven Cutover ungefähr 94%. Runtime-Pfade für Public Site, Chat, Clinic/Admin, Auth, Signup,

@@ -11,7 +11,8 @@ Legend: `[ ]` outstanding and `⛔` needs owner input or exact approval.
 
 ## Resume order
 
-1. Finish the one-time native GitHub connection for App Hosting.
+1. Finish and verify the first native GitHub-driven App Hosting rollout; the regional repository
+   connection itself is complete.
 2. Complete the post-copy Firestore content restore drill.
 3. Obtain the domain, legal text, and Brevo DKIM; then perform public cutover and observation.
 4. Implement the deferred SMTP-admin and auth-mail-design feature.
@@ -21,26 +22,23 @@ Legend: `[ ]` outstanding and `⛔` needs owner input or exact approval.
 The operating conventions and safe commands are in
 [`firebase-agent-playbook.md`](firebase-agent-playbook.md).
 
-## 1 — GitHub-driven App Hosting
+## 1 — Finish GitHub-driven App Hosting
 
-- [ ] ⛔ In the Firebase/Google Cloud console, create a **data-residency-compliant** GitHub
-      connection in `europe-west4`; install its GitHub App for only
-      `hackerFlo/Law-Clinic-Finder`.
-- [ ] Link backend `web` to repository root `/`, set live branch `main`, and enable automatic
-      rollouts.
+The regional Developer Connect installation and repository link are complete: Firebase GitHub App,
+`hackerFlo/Law-Clinic-Finder`, backend `web`, root `/`, branch `main`, region `europe-west4`. The
+connection fetched and built GitHub commit `cc4ef327bbf7d0741c3672d56562972624bb1b3f` as READY build 009. The console's `getSourceCase` failure prevented creation of rollout 009, so traffic correctly
+remains on verified rollout 008. Exact verification and recovery commands are in the playbook.
+
 - [ ] Configure rollout triggers so documentation, tests, Functions-only changes, migration tools,
       and historical Supabase files do not consume App Hosting builds. Keep application/config paths
       build-triggering.
-- [ ] Require the repository `CI` check before merging to `main`; use feature branch → pull request
-      → green CI → merge for ordinary work.
-- [ ] Push a harmless application-visible staging change through that workflow, confirm App Hosting
-      attributes the rollout to the GitHub commit, then verify READY state, 100% traffic,
+- [ ] ⛔ Publish the pending read-only `CI`, Dependabot, playbook, and plan changes after exact push
+      authorization; require the repository `CI` check before merging to `main`.
+- [ ] ⛔ After exact deployment/traffic authorization, trigger or allow a new GitHub-sourced rollout
+      from the full reviewed `main` commit. Confirm App Hosting attributes it to that commit, then
+      verify build READY, rollout SUCCEEDED, 100% traffic,
       `law-clinic-runtime`, staging 401/`no-store`, security headers, clean error logs, and absence of
       the unwanted broad build-account role.
-
-Do not create the connection with the CLI: Google documents CLI-created GitHub connections as not
-data-residency compliant. The one-time GitHub authorization therefore needs the owner's browser
-approval.
 
 ## 2 — Post-copy content restore drill
 

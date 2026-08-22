@@ -11,6 +11,9 @@ hosting, data, IAM, or secrets.
 | Google/Firebase project      | `law-clinic-finder`                                               |
 | App Hosting backend          | `web`                                                             |
 | App Hosting region           | `europe-west4`                                                    |
+| Developer Connect connection | `apphosting-github-conn-r8gi1zd`                                  |
+| Linked GitHub repository     | `hackerFlo/Law-Clinic-Finder`, root `/`                           |
+| Automatic rollout branch     | `main`                                                            |
 | Firestore database           | `primary-eu` — never `(default)`                                  |
 | Storage bucket               | `law-clinic-finder.firebasestorage.app`                           |
 | App runtime identity         | `law-clinic-runtime@law-clinic-finder.iam.gserviceaccount.com`    |
@@ -87,16 +90,40 @@ credential is stored in GitHub.
 ## Automatic App Hosting delivery
 
 Use Firebase App Hosting's native GitHub integration, not a long-lived Firebase token or Google
-service-account key in GitHub. The intended connection is repository
-`hackerFlo/Law-Clinic-Finder`, root `/`, live branch `main`, with automatic rollouts enabled. Create
-the connection through the Firebase/Google Cloud console with data residency enabled and grant the
-GitHub App access to this repository only.
+service-account key in GitHub. The regional Developer Connect connection
+`apphosting-github-conn-r8gi1zd` is installed with the Firebase GitHub App, reports installation
+stage `COMPLETE`, and links only `https://github.com/hackerFlo/Law-Clinic-Finder.git`. Backend `web`
+uses that repository at root `/`; its live branch is `main`. This was independently reverified on
+2026-08-22 through the Developer Connect and App Hosting APIs after the owner completed the console
+authorization.
+
+Keep these two mechanisms separate:
+
+1. `.github/workflows/ci.yml` checks a commit. It has read-only permissions and deliberately has no
+   Firebase credential or deployment step.
+2. Firebase App Hosting receives a `main` push through Developer Connect, clones that exact commit,
+   builds it, creates a rollout, and moves Cloud Run traffic after the revision is healthy.
+
+Do not add a second GitHub Actions deployment workflow, a Firebase CI token, or a Google
+service-account key. Those would duplicate the native trigger and create another secret and IAM
+surface without improving this deployment path.
 
 Recommended day-to-day flow:
 
 ```text
 feature branch → pull request → CI succeeds → merge to main → App Hosting automatic rollout
 ```
+
+For every update, record the full expected commit SHA before merge/deployment and match it against
+the App Hosting build. A successful build alone is not a successful deployment. Completion requires
+all of the following:
+
+1. GitHub `CI` and the App Hosting GitHub check succeed for the intended `main` commit.
+2. Firebase shows a rollout for that build in state `SUCCEEDED`, not only a build in `READY`.
+3. The rollout's source hash is the expected GitHub commit.
+4. Cloud Run's latest ready revision receives 100% of untagged traffic.
+5. The revision uses `law-clinic-runtime`, the staging URL still returns 401 without preview
+   credentials, and the security/log/IAM checks below pass.
 
 App Hosting builds and rolls back revisions for the Next.js backend. It does **not** deploy every
 other Firebase resource in this repository:
@@ -120,6 +147,68 @@ retains the staging gate until public cutover. Check that the default build iden
 `roles/firebase.sdkAdminServiceAgent`; if it did, stop, review the exact binding, and remove only
 that binding. Never remove the legitimate `developerconnect.readTokenAccessor`,
 `firebaseapphosting.computeRunner`, or `storage.objectViewer` bindings.
+
+### Efficient verification
+
+The backend link and runtime can be checked without changing cloud state:
+
+```bash
+env -u DEBUG ./node_modules/.bin/firebase apphosting:backends:get web \
+  --project law-clinic-finder
+
+"$HOME/google-cloud-sdk/bin/gcloud" run services describe web \
+  --project=law-clinic-finder \
+  --region=europe-west4 \
+  --format='yaml(spec.template.spec.serviceAccountName,status.latestReadyRevisionName,status.traffic)'
+```
+
+Use Firebase Console → App Hosting → `web` → **Rollouts** for the normal commit/build/rollout check.
+The installed Firebase CLI 15.27.0 has no read-only `apphosting:rollouts:list` command. When an API
+check is necessary, take the build and rollout IDs from the console and query only those exact
+resources; never print the access token or enable shell tracing:
+
+```bash
+GCLOUD="$HOME/google-cloud-sdk/bin/gcloud"
+ACCESS_TOKEN="$("$GCLOUD" auth print-access-token)"
+BUILD_ID='<exact-build-id>'
+ROLLOUT_ID='<exact-rollout-id>'
+API_ROOT='https://firebaseapphosting.googleapis.com/v1beta/projects/law-clinic-finder/locations/europe-west4/backends/web'
+
+curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$API_ROOT/builds/$BUILD_ID" \
+  | jq '{state, source: .source.codebase | {branch, hash, uri}, error}'
+
+curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$API_ROOT/rollouts/$ROLLOUT_ID" \
+  | jq '{state, build, createTime, updateTime, error}'
+```
+
+Unset `ACCESS_TOKEN` afterward. A 404 for the exact rollout while its build is `READY` means the
+source connection and build worked but traffic was **not** rolled out. Do not call that complete and
+do not repeatedly click **Save and deploy**. First verify that no rollout is active, obtain explicit
+deployment/traffic authorization, then recover from the GitHub source with the supported command:
+
+```bash
+env -u DEBUG ./node_modules/.bin/firebase apphosting:rollouts:create web \
+  --git-commit '<full-reviewed-commit-sha>' \
+  --project law-clinic-finder \
+  --force
+```
+
+This command creates a new GitHub-sourced build/rollout; it does not reuse an orphaned build. Run
+the complete verification list afterward. Keep the manual local-source `firebase deploy --only
+apphosting` path below for last-resort recovery only.
+
+### First-connection incident snapshot
+
+The connection received `main` commit `cc4ef327bbf7d0741c3672d56562972624bb1b3f` and produced
+`build-2026-08-22-009` in state `READY`, proving repository access, branch delivery, and build
+attribution. The Firebase console then failed while creating the rollout with
+`getSourceCase`; no rollout resource exists for build 009. Cloud Run created healthy revision
+`web-build-2026-08-22-009`, but 100% traffic remains on verified rollout
+`web-build-2026-08-22-008`. Treat the first automatic rollout and end-to-end GitHub delivery as open
+until a later GitHub-attributed rollout satisfies every exit gate above; replace this incident
+snapshot with the verified rollout ID and commit when that happens.
 
 ## Explicit infrastructure deployments
 

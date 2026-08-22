@@ -16,8 +16,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Der neue Firebase Agent Playbook hält feste Projekt-/Region-/Datenbankziele, Emulator- und
   Testablauf, Deploy-Grenzen, Least Privilege, Secret-/Datenregeln, Kostenkontrollen und Rollback für
   zukünftige Bearbeiter fest.
-- Der Migrationsplan enthält nur noch ausstehende Aufgaben: GitHub-Verknüpfung, Post-Copy-Restore,
-  öffentliche Freigabe, SMTP-/Mail-Folgefeature und optionale Supabase-Codebereinigung.
+- Der Playbook dokumentiert die fertig eingerichtete regionale Developer-Connect-Verknüpfung, die
+  Trennung von read-only GitHub-CI und nativem App-Hosting-Deploy, exakte Commit-/Rollout-/Traffic-
+  Prüfungen sowie die sichere Wiederaufnahme nach einem verwaisten READY-Build.
+- Der Migrationsplan enthält nur noch ausstehende Aufgaben: erster vollständiger GitHub-Rollout,
+  Post-Copy-Restore, öffentliche Freigabe, SMTP-/Mail-Folgefeature und optionale
+  Supabase-Codebereinigung.
 
 ### Firebase-Migration (in Arbeit)
 
@@ -27,6 +31,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Die gesamte Migration liegt ohne Pull Request direkt auf `main`. Der geprüfte Commit `640036e`
   wurde als geschütztes Staging `web-build-2026-08-22-008` ausgerollt; 100% Traffic, dedizierte
   Runtime-Identität, Zugriffssperre und anschließende Entfernung der CLI-Breitrolle sind verifiziert.
+- Die native Firebase-GitHub-Verbindung in `europe-west4` ist vollständig, repository-begrenzt und
+  hat `main`-Commit `cc4ef327bbf7d0741c3672d56562972624bb1b3f` korrekt als READY-Build 009
+  zugeordnet. Der anschließende Console-Fehler `getSourceCase` erzeugte keinen Rollout; deshalb
+  bleibt Traffic auf dem verifizierten Build 008, bis ein neuer GitHub-attributierter Rollout alle
+  Exit-Gates erfüllt.
 - Supabase JS und der direkte Low-Level-Firestore-Client sind nur noch Entwicklungsabhängigkeiten
   der vom App-Hosting-Archiv ausgeschlossenen Kopier-/Importskripte. Ein Regressionstest verhindert,
   dass sie wieder als Produktionsabhängigkeit oder Runtime-Import aufgenommen werden.
