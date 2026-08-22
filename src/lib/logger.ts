@@ -31,18 +31,39 @@ export function createLogger(base: LogFields = {}, write: WriteLine = writeToStd
   };
 }
 
-// Optional secondary sink for the process-wide logger, wired once at server
-// startup (src/instrumentation.ts) to persist logs into the admin "Protokolle"
-// table. Kept as a settable hook so this file stays environment-agnostic and
-// never statically imports the server-only DB sink.
-let sink: WriteLine | null = null;
+/*
+ * Optional secondary sink for the process-wide logger, wired once at server
+ * startup (src/instrumentation.ts) to persist logs into the admin "Protokolle"
+ * view. Kept as a settable hook so this file stays environment-agnostic and
+ * never statically imports the server-only DB sink.
+ *
+ * The reference lives on `globalThis`, not in a module-level variable. Next.js
+ * bundles instrumentation, route handlers and server components into separate
+ * graphs, so a module-scoped `let` can be instantiated more than once per
+ * process — instrumentation would set the sink on its own copy while every
+ * request logger read a copy that was still null, and the admin log stayed
+ * empty while stdout looked healthy. A global registry has exactly one slot
+ * per process regardless of how many times this module is evaluated.
+ */
+const SINK_KEY = Symbol.for('law-clinic-finder.logSink');
+
+type SinkRegistry = { [SINK_KEY]?: WriteLine | null };
+
+function registry(): SinkRegistry {
+  return globalThis as unknown as SinkRegistry;
+}
 
 export function setLogSink(next: WriteLine | null): void {
-  sink = next;
+  registry()[SINK_KEY] = next;
+}
+
+export function hasLogSink(): boolean {
+  return Boolean(registry()[SINK_KEY]);
 }
 
 function fanout(line: LogLine): void {
   writeToStdio(line);
+  const sink = registry()[SINK_KEY];
   if (!sink) return;
   try {
     sink(line);

@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-import type { LogRepository, NewStoredLog, StoredLog } from '@/lib/logs/log-store';
+import type { LogPage, LogRepository, NewStoredLog, StoredLog } from '@/lib/logs/log-store';
 
 import { firebaseFirestore } from './admin';
 import { firestoreDateSchema } from './documents';
@@ -18,14 +18,21 @@ const logDocumentSchema = z
   })
   .strict();
 
-function toStoredLog(id: string, data: unknown): StoredLog {
-  const parsed = logDocumentSchema.parse(data);
+/*
+ * A single unreadable row must not blank the whole Protokolle view. `parse` threw
+ * out of `list()` and the admin saw an empty table while stdout showed healthy
+ * logs, so one legacy or oversized document hid every other entry. Unreadable
+ * rows are skipped and counted instead.
+ */
+function toStoredLog(id: string, data: unknown): StoredLog | null {
+  const parsed = logDocumentSchema.safeParse(data);
+  if (!parsed.success) return null;
   return {
     id,
-    logged_at: parsed.loggedAt.toISOString(),
-    level: parsed.level,
-    msg: parsed.msg,
-    fields: parsed.fields,
+    logged_at: parsed.data.loggedAt.toISOString(),
+    level: parsed.data.level,
+    msg: parsed.data.msg,
+    fields: parsed.data.fields,
   };
 }
 
@@ -42,13 +49,32 @@ async function write(log: NewStoredLog): Promise<void> {
 }
 
 async function list(limit: number): Promise<StoredLog[]> {
+  return (await listPage(limit)).logs;
+}
+
+async function listPage(limit: number, before?: Date): Promise<LogPage> {
   const safeLimit = z.number().int().min(1).max(500).parse(limit);
-  const snapshot = await firebaseFirestore()
-    .collection('logs')
-    .orderBy('loggedAt', 'desc')
-    .limit(safeLimit)
-    .get();
-  return snapshot.docs.map((document) => toStoredLog(document.id, document.data()));
+  const base = firebaseFirestore().collection('logs').orderBy('loggedAt', 'desc');
+  const query = before ? base.startAfter(Timestamp.fromDate(before)) : base;
+  const snapshot = await query.limit(safeLimit).get();
+  const logs = snapshot.docs.flatMap((document) => {
+    const parsed = toStoredLog(document.id, document.data());
+    return parsed ? [parsed] : [];
+  });
+  // The cursor tracks the last *fetched* row, not the last readable one — taking
+  // it from `logs` would re-fetch any unreadable tail forever.
+  const lastFetched = snapshot.docs.at(-1);
+  return {
+    logs,
+    unreadable: snapshot.size - logs.length,
+    cursor: lastFetched ? cursorOf(lastFetched) : null,
+    exhausted: snapshot.size < safeLimit,
+  };
+}
+
+function cursorOf(document: FirebaseFirestore.QueryDocumentSnapshot): string | null {
+  const loggedAt = firestoreDateSchema.safeParse(document.get('loggedAt'));
+  return loggedAt.success ? loggedAt.data.toISOString() : null;
 }
 
 async function deleteBatch(): Promise<number> {
@@ -64,4 +90,4 @@ async function clear(): Promise<void> {
   while ((await deleteBatch()) === DELETE_BATCH_SIZE) continue;
 }
 
-export const firebaseLogRepository: LogRepository = { write, list, clear };
+export const firebaseLogRepository: LogRepository = { write, list, listPage, clear };

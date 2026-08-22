@@ -47,7 +47,7 @@ function StepArrow({ target, enabled, icon, label }: StepArrowProps) {
     );
   }
   return (
-    <Link href={`?month=${target}`} aria-label={label} className={className}>
+    <Link href={`?month=${target}`} prefetch={false} aria-label={label} className={className}>
       <Icon name={icon} className="h-3.5 w-3.5" />
     </Link>
   );

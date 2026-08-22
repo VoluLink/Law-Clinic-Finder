@@ -12,6 +12,7 @@ function fakeRepository(error?: Error) {
       writes.push(log);
     }),
     list: vi.fn().mockResolvedValue([]),
+    listPage: vi.fn().mockResolvedValue({ logs: [], unreadable: 0, cursor: null, exhausted: true }),
     clear: vi.fn().mockResolvedValue(undefined),
   };
   return { repository, writes };
@@ -58,5 +59,48 @@ describe(createLogStore, () => {
     await vi.waitFor(() =>
       expect(stderr).toHaveBeenCalledWith(expect.stringContaining('insert failed')),
     );
+  });
+});
+
+describe('persistence threshold', () => {
+  it('drops info lines so routine events cost no Firestore write', async () => {
+    const { repository } = fakeRepository();
+    createLogStore({ repository }).persist(line({ level: 'info', msg: 'signed out' }));
+    await vi.waitFor(() => expect(repository.write).not.toHaveBeenCalled());
+  });
+
+  it('drops debug lines', async () => {
+    const { repository } = fakeRepository();
+    createLogStore({ repository }).persist(line({ level: 'debug' }));
+    await vi.waitFor(() => expect(repository.write).not.toHaveBeenCalled());
+  });
+
+  it('keeps warnings', async () => {
+    const { repository, writes } = fakeRepository();
+    createLogStore({ repository }).persist(line({ level: 'warn' }));
+    await vi.waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0].level).toBe('warn');
+  });
+
+  it('keeps errors', async () => {
+    const { repository, writes } = fakeRepository();
+    createLogStore({ repository }).persist(line({ level: 'error' }));
+    await vi.waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0].level).toBe('error');
+  });
+
+  it('honours an explicit lower threshold for diagnostics', async () => {
+    const { repository, writes } = fakeRepository();
+    createLogStore({ repository, minLevel: 'info' }).persist(line({ level: 'info' }));
+    await vi.waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0].level).toBe('info');
+  });
+
+  it('falls back to warn when LOG_PERSIST_LEVEL is not a level', async () => {
+    vi.stubEnv('LOG_PERSIST_LEVEL', 'chatty');
+    const { repository } = fakeRepository();
+    createLogStore({ repository }).persist(line({ level: 'info' }));
+    await vi.waitFor(() => expect(repository.write).not.toHaveBeenCalled());
+    vi.unstubAllEnvs();
   });
 });

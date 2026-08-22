@@ -68,13 +68,13 @@ export async function Footer() {
         </div>
         <div className="flex flex-col items-end justify-between gap-3">
           <div className="flex items-center gap-6 text-sm">
-            <Link href="/datenschutz" className={linkClasses}>
+            <Link href="/datenschutz" prefetch={false} className={linkClasses}>
               {dict.footerPrivacy}
             </Link>
-            <Link href="/impressum" className={linkClasses}>
+            <Link href="/impressum" prefetch={false} className={linkClasses}>
               {dict.footerImprint}
             </Link>
-            <Link href="/login" className={linkClasses}>
+            <Link href="/login" prefetch={false} className={linkClasses}>
               {dict.footerAccount}
             </Link>
           </div>

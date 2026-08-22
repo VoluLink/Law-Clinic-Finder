@@ -9,6 +9,14 @@ import { Button } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 
+/*
+ * `prefetch={false}` throughout: the portal navs are small, deliberate menus, and
+ * App Hosting runs at `minInstances: 0`. Default prefetching fetched every tab as
+ * soon as it rendered, so one dashboard visit produced six parallel RSC requests,
+ * each a cold start — which is what tripped the Cloud Run instance-cap alert on
+ * 2026-08-22. Navigation stays instant on click; only the speculative load is gone.
+ */
+
 export type NavItem = { href: string; label: string; icon: IconName };
 /** The pinned bottom identity block, optionally linked to an account tab. */
 type PortalIdentity = {
@@ -166,6 +174,7 @@ function LinkedSidebarFooter({
   return (
     <Link
       href={footer.href}
+      prefetch={false}
       aria-current={active ? 'page' : undefined}
       className={cn(
         'mt-auto rounded-b border-t border-primary-foreground/[0.15] px-3 py-3.5 hover:bg-primary-foreground/[0.1]',
@@ -204,6 +213,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href}
+      prefetch={false}
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-[11px] rounded-xl px-3.5 py-3 text-[15px] hover:bg-primary-foreground/[0.12]',
@@ -254,6 +264,7 @@ function MobileNavLink({
   return (
     <Link
       href={item.href}
+      prefetch={false}
       aria-current={active ? 'page' : undefined}
       className={cn(
         'rounded-lg px-3 py-1.5 text-sm whitespace-nowrap text-primary-foreground/[0.85]',
