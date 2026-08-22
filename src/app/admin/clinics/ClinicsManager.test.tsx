@@ -4,7 +4,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ClinicsManager, type AdminClinicRow, type PendingReview } from './ClinicsManager';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const searchParams = new URLSearchParams();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+  useSearchParams: () => searchParams,
+}));
+
+const MAILED_ID = '3f1c1a4e-2f4a-4f2b-9d9e-6a3c0b7f5d21';
+const OTHER_ID = 'b7d2c5a1-9e14-4a63-8f0d-2c6b41e7a9f8';
 
 function clinic(overrides: Partial<AdminClinicRow>): AdminClinicRow {
   return {
@@ -55,7 +63,23 @@ function renderManager() {
   return fetchMock;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  searchParams.delete('clinic');
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+function renderDeepLinked(clinicParam: string) {
+  searchParams.set('clinic', clinicParam);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+  const mailed = clinic({ id: MAILED_ID, name: 'Verlinkte Clinic' });
+  const other = clinic({ id: OTHER_ID, name: 'Andere Clinic' });
+  render(<ClinicsManager clinics={[other, mailed]} pending={[]} />);
+}
+
+function rowOf(name: string): HTMLElement | null {
+  return screen.getByText(name).closest('tr');
+}
 
 describe('ClinicsManager', () => {
   it('renders the pending panel and per-state Zugang controls', () => {
@@ -273,5 +297,31 @@ describe('ClinicsManager', () => {
     expect(screen.getByRole('button', { name: /Datenbank bearbeiten/ })).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Geänderter Name')).not.toBeInTheDocument();
     expect(screen.getByText('Mietrecht Clinic')).toBeInTheDocument();
+  });
+
+  it('opens and scrolls to the clinic named by a valid ?clinic= link', () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderDeepLinked(MAILED_ID);
+    expect(rowOf('Verlinkte Clinic')).toHaveAttribute('aria-current', 'true');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('leaves every row closed when ?clinic= is malformed', () => {
+    renderDeepLinked('not-a-uuid');
+    expect(rowOf('Verlinkte Clinic')).not.toHaveAttribute('aria-current');
+    expect(rowOf('Andere Clinic')).not.toHaveAttribute('aria-current');
+  });
+
+  it('falls back to the plain list when the linked clinic is gone', () => {
+    renderDeepLinked('0a5f6c31-8b2d-4c77-9a10-5e8f3d21b604');
+    expect(screen.getByText('Verlinkte Clinic')).toBeInTheDocument();
+    expect(rowOf('Verlinkte Clinic')).not.toHaveAttribute('aria-current');
+  });
+
+  it('keeps the row the admin opens afterwards instead of the linked one', async () => {
+    renderDeepLinked(MAILED_ID);
+    await userEvent.click(screen.getByText('Andere Clinic'));
+    expect(rowOf('Andere Clinic')).toHaveAttribute('aria-current', 'true');
+    expect(rowOf('Verlinkte Clinic')).not.toHaveAttribute('aria-current');
   });
 });

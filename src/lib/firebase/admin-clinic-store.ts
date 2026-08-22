@@ -2,6 +2,7 @@ import type { UserRecord } from 'firebase-admin/auth';
 import { z } from 'zod';
 
 import { prepareAdminClinicUpdate, type StoredAdminClinic } from '@/lib/admin/admin-clinic-update';
+import { owesPublicationNotice } from '@/lib/clinics/notification-state';
 import { clinicAdminSchema, type ClinicAdmin } from '@/lib/clinics/schema';
 
 import { firebaseAdminAuth, firebaseFirestore } from './admin';
@@ -30,7 +31,8 @@ export type AdminClinicProfile = {
 export type AdminClinicRecord = ClinicView & { profile: AdminClinicProfile | null };
 
 export type AdminClinicUpdateResult =
-  | { status: 'ok' }
+  /** `notifyPublication` claims the once-ever notice owed to the clinic. */
+  | { status: 'ok'; notifyPublication: boolean }
   | { status: 'not_found' }
   | { status: 'incomplete'; missing: string[] }
   | { status: 'unapproved' };
@@ -153,8 +155,16 @@ async function updateClinicTransaction(
   const prepared = prepareAdminClinicUpdate(storedClinic(clinic, contact), incoming);
   if (!prepared.allowed) return preparedResult(prepared);
   await reserveClinicName(transaction, clinicId, clinic.name, prepared.clinic.name);
-  writeClinicUpdate(transaction, clinicReference, contactReference, prepared.clinic);
-  return { status: 'ok' };
+  const notifyPublication = owesPublicationNotice({
+    wasPublished: clinic.isPublished,
+    willBePublished: prepared.clinic.is_published,
+    publishNotifiedAt: clinic.publishNotifiedAt ?? null,
+  });
+  writeClinicUpdate(transaction, clinicReference, contactReference, prepared.clinic, {
+    published: !clinic.isPublished && prepared.clinic.is_published,
+    notifyPublication,
+  });
+  return { status: 'ok', notifyPublication };
 }
 
 function storedClinic(
@@ -176,15 +186,27 @@ function preparedResult(
     : { status: 'unapproved' };
 }
 
+/** Publishing also releases the submission mark, so an entry that is withdrawn
+ *  and reworked later announces itself to the admin again. */
+function publicationMarks(now: Date, notices: { published: boolean; notifyPublication: boolean }) {
+  return {
+    ...(notices.published ? { submissionNotifiedAt: null } : {}),
+    ...(notices.notifyPublication ? { publishNotifiedAt: now } : {}),
+  };
+}
+
 function writeClinicUpdate(
   transaction: FirebaseFirestore.Transaction,
   clinicReference: FirebaseFirestore.DocumentReference,
   contactReference: FirebaseFirestore.DocumentReference,
   clinic: ClinicAdmin,
+  notices: { published: boolean; notifyPublication: boolean },
 ): void {
+  const now = new Date();
   transaction.update(clinicReference, {
-    ...clinicUpdateDocument(clinic, new Date()),
+    ...clinicUpdateDocument(clinic, now),
     isPublished: clinic.is_published,
+    ...publicationMarks(now, notices),
   });
   if (clinic.contact_email) {
     transaction.set(contactReference, { contactEmail: clinic.contact_email });

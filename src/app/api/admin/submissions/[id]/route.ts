@@ -6,6 +6,7 @@ import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAccessReviewStore } from '@/lib/firebase/access-review-store';
 import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
 import { requestLogger } from '@/lib/http/request-id';
+import { sendClinicPublishedNotice } from '@/lib/mail/clinic-notifications';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest, context: RouteContext): Promise
     reviewStore: firebaseAccessReviewStore,
     accessStore: firebaseClinicAccessStore,
     logger,
+    notifyPublication: (id: string) => sendClinicPublishedNotice(id, logger),
   };
   const result = await approveAccess(deps, clinicId);
   return respond(result.status, 'Freischalten fehlgeschlagen.');
@@ -49,6 +51,7 @@ export async function DELETE(request: NextRequest, context: RouteContext): Promi
     reviewStore: firebaseAccessReviewStore,
     accessStore: firebaseClinicAccessStore,
     logger,
+    notifyPublication: (id: string) => sendClinicPublishedNotice(id, logger),
   };
   const result = await rejectAccess(deps, clinicId);
   return respond(result.status, 'Ablehnen fehlgeschlagen.');

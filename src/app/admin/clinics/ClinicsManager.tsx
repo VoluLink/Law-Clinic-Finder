@@ -1,7 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useState } from 'react';
+import { z } from 'zod';
 
 import { EditActions } from '@/components/clinics/EditActions';
 import { Badge } from '@/components/ui/Badge';
@@ -85,7 +86,35 @@ const PUBLISH_REQUIRED = new Set<string>(PUBLISH_KEYS);
 const CELL_BORDER = 'border-b border-border group-last:border-b-0';
 const STICKY_HEAD = 'sticky top-0 z-20 bg-surface';
 const STICKY_NAME_HEAD = 'sticky top-0 left-0 z-30 border-e border-border bg-surface';
-const STICKY_NAME_CELL = 'sticky left-0 z-10 border-e border-border bg-surface';
+const STICKY_NAME_BASE = 'sticky left-0 z-10 border-e border-border';
+const STICKY_NAME_CELL = `${STICKY_NAME_BASE} bg-surface`;
+
+// The entry the admin arrived at (?clinic= from the notification mail, or a row
+// they picked afterwards) is tinted. The sticky Name cell drops its own opaque
+// background in that state, otherwise it would paint over the tint.
+const FOCUS_TINT = 'bg-accent';
+
+type FocusState = {
+  /** Highlighted entry: the deep link on mount, then whatever the admin picks. */
+  id: string | null;
+  /** Only the mailed entry gets the ref, so exactly it is scrolled into view. */
+  deepLinkedId: string | null;
+  scrollRef: (node: HTMLElement | null) => void;
+  onSelect: (id: string) => void;
+};
+
+/**
+ * `?clinic=<uuid>` deep link, read once on mount. Anything that is not a UUID is
+ * ignored silently, and a later re-read must never pull the admin back to the
+ * mailed entry after they opened another one.
+ */
+function useDeepLinkedClinicId(): string | null {
+  const value = useSearchParams().get('clinic');
+  const [deepLinkedId] = useState(() =>
+    value && z.uuid().safeParse(value).success ? value : null,
+  );
+  return deepLinkedId;
+}
 
 const COLUMNS: Array<{ key: EditableKey; label: string }> = [
   { key: 'name', label: 'Name' },
@@ -149,6 +178,19 @@ export function ClinicsManager({
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [resetClinic, setResetClinic] = useState<AdminClinicRow | null>(null);
   const [resettingAccess, setResettingAccess] = useState(false);
+  const deepLinkedId = useDeepLinkedClinicId();
+  const [focusedId, setFocusedId] = useState<string | null>(deepLinkedId);
+  // A stable callback ref fires when the element mounts and never again, so the
+  // table is scrolled once — selecting another row afterwards leaves it put.
+  const scrollRef = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: 'center' });
+  }, []);
+  const focus: FocusState = {
+    id: focusedId,
+    deepLinkedId,
+    scrollRef,
+    onSelect: setFocusedId,
+  };
 
   async function call(url: string, init: RequestInit, okMessage: string) {
     setStatus('');
@@ -246,6 +288,7 @@ export function ClinicsManager({
       {pending.length > 0 && (
         <PendingPanel
           pending={pending}
+          focus={focus}
           onApprove={(id) =>
             call(`/api/admin/submissions/${id}`, { method: 'POST' }, 'Freigeschaltet.')
           }
@@ -366,6 +409,7 @@ export function ClinicsManager({
                     clinic={clinic}
                     draft={editing ? (drafts[clinic.id] ?? clinic) : clinic}
                     editing={editing}
+                    focus={focus}
                     publishBusy={publishingId === clinic.id}
                     onCell={(key, value) => setCell(clinic.id, key, value)}
                     onDelete={() =>
@@ -461,25 +505,34 @@ function ClinicRow({
   draft,
   editing,
   publishBusy,
+  focus,
   ...actions
 }: {
   clinic: AdminClinicRow;
   draft: AdminClinicRow;
   editing: boolean;
   publishBusy: boolean;
+  focus: FocusState;
 } & RowActions) {
   // `draft` drives the editable cells; `clinic` (the saved row) drives publish and
   // access, so a toggle reflects — and is gated by — persisted state, not an
   // unsaved draft. Save first, then publish; the server validates the stored row.
+  const focused = focus.id === clinic.id;
   return (
-    <tr className="group align-top">
+    <tr
+      ref={focus.deepLinkedId === clinic.id ? focus.scrollRef : undefined}
+      aria-current={focused ? 'true' : undefined}
+      onClick={() => focus.onSelect(clinic.id)}
+      className="group align-top"
+    >
       {COLUMNS.map((column) => (
         <td
           key={column.key}
           className={cn(
             CELL_BORDER,
             'min-w-[150px] p-3',
-            column.key === 'name' && STICKY_NAME_CELL,
+            column.key === 'name' && (focused ? STICKY_NAME_BASE : STICKY_NAME_CELL),
+            focused && FOCUS_TINT,
           )}
         >
           {editing ? (
@@ -494,18 +547,18 @@ function ClinicRow({
           )}
         </td>
       ))}
-      <td className={cn(CELL_BORDER, 'min-w-[190px] p-3')}>
+      <td className={cn(CELL_BORDER, 'min-w-[190px] p-3', focused && FOCUS_TINT)}>
         <ZugangCell
           clinic={clinic}
           onInvite={actions.onInvite}
           onResetAccess={actions.onResetAccess}
         />
       </td>
-      <td className={cn(CELL_BORDER, 'p-3')}>
+      <td className={cn(CELL_BORDER, 'p-3', focused && FOCUS_TINT)}>
         <PublishToggle clinic={clinic} busy={publishBusy} onToggle={actions.onTogglePublish} />
       </td>
       {editing && (
-        <td className={cn(CELL_BORDER, 'p-3')}>
+        <td className={cn(CELL_BORDER, 'p-3', focused && FOCUS_TINT)}>
           <Button variant="danger" onClick={actions.onDelete}>
             Zeile löschen
           </Button>
@@ -642,10 +695,12 @@ function ZugangCell({
 
 function PendingPanel({
   pending,
+  focus,
   onApprove,
   onReject,
 }: {
   pending: PendingReview[];
+  focus: FocusState;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }) {
@@ -659,7 +714,14 @@ function PendingPanel({
         {pending.map((review) => (
           <div
             key={review.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3"
+            // A mailed entry still awaiting Freigabe lives here, not in the table.
+            ref={focus.deepLinkedId === review.id ? focus.scrollRef : undefined}
+            aria-current={focus.id === review.id ? 'true' : undefined}
+            onClick={() => focus.onSelect(review.id)}
+            className={cn(
+              'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3',
+              focus.id === review.id ? FOCUS_TINT : 'bg-surface',
+            )}
           >
             <div className="text-sm">
               <div className="flex items-center gap-2 font-semibold text-foreground">

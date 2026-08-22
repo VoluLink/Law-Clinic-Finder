@@ -7,6 +7,38 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Empfehlungs-PDF und Seitentitel
+
+- Das lokal erzeugte Empfehlungs-PDF entspricht wieder der freigegebenen A4-Gestaltung mit
+  Druckrand, warmer Seitenfläche, petrolfarbener Typografie, hervorgehobenem Anliegen,
+  Empfehlungskarten und QR-Abschluss. Der unsichtbare Export wird stabil außerhalb des sichtbaren
+  Browserbereichs statt hinter der Seite gerendert und für schärfere Schrift mit doppelter
+  Auflösung erfasst.
+- Der Browser-Tab verwendet den knappen, beschreibenden Titel „Kostenlose Rechtsberatung | Law
+  Clinic Finder“.
+
+### Benachrichtigungen an Admin und Law Clinic
+
+- Reicht eine Law Clinic ihre Angaben zum ersten Mal ein und ist der Eintrag noch nicht
+  veröffentlicht, erhält genau ein Admin die Mail „Ein neuer Eintrag wartet auf deine Freigabe“ mit
+  Direktlink auf genau diesen Eintrag.
+- Veröffentlicht ein Admin den Eintrag, erhält die Clinic an ihrer Beratungsadresse einmalig die Mail
+  „Euer Eintrag ist freigegeben“. Beide Mails folgen dem freigegebenen Design und teilen sich die
+  Vorlage mit den Auth-Mails.
+- Empfänger jeder Admin-Mail ist die Auswahl unter `/admin/admins`; der Bereich heißt jetzt
+  „Admin-Benachrichtigungen“ und beschreibt, dass er für die gesamte Admin-Kommunikation gilt —
+  Google-Cloud-Betriebsalarme wie fachliche Hinweise. Ohne Auswahl gilt weiterhin der am längsten
+  bestehende aktive Admin.
+- Beide Benachrichtigungen werden über Marken auf dem Clinic-Dokument (`submissionNotifiedAt`,
+  `publishNotifiedAt`) genau einmal ausgelöst. Die Marke wird in derselben Transaktion wie der
+  Schreibvorgang beansprucht und bei fehlendem Empfänger oder gescheitertem Versand wieder
+  freigegeben; Veröffentlichen gibt die Einreichungsmarke frei, sodass ein zurückgezogener und
+  überarbeiteter Eintrag erneut gemeldet wird. Drei Emulator-Integrationstests belegen das.
+- `/admin/clinics?clinic=<uuid>` hebt den verlinkten Eintrag hervor und scrollt ihn in den Sichtbereich
+  — sowohl in der Tabelle als auch unter den offenen Freigaben. Die ID wird als UUID validiert;
+  alles andere wird stillschweigend ignoriert. Alle Links entstehen aus der konfigurierten Site-URL,
+  ein späterer Domainwechsel wirkt also ohne Codeänderung.
+
 ### Admin-SMTP-Verwaltung und Auth-Mail-Design
 
 - Neuer Admin-Bereich `/admin/smtp` für provider-neutrale SMTP-Einstellungen: Host, Port, TLS-Modus,

@@ -2,6 +2,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 import type { AccessReviewStore } from '@/lib/admin/approve-access';
+import { owesPublicationNotice } from '@/lib/clinics/notification-state';
 
 import { firebaseAdminAuth, firebaseFirestore } from './admin';
 import { invalidateClinicDirectory } from './clinic-directory';
@@ -19,7 +20,10 @@ async function profileIdForClinic(clinicId: string): Promise<string> {
   return snapshot.docs[0].id;
 }
 
-async function approve(clinicIdInput: string, publish: boolean): Promise<void> {
+async function approve(
+  clinicIdInput: string,
+  publish: boolean,
+): Promise<{ notifyPublication: boolean }> {
   const clinicId = z.string().uuid().parse(clinicIdInput);
   const userId = await profileIdForClinic(clinicId);
   await firebaseAdminAuth().setCustomUserClaims(userId, {
@@ -28,23 +32,33 @@ async function approve(clinicIdInput: string, publish: boolean): Promise<void> {
     accessStatus: 'active',
   });
   const database = firebaseFirestore();
-  await database.runTransaction(async (transaction) => {
+  const notifyPublication = await database.runTransaction(async (transaction) => {
     const clinicReference = database.collection('clinics').doc(clinicId);
     const profileReference = database.collection('profiles').doc(userId);
     const [clinicSnapshot, profileSnapshot] = await Promise.all([
       transaction.get(clinicReference),
       transaction.get(profileReference),
     ]);
-    clinicDocumentSchema.parse(clinicSnapshot.data());
+    const clinic = clinicDocumentSchema.parse(clinicSnapshot.data());
     profileDocumentSchema.parse(profileSnapshot.data());
+    const claim = owesPublicationNotice({
+      wasPublished: clinic.isPublished,
+      willBePublished: publish,
+      publishNotifiedAt: clinic.publishNotifiedAt ?? null,
+    });
+    const now = Timestamp.now();
     transaction.update(clinicReference, {
       approvalStatus: 'approved',
       isPublished: publish,
-      updatedAt: Timestamp.now(),
+      updatedAt: now,
+      ...(publish && !clinic.isPublished ? { submissionNotifiedAt: null } : {}),
+      ...(claim ? { publishNotifiedAt: now } : {}),
     });
-    transaction.update(profileReference, { accessStatus: 'active', updatedAt: Timestamp.now() });
+    transaction.update(profileReference, { accessStatus: 'active', updatedAt: now });
+    return claim;
   });
   invalidateClinicDirectory();
+  return { notifyPublication };
 }
 
 async function deleteSelfRegistered(clinicIdInput: string): Promise<void> {

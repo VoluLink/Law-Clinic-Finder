@@ -27,11 +27,12 @@ function dependencies(clinic: TestClinic | null = completeClinic): AccessReviewD
   return {
     reviewStore: {
       readClinic: vi.fn().mockResolvedValue(clinic),
-      approve: vi.fn().mockResolvedValue(undefined),
+      approve: vi.fn().mockResolvedValue({ notifyPublication: false }),
       deleteSelfRegistered: vi.fn().mockResolvedValue(undefined),
     },
     accessStore: { revoke: vi.fn().mockResolvedValue(undefined) },
     logger: testLogger(),
+    notifyPublication: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -40,6 +41,23 @@ describe(approveAccess, () => {
     const deps = dependencies();
     expect(await approveAccess(deps, CLINIC_ID)).toEqual({ status: 'ok' });
     expect(deps.reviewStore.approve).toHaveBeenCalledWith(CLINIC_ID, true);
+  });
+
+  it('tells the clinic once when the approval published its entry', async () => {
+    const deps = dependencies();
+    deps.reviewStore.approve = vi.fn().mockResolvedValue({ notifyPublication: true });
+
+    await approveAccess(deps, CLINIC_ID);
+
+    expect(deps.notifyPublication).toHaveBeenCalledWith(CLINIC_ID);
+  });
+
+  it('stays silent when the approval claimed no notice', async () => {
+    const deps = dependencies();
+
+    await approveAccess(deps, CLINIC_ID);
+
+    expect(deps.notifyPublication).not.toHaveBeenCalled();
   });
 
   it('approves an incomplete entry without publishing it', async () => {

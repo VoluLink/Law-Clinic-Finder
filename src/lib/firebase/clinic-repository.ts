@@ -6,6 +6,7 @@ import {
   type ClinicEditable,
 } from '@/lib/clinics/schema';
 import { clinicNameReservationId } from '@/lib/clinics/name-reservation';
+import { owesSubmissionNotice } from '@/lib/clinics/notification-state';
 
 import { firebaseFirestore } from './admin';
 import { invalidateClinicDirectory } from './clinic-directory';
@@ -76,25 +77,44 @@ export async function readClinic(clinicId: string): Promise<ClinicView | null> {
   };
 }
 
-export async function saveMemberClinic(clinicId: string, input: unknown): Promise<void> {
+/** `notifySubmission` reports that this write claimed the one-per-cycle notice
+ *  for the admin; the caller owes the mail and must clear the mark if it fails. */
+export async function saveMemberClinic(
+  clinicId: string,
+  input: unknown,
+): Promise<{ notifySubmission: boolean }> {
   const id = z.string().uuid().parse(clinicId);
   const clinic = clinicMemberSaveSchema.parse(input);
   const database = firebaseFirestore();
   const clinicReference = database.collection('clinics').doc(id);
-  await database.runTransaction(async (transaction) => {
+  const notifySubmission = await database.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(clinicReference);
     const current = clinicDocumentSchema.parse(snapshot.data());
     await reserveClinicName(transaction, id, current.name, clinic.name);
-    transaction.update(clinicReference, clinicUpdateDocument(clinic, new Date()));
-    const contactReference = database.collection('clinicContacts').doc(id);
-    if (clinic.contact_email) {
-      transaction.set(contactReference, { contactEmail: clinic.contact_email });
-    } else {
-      transaction.delete(contactReference);
-    }
+    const now = new Date();
+    const claim = owesSubmissionNotice({
+      isPublished: current.isPublished,
+      submissionNotifiedAt: current.submissionNotifiedAt ?? null,
+    });
+    transaction.update(clinicReference, {
+      ...clinicUpdateDocument(clinic, now),
+      ...(claim ? { submissionNotifiedAt: now } : {}),
+    });
+    writeContact(transaction, database.collection('clinicContacts').doc(id), clinic.contact_email);
+    return claim;
   });
   invalidateClinicDirectory();
   invalidateSignupDirectory();
+  return { notifySubmission };
+}
+
+function writeContact(
+  transaction: FirebaseFirestore.Transaction,
+  reference: FirebaseFirestore.DocumentReference,
+  contactEmail: string | null,
+): void {
+  if (contactEmail) transaction.set(reference, { contactEmail });
+  else transaction.delete(reference);
 }
 
 export async function reserveClinicName(

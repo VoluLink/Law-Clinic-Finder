@@ -55,6 +55,9 @@ Expected: project `law-clinic-finder`, backend `web`, region `europe-west4`. Loc
   Firebase session and current `profiles/{uid}` role server-side.
 - `settings/chat` is the only source for admin-editable prompts. Add or change defaults through a
   versioned, idempotent data migration; never add a code fallback.
+- `settings/operations` names the single admin who receives **all** admin communication — Google
+  Cloud operational alerts and product notices such as an entry awaiting approval. Route any new
+  admin-facing mail through `loadOperationalAlertRecipient`; never mail all admins.
 - Preserve the provider-neutral SMTP boundary. Runtime code consumes host, port, TLS behavior,
   login, password, sender address, and sender name; it must not call a Brevo-specific API.
 - Keep functions small, use type-only imports, emit structured PII-free logs, and propagate the

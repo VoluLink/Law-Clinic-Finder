@@ -8,11 +8,13 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { EmailStateRecord } from '@/lib/auth/email-state';
 
 import { ClinicNameConflictError } from './clinic-repository';
-import { firebaseAdminApp } from './admin';
+import { firebaseAdminApp, firebaseFirestore } from './admin';
 import { firebaseClinicClaimStore } from './clinic-claim-store';
 import { firebaseClinicRegistrationStore } from './clinic-registration-store';
 import { createFirestoreEmailStateStore } from './email-state-store';
 import { firebaseIdempotencyStore } from './idempotency-store';
+import { saveMemberClinic } from './clinic-repository';
+import { updateAdminClinic } from './admin-clinic-store';
 
 const hasEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 const NOW = new Date('2026-08-16T12:00:00.000Z');
@@ -97,6 +99,46 @@ describe.skipIf(!hasEmulator)('Firestore transaction invariants', () => {
     expect(results.filter((result) => result.allowed)).toHaveLength(2);
   });
 
+  it('claims the admin submission notice only on the first save', async () => {
+    const submission = memberSubmission();
+    const clinicId = await firebaseClinicRegistrationStore.createPending(submission);
+
+    const first = await saveMemberClinic(clinicId, submission);
+    const second = await saveMemberClinic(clinicId, submission);
+
+    expect({ first: first.notifySubmission, second: second.notifySubmission }).toEqual({
+      first: true,
+      second: false,
+    });
+  }, 20_000);
+
+  it('claims the clinic publication notice only on the first publication', async () => {
+    const submission = memberSubmission();
+    const clinicId = await firebaseClinicRegistrationStore.createPending(submission);
+    await saveMemberClinic(clinicId, submission);
+    const approved = { ...submission, approval_status: 'approved' as const };
+    await firebaseFirestore().doc(`clinics/${clinicId}`).update({ approvalStatus: 'approved' });
+
+    const published = await updateAdminClinic(clinicId, { ...approved, is_published: true });
+    const withdrawn = await updateAdminClinic(clinicId, { ...approved, is_published: false });
+    const republished = await updateAdminClinic(clinicId, { ...approved, is_published: true });
+
+    expect([published, withdrawn, republished].map(claimed)).toEqual([true, false, false]);
+  }, 20_000);
+
+  it('re-arms the admin notice after an entry is withdrawn', async () => {
+    const submission = memberSubmission();
+    const clinicId = await firebaseClinicRegistrationStore.createPending(submission);
+    await saveMemberClinic(clinicId, submission);
+    await firebaseFirestore().doc(`clinics/${clinicId}`).update({ approvalStatus: 'approved' });
+    await updateAdminClinic(clinicId, { ...submission, is_published: true });
+    await updateAdminClinic(clinicId, { ...submission, is_published: false });
+
+    await expect(saveMemberClinic(clinicId, submission)).resolves.toEqual({
+      notifySubmission: true,
+    });
+  }, 20_000);
+
   it('creates only one clinic for concurrent duplicate names', async () => {
     const submission = {
       name: `Concurrent Clinic ${randomUUID()}`,
@@ -125,3 +167,22 @@ describe.skipIf(!hasEmulator)('Firestore transaction invariants', () => {
     });
   });
 });
+
+function memberSubmission() {
+  return {
+    name: `Notice Clinic ${randomUUID()}`,
+    contact_email: 'clinic@example.org',
+    website: 'https://clinic.example.org',
+    region: 'Berlin',
+    legal_areas: 'Mietrecht',
+    target_clients: 'Alle Ratsuchenden',
+    languages: 'Deutsch',
+    description: 'Beratung für alle',
+    requirements: null,
+    advises_clients: true,
+  };
+}
+
+function claimed(result: { status: string } & Record<string, unknown>): boolean {
+  return result.status === 'ok' && result.notifyPublication === true;
+}

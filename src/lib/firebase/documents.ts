@@ -32,6 +32,10 @@ export const clinicDocumentSchema = z
     approvalStatus: z.enum(['pending', 'approved']),
     createdAt: firestoreDateSchema,
     updatedAt: firestoreDateSchema,
+    /* Transactional notice marks. Absent on every document written before the
+       notifications existed, so both stay optional rather than defaulted. */
+    submissionNotifiedAt: firestoreDateSchema.nullish(),
+    publishNotifiedAt: firestoreDateSchema.nullish(),
   })
   .strict()
   .refine((clinic) => clinic.approvalStatus === 'approved' || !clinic.isPublished, {

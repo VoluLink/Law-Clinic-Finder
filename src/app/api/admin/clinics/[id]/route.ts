@@ -12,6 +12,7 @@ import {
 import { ClinicNameConflictError } from '@/lib/firebase/clinic-repository';
 import { requestLogger } from '@/lib/http/request-id';
 import type { Logger } from '@/lib/logger';
+import { sendClinicPublishedNotice } from '@/lib/mail/clinic-notifications';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -43,8 +44,13 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
   const parsed = clinicAdminSchema.partial().safeParse(body);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
   try {
-    const failed = updateFailureResponse(await updateAdminClinic(clinicId, parsed.data));
-    return failed ?? Response.json({ ok: true });
+    const result = await updateAdminClinic(clinicId, parsed.data);
+    const failed = updateFailureResponse(result);
+    if (failed) return failed;
+    if (result.status === 'ok' && result.notifyPublication) {
+      await sendClinicPublishedNotice(clinicId, logger);
+    }
+    return Response.json({ ok: true });
   } catch (error) {
     return updateErrorResponse(error, clinicId, logger);
   }

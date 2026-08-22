@@ -6,7 +6,7 @@ import { updateFailureResponse } from './route';
 
 describe(updateFailureResponse, () => {
   it('allows a successful update response to continue', () => {
-    expect(updateFailureResponse({ status: 'ok' })).toBeNull();
+    expect(updateFailureResponse({ status: 'ok', notifyPublication: false })).toBeNull();
   });
 
   it('returns not found for a missing clinic', async () => {

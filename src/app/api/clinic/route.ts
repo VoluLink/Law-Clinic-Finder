@@ -5,6 +5,7 @@ import { clinicMemberSaveSchema } from '@/lib/clinics/schema';
 import { ClinicNameConflictError, saveMemberClinic } from '@/lib/firebase/clinic-repository';
 import { requestLogger } from '@/lib/http/request-id';
 import { isSameOrigin } from '@/lib/http/same-origin';
+import { sendClinicSubmissionNotice } from '@/lib/mail/clinic-notifications';
 
 export async function PATCH(request: NextRequest): Promise<Response> {
   const logger = requestLogger(request);
@@ -15,7 +16,8 @@ export async function PATCH(request: NextRequest): Promise<Response> {
     const body = await request.json().catch(() => null);
     const parsed = clinicMemberSaveSchema.safeParse(body);
     if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
-    await saveMemberClinic(profile.clinic_id, parsed.data);
+    const saved = await saveMemberClinic(profile.clinic_id, parsed.data);
+    if (saved.notifySubmission) await sendClinicSubmissionNotice(profile.clinic_id, logger);
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof AuthError) {

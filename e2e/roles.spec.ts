@@ -14,7 +14,7 @@ test.describe('admin session', () => {
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin$/);
     await page.goto('/admin/admins');
-    await expect(page.getByText('Google-Cloud-Betriebsalarme')).toBeVisible();
+    await expect(page.getByText('Admin-Benachrichtigungen')).toBeVisible();
     await expect(page.getByRole('radio', { name: /admin@example\.com/i })).toBeChecked();
   });
 
@@ -43,6 +43,9 @@ test.describe('admin session', () => {
   test('has no serious automated accessibility violations', async ({ page }) => {
     await page.goto('/admin');
     await assertNoSeriousViolations(page, 'admin');
+  });
+
+  test('has no serious accessibility violations on the SMTP screen', async ({ page }) => {
     await page.goto('/admin/smtp');
     await assertNoSeriousViolations(page, 'admin/smtp');
   });
@@ -74,7 +77,11 @@ test.describe('clinic session', () => {
 });
 
 async function assertNoSeriousViolations(page: Page, label: string): Promise<void> {
-  await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important}' });
+  // Only stabilises animations. A blocked third-party beacon can reject this
+  // call, which must never decide the accessibility result below.
+  await page
+    .addStyleTag({ content: '*,*::before,*::after{animation:none!important}' })
+    .catch(() => undefined);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

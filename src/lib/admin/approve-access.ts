@@ -12,7 +12,7 @@ type PendingClinic = ClinicRequirementFields & {
 
 export type AccessReviewStore = {
   readClinic: (clinicId: string) => Promise<PendingClinic | null>;
-  approve: (clinicId: string, publish: boolean) => Promise<void>;
+  approve: (clinicId: string, publish: boolean) => Promise<{ notifyPublication: boolean }>;
   deleteSelfRegistered: (clinicId: string) => Promise<void>;
 };
 
@@ -20,6 +20,8 @@ export type AccessReviewDeps = {
   reviewStore: AccessReviewStore;
   accessStore: ClinicAccessStore;
   logger: Logger;
+  /** Sends the "your entry is published" notice; never throws. */
+  notifyPublication: (clinicId: string) => Promise<void>;
 };
 
 export async function approveAccess(
@@ -29,13 +31,15 @@ export async function approveAccess(
   const clinic = await deps.reviewStore.readClinic(clinicId);
   if (!clinic) return { status: 'not_found' };
   const publish = publishBlockers(clinic).length === 0;
+  let claimed = false;
   try {
-    await deps.reviewStore.approve(clinicId, publish);
+    claimed = (await deps.reviewStore.approve(clinicId, publish)).notifyPublication;
   } catch (error) {
     deps.logger.error('clinic approval failed', { clinicId, reason: errorMessage(error) });
     return { status: 'error' };
   }
   deps.logger.info('clinic access approved', { clinicId, published: publish });
+  if (claimed) await deps.notifyPublication(clinicId);
   return { status: 'ok' };
 }
 

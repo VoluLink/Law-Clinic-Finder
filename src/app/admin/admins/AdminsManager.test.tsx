@@ -61,7 +61,7 @@ describe('AdminsManager', () => {
     );
 
     await userEvent.click(screen.getByLabelText('second@example.com'));
-    await userEvent.click(screen.getByRole('button', { name: /Alarm-Empfänger speichern/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Empfänger speichern/ }));
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/admin/operational-alerts',

@@ -74,32 +74,32 @@ Einstiegspunkte sind `src/app/layout.tsx`, `src/app/page.tsx`, `src/proxy.ts` un
 unter `src/app/api/`. `proxy.ts` macht nur frühes Routing; jede geschützte Datenoperation prüft die
 Firebase-Session und das aktuelle Profil erneut.
 
-| Pfad                                      | Zweck                                                                                                         |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                                             |
-| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                      |
-| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                      |
-| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto              |
-| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion                                          |
-| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                     |
-| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                   |
-| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                    |
-| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                                              |
-| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                         |
-| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                |
-| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                             |
-| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                        |
-| `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager und gebrandete Auth-Mailvorlagen |
-| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten                                        |
-| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                             |
-| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                |
-| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                 |
-| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                               |
-| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                            |
-| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                       |
-| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                          |
-| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                               |
-| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                  |
+| Pfad                                      | Zweck                                                                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                                                                           |
+| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                                                    |
+| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                                                    |
+| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto                                            |
+| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion                                                                        |
+| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                                                   |
+| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                                                 |
+| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                                                  |
+| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                                                                            |
+| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                                                       |
+| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                              |
+| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                           |
+| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                      |
+| `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
+| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten                                                                      |
+| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                           |
+| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                              |
+| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                               |
+| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                             |
+| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                          |
+| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                     |
+| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                        |
+| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                                                             |
+| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                |
 
 ### Datenfluss und Sicherheitsgrenze
 
@@ -168,7 +168,19 @@ Zeit, Version und geänderte Feldnamen. Die Laufzeit liest die aktive Nutzlast k
 pro warmer Instanz; solange keine Version aktiviert ist, gelten weiterhin die `SMTP_*`-Variablen der
 Umgebung. Emulator- und E2E-Läufe greifen nie auf Secret Manager zu.
 
-Die Anmelde-, Einladungs- und Adresswechsel-Mails verwenden eine gemeinsame gebrandete Vorlage, die
+Ein eingereichter, noch nicht veröffentlichter Eintrag benachrichtigt genau einen Admin: den unter
+`/admin/admins` gewählten Empfänger, der zugleich die Google-Cloud-Betriebsalarme erhält. Diese
+Auswahl ist die einzige Adresse für Admin-Kommunikation. Die Mail geht einmal pro unveröffentlichtem
+Zyklus heraus; die Marke wird in derselben Transaktion wie die Speicherung beansprucht, sodass
+gleichzeitige Wiederholungen nicht doppelt senden, und beim Veröffentlichen wieder freigegeben —
+ein zurückgezogener und überarbeiteter Eintrag meldet sich also erneut. Die Veröffentlichung selbst
+benachrichtigt die Clinic an ihrer Beratungsadresse, und zwar nur bei der allerersten
+Veröffentlichung. Beide Wege geben ihre Marke wieder frei, wenn kein Empfänger existiert oder der
+Versand scheitert, damit ein späterer Schreibvorgang es erneut versucht. Protokolliert werden nur
+Clinic-ID und Ergebnis, nie Name oder Adresse.
+
+Die Anmelde-, Einladungs-, Adresswechsel- und Benachrichtigungsmails verwenden eine gemeinsame
+gebrandete Vorlage, die
 Wortmarke, Farben und Schrift aus den Branding-Einstellungen übernimmt und bei einem Branding-Ausfall
 auf die Standardwerte zurückfällt. Sie bleibt tabellenbasiert und inline gestylt, lädt keine externen
 Schriften, Bilder oder Skripte und liefert immer eine Textalternative. Code und State stehen weiterhin
@@ -176,21 +188,22 @@ ausschließlich im URL-Fragment.
 
 ### Firestore-Modell
 
-| Dokument/Collection                                      | Inhalt                                                                  |
-| -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `clinics/{id}` / `clinicContacts/{id}`                   | Öffentlicher Eintrag / private Beratungsmail                            |
-| `profiles/{uid}`                                         | Rolle, Clinic-Zuordnung, Zugangsstatus und Aktivierung                  |
-| `uniqueClinicNames`, `uniqueClinicOwners`, `emailOwners` | Transaktionale Ersatz-Invarianten für SQL-Unique/FK                     |
-| `settings/chat`                                          | Einzige Quelle für alle Live-Prompts, Regler und eingefrorenen Defaults |
-| `settings/operations`                                    | Ausgewählte Admin-UID für Betriebsalarme; keine E-Mail-Kopie            |
-| `branding/current` + `branding/**` in Storage            | Theme und als PNG normalisiertes Logo                                   |
-| `conversations`, `conversationTranscripts`, `retention`  | Statistik, höchstens 200 redigierte Verläufe und Cap-State              |
-| `clinicEvents`, `clinicMetrics`, `adminMetrics`          | PII-freie Events und günstige Monatsaggregate                           |
-| `claimLimits`, `chatDailyQuotas`                         | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                        |
-| `authEmailStates`, `pendingEmailOwners`                  | Kurzlebige Einmal-State- und E-Mail-Reservierungen                      |
-| `idempotencyKeys`                                        | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL   |
-| `logs`                                                   | PII-freie Admin-Protokolle, sieben Tage TTL                             |
-| `migrationRuns/{runId}`                                  | Nicht-PII Checkpoints, Counts und Checksummen                           |
+| Dokument/Collection                                        | Inhalt                                                                  |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `clinics/{id}` / `clinicContacts/{id}`                     | Öffentlicher Eintrag / private Beratungsmail                            |
+| `clinics/{id}.submissionNotifiedAt` / `.publishNotifiedAt` | Transaktionale Marken der beiden Benachrichtigungen                     |
+| `profiles/{uid}`                                           | Rolle, Clinic-Zuordnung, Zugangsstatus und Aktivierung                  |
+| `uniqueClinicNames`, `uniqueClinicOwners`, `emailOwners`   | Transaktionale Ersatz-Invarianten für SQL-Unique/FK                     |
+| `settings/chat`                                            | Einzige Quelle für alle Live-Prompts, Regler und eingefrorenen Defaults |
+| `settings/operations`                                      | Ausgewählte Admin-UID für Betriebsalarme; keine E-Mail-Kopie            |
+| `branding/current` + `branding/**` in Storage              | Theme und als PNG normalisiertes Logo                                   |
+| `conversations`, `conversationTranscripts`, `retention`    | Statistik, höchstens 200 redigierte Verläufe und Cap-State              |
+| `clinicEvents`, `clinicMetrics`, `adminMetrics`            | PII-freie Events und günstige Monatsaggregate                           |
+| `claimLimits`, `chatDailyQuotas`                           | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                        |
+| `authEmailStates`, `pendingEmailOwners`                    | Kurzlebige Einmal-State- und E-Mail-Reservierungen                      |
+| `idempotencyKeys`                                          | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL   |
+| `logs`                                                     | PII-freie Admin-Protokolle, sieben Tage TTL                             |
+| `migrationRuns/{runId}`                                    | Nicht-PII Checkpoints, Counts und Checksummen                           |
 
 Firestore ersetzt keine SQL-Constraints automatisch. Alle Namen, Eigentümer und E-Mail-Adressen
 werden deshalb über Hash-/Reservation-Dokumente in Transaktionen vergeben. Ein Pending-Eintrag kann

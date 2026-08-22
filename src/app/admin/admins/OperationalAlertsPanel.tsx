@@ -19,8 +19,8 @@ export function OperationalAlertsPanel({ admins, recipient }: OperationalAlertsP
   const activeAdmins = admins.filter((admin) => admin.status === 'active');
   return (
     <Panel
-      title="Google-Cloud-Betriebsalarme"
-      hint="Wähle, welcher aktive Admin technische Ausfall- und Kapazitätswarnungen erhält. Ohne Auswahl gilt automatisch der am längsten bestehende aktive Admin."
+      title="Admin-Benachrichtigungen"
+      hint="Der gewählte aktive Admin erhält alle E-Mails an die Administration: technische Google-Cloud-Ausfall- und Kapazitätswarnungen ebenso wie fachliche Hinweise, etwa einen neuen Eintrag, der auf die Freigabe wartet. Ohne ausdrückliche Auswahl gilt automatisch der am längsten bestehende aktive Admin."
     >
       <form onSubmit={form.handleSave} className="flex flex-col gap-4">
         <RecipientOptions
@@ -53,7 +53,9 @@ function useRecipientForm(recipient: OperationalAlertRecipient | null) {
     const response = await saveRecipient(selectedUserId);
     setPending(false);
     if (!response) return setError('Speichern fehlgeschlagen. Bitte versuche es erneut.');
-    setStatus('Alarm-Empfänger gespeichert. Die Cloud-Konfiguration wird aktualisiert.');
+    setStatus(
+      'Empfänger gespeichert. Alle Admin-E-Mails gehen an diese Adresse; die Cloud-Konfiguration wird aktualisiert.',
+    );
     router.refresh();
   }
   return { selectedUserId, setSelectedUserId, status, error, pending, handleSave };
@@ -69,7 +71,7 @@ type RecipientOptionsProps = {
 function RecipientOptions(props: RecipientOptionsProps) {
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-sm font-semibold text-foreground">Alarm-Empfänger</legend>
+      <legend className="mb-2 text-sm font-semibold text-foreground">Empfänger</legend>
       {props.admins.map((admin) => (
         <RecipientOption key={admin.userId} admin={admin} {...props} />
       ))}
@@ -102,7 +104,7 @@ function FormFeedback({ selectedUserId, pending, status, error }: FormFeedbackPr
   return (
     <div className="flex flex-wrap items-center gap-4">
       <Button type="submit" disabled={pending || selectedUserId.length === 0}>
-        Alarm-Empfänger speichern
+        Empfänger speichern
       </Button>
       {status && (
         <p role="status" className="text-sm text-muted">
