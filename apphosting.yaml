@@ -42,6 +42,14 @@ env:
     value: Law Clinics Deutschland
     availability:
       - RUNTIME
+  - variable: SMTP_SETTINGS_SECRET
+    value: smtpSettings
+    availability:
+      - RUNTIME
+  - variable: SMTP_SETTINGS_SECRET_LOCATION
+    value: europe-west4
+    availability:
+      - RUNTIME
   - variable: SITE_URL
     secret: siteUrl
   - variable: STAGING_ACCESS_ENABLED

@@ -24,6 +24,10 @@ export const SIGNUP_REGISTER_RATE_LIMIT: RateLimitConfig = { maxRequests: 5, win
 export const LOGIN_RATE_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 60 * 60_000 };
 export const AUTH_CONFIRM_RATE_LIMIT: RateLimitConfig = { maxRequests: 20, windowMs: 60 * 60_000 };
 
+/** SMTP configuration changes: every attempt opens a real, authenticated SMTP
+ *  connection, so an admin typo must not turn into an outbound scan. */
+export const SMTP_SETTINGS_RATE_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: 60 * 60_000 };
+
 /**
  * In-memory sliding-window limiter. Per-process only — behind multiple
  * instances, enforce limits at the proxy layer as well.

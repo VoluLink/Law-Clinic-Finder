@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 import type { EmailStateRecord } from './email-state';
+import { recentlyAuthenticated } from './recent-auth';
 
-const RECENT_AUTH_SECONDS = 5 * 60;
 const CHANGE_TTL_MS = 15 * 60 * 1_000;
 
 const requestSchema = z.object({
@@ -56,11 +56,6 @@ export async function requestEmailChange(
   );
   if (reserved !== 'ok') return { status: reserved };
   return sendReservedChange(dependencies, request.userId, request.currentEmail, request.newEmail);
-}
-
-function recentlyAuthenticated(authTime: number, now: Date): boolean {
-  const age = Math.floor(now.getTime() / 1_000) - authTime;
-  return age >= 0 && age <= RECENT_AUTH_SECONDS;
 }
 
 async function sendReservedChange(

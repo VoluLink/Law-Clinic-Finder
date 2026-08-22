@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSmtpMailer } from './smtp';
+import { createSmtpMailer, verifySmtpConfig } from './smtp';
 
 const config = {
   host: 'smtp-relay.brevo.com',
@@ -67,5 +67,36 @@ describe(createSmtpMailer.name, () => {
     await expect(
       mailer.send({ to: 'clinic@example.com', subject: 'Ihr Anmeldelink' }),
     ).rejects.toThrow('Invalid e-mail message');
+  });
+});
+
+describe(verifySmtpConfig.name, () => {
+  it('authenticates against the proposed settings without sending a message', async () => {
+    const verify = vi.fn().mockResolvedValue(true);
+
+    await expect(verifySmtpConfig(config, () => ({ verify }))).resolves.toEqual({ ok: true });
+    expect(verify).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifies a rejected login as an authentication failure', async () => {
+    const error = Object.assign(new Error('Invalid login'), { code: 'EAUTH' });
+
+    await expect(
+      verifySmtpConfig(config, () => ({ verify: () => Promise.reject(error) })),
+    ).resolves.toMatchObject({ ok: false, failure: 'authentication' });
+  });
+
+  it('classifies an unreachable host as a connection failure', async () => {
+    const error = Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ESOCKET' });
+
+    await expect(
+      verifySmtpConfig(config, () => ({ verify: () => Promise.reject(error) })),
+    ).resolves.toMatchObject({ ok: false, failure: 'connection' });
+  });
+
+  it('falls back to an unknown failure for an unclassified error', async () => {
+    await expect(
+      verifySmtpConfig(config, () => ({ verify: () => Promise.reject(new Error('boom')) })),
+    ).resolves.toMatchObject({ ok: false, failure: 'unknown', reason: 'boom' });
   });
 });

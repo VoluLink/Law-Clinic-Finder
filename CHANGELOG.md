@@ -7,6 +7,37 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Admin-SMTP-Verwaltung und Auth-Mail-Design
+
+- Neuer Admin-Bereich `/admin/smtp` für provider-neutrale SMTP-Einstellungen: Host, Port, TLS-Modus,
+  Login, Passwort/Key, Absenderadresse und Absendername. Geheime Felder erscheinen im Browser
+  ausschließlich als „gesetzt“ oder „nicht gesetzt“ und werden nie zurückgeliefert.
+- Jede Änderung verlangt aktiven Admin, exakten Origin, eine höchstens fünf Minuten alte Anmeldung,
+  Zod-Validierung mit `strict`, ein stündliches Ratenlimit pro Admin und einen `Idempotency-Key`.
+  Wiederholte Anfragen mit demselben Schlüssel wiederholen das Ergebnis, statt eine zweite Version zu
+  aktivieren; eine wirkungslose Ablehnung wird bewusst nicht gemerkt.
+- Die vorgeschlagenen Einstellungen werden zuerst serverseitig mit erzwungenem TLS und
+  Authentifizierung gegen den Server geprüft und erst danach als **eine** vollständige, versionierte
+  Secret-Manager-Nutzlast aktiviert. Es wird dafür keine Mail versendet. Die vorherige aktivierte
+  Version bleibt als geprüftes Rollback-Ziel erhalten und ist im selben Bereich wieder aktivierbar.
+- Die Laufzeit liest die aktive Nutzlast kurz zwischengespeichert pro warmer Instanz, hält bei einer
+  Secret-Manager-Störung die zuletzt gelesene Konfiguration und fällt nur ohne jede aktivierte
+  Version auf die `SMTP_*`-Umgebungsvariablen zurück. Emulator- und E2E-Läufe greifen nie auf Secret
+  Manager zu.
+- Das Auditereignis enthält ausschließlich Akteur-UID, Zeit, Version und geänderte Feldnamen; ein
+  Fehlschlag wird nur als grobe Ursache (Authentifizierung, Verbindung, TLS, unbekannt) protokolliert
+  und angezeigt.
+- Anmelde-, Einladungs- und Adresswechsel-Mails verwenden eine gemeinsame gebrandete Vorlage im
+  freigegebenen Design: Wortmarke, Farben und Schrift stammen aus den Branding-Einstellungen und
+  fallen bei einer Störung auf die Standardwerte zurück. Die Vorlage ist tabellenbasiert und inline
+  gestylt, lädt keine externen Schriften, Bilder oder Skripte, liefert immer eine Textalternative und
+  behält Fragment-plus-POST, Ablaufzusage, Escaping und Providerneutralität bei.
+- Neue Firestore-Collection `idempotencyKeys` mit TTL-Feld; der Anspruch auf einen Schlüssel entsteht
+  über ein atomares `create()`, sodass zwei gleichzeitige Wiederholungen nie beide gewinnen. Zwei
+  Emulator-Integrationstests belegen das.
+- `--danger` und `--warning` sind minimal abgedunkelt, weil beide als Text die WCAG-AA-Schwelle von
+  4,5:1 knapp verfehlten. Der automatisierte Accessibility-Lauf deckt jetzt auch `/admin/smtp` ab.
+
 ### Deployment und Dokumentation
 
 - Eine minimal berechtigte GitHub-CI prüft Anwendung und Functions auf Pull Requests und `main`;

@@ -34,7 +34,11 @@ type SmtpClient = {
   sendMail(message: MailMessage & { from: { name: string; address: string } }): Promise<unknown>;
 };
 
+/** `verify()` opens the connection and authenticates without sending anything. */
+type SmtpVerifier = { verify(): Promise<unknown> };
+
 type SmtpClientFactory = (options: SmtpTransportOptions) => SmtpClient;
+type SmtpVerifierFactory = (options: SmtpTransportOptions) => SmtpVerifier;
 
 function transportOptions(config: SmtpConfig): SmtpTransportOptions {
   return {
@@ -47,7 +51,7 @@ function transportOptions(config: SmtpConfig): SmtpTransportOptions {
   };
 }
 
-function createNodemailerClient(options: SmtpTransportOptions): SmtpClient {
+function createNodemailerClient(options: SmtpTransportOptions): SmtpClient & SmtpVerifier {
   return nodemailer.createTransport(options);
 }
 
@@ -74,3 +78,47 @@ export function createSmtpMailer(
 }
 
 export type Mailer = ReturnType<typeof createSmtpMailer>;
+
+/** Coarse, secret-free classification for the admin UI and the audit log. */
+export const SMTP_VERIFICATION_FAILURES = [
+  'authentication',
+  'connection',
+  'tls',
+  'unknown',
+] as const;
+
+export type SmtpVerificationFailure = (typeof SMTP_VERIFICATION_FAILURES)[number];
+
+export type SmtpVerificationResult =
+  { ok: true } | { ok: false; failure: SmtpVerificationFailure; reason: string };
+
+const FAILURE_BY_CODE: Record<string, SmtpVerificationFailure> = {
+  EAUTH: 'authentication',
+  ECONNECTION: 'connection',
+  ESOCKET: 'connection',
+  EDNS: 'connection',
+  ETIMEDOUT: 'connection',
+  ETLS: 'tls',
+};
+
+function verificationFailure(error: unknown): SmtpVerificationFailure {
+  const code = (error as { code?: unknown })?.code;
+  return typeof code === 'string' ? (FAILURE_BY_CODE[code] ?? 'unknown') : 'unknown';
+}
+
+/**
+ * Proves host, TLS mode, and credentials before a configuration is activated.
+ * Never sends a message, so a wrong setting cannot reach a real recipient.
+ */
+export async function verifySmtpConfig(
+  config: SmtpConfig,
+  createVerifier: SmtpVerifierFactory = createNodemailerClient,
+): Promise<SmtpVerificationResult> {
+  try {
+    await createVerifier(transportOptions(config)).verify();
+    return { ok: true };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'unknown';
+    return { ok: false, failure: verificationFailure(error), reason };
+  }
+}

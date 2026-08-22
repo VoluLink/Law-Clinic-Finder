@@ -53,6 +53,11 @@ describe.skipIf(!emulatorsAvailable)('Firebase client security rules', () => {
     await assertFails(firestore.doc('profiles/user-id').set({ role: 'admin' }));
   });
 
+  it('denies client access to the server-only idempotency keys', async () => {
+    const firestore = environment.authenticatedContext('user-id').firestore();
+    await assertFails(firestore.doc('idempotencyKeys/any-key').get());
+  });
+
   it('allows public reads of server-written branding objects', async () => {
     await seedStorageObject('branding/logo.png');
     const storage = environment.unauthenticatedContext().storage(BUCKET_URL);

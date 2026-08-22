@@ -46,23 +46,24 @@ DEV_LOGIN_ENABLED=true
 Reale Werte gehören ausschließlich in `.env.local` bzw. App Hosting Secret Manager, nie ins Repo.
 `.env.example` enthält die vollständige Vorlage.
 
-| Variable                                              | Sichtbarkeit          | Zweck                                                               |
-| ----------------------------------------------------- | --------------------- | ------------------------------------------------------------------- |
-| `FIREBASE_PROJECT_ID`                                 | Server                | Fest auf `law-clinic-finder`; verhindert versehentliche Zielwechsel |
-| `FIREBASE_DATABASE_ID`                                | Server                | Fest auf die benannte EU-Datenbank `primary-eu`                     |
-| `FIREBASE_STORAGE_BUCKET`                             | Server                | Branding-Bucket des Projekts                                        |
-| `IDENTITY_PLATFORM_API_KEY`                           | Server, nicht geheim  | Identity-Platform-REST-Austausch für E-Mail-Links                   |
-| `NEXT_PUBLIC_SITE_URL`                                | öffentlich            | Kanonischer HTTPS-Origin für `/auth/confirm`                        |
-| `SMTP_HOST` / `SMTP_PORT`                             | Server                | SMTP-Server und Port; 465 = TLS, andere Ports = STARTTLS            |
-| `SMTP_LOGIN_EMAIL` / `SMTP_PASSWORD`                  | Server/Secret         | Provider-neutraler SMTP-Login                                       |
-| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME`                  | Server                | Absender; E-Mail fällt auf den SMTP-Login zurück                    |
-| `STAGING_ACCESS_ENABLED`                              | Server                | Schaltet den temporären Vorschau-Schutz explizit ein                |
-| `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD` | Server/Secret         | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                  |
-| `ANTHROPIC_API_KEY`                                   | Server/Secret         | Claude API für den Finder-Chat                                      |
-| `DEV_LOGIN_ENABLED`                                   | nur lokal             | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden     |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                       | öffentlich, optional  | Consent-gesteuertes GA4                                             |
-| `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`          | Server, optional      | GA-Karten im Admin-Dashboard                                        |
-| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SECRET_KEY`    | nur Migrationsrechner | Read-only Quelle des Kopierwerkzeugs; kein App-Runtime-Zugriff      |
+| Variable                                                 | Sichtbarkeit          | Zweck                                                                                                          |
+| -------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `FIREBASE_PROJECT_ID`                                    | Server                | Fest auf `law-clinic-finder`; verhindert versehentliche Zielwechsel                                            |
+| `FIREBASE_DATABASE_ID`                                   | Server                | Fest auf die benannte EU-Datenbank `primary-eu`                                                                |
+| `FIREBASE_STORAGE_BUCKET`                                | Server                | Branding-Bucket des Projekts                                                                                   |
+| `IDENTITY_PLATFORM_API_KEY`                              | Server, nicht geheim  | Identity-Platform-REST-Austausch für E-Mail-Links                                                              |
+| `NEXT_PUBLIC_SITE_URL`                                   | öffentlich            | Kanonischer HTTPS-Origin für `/auth/confirm`                                                                   |
+| `SMTP_HOST` / `SMTP_PORT`                                | Server                | SMTP-Server und Port; 465 = TLS, andere Ports = STARTTLS                                                       |
+| `SMTP_LOGIN_EMAIL` / `SMTP_PASSWORD`                     | Server/Secret         | Provider-neutraler SMTP-Login                                                                                  |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME`                     | Server                | Absender; E-Mail fällt auf den SMTP-Login zurück                                                               |
+| `SMTP_SETTINGS_SECRET` / `SMTP_SETTINGS_SECRET_LOCATION` | Server                | Name und Region des versionierten SMTP-Secrets, das der Admin-Bereich schreibt; leere Region = globales Secret |
+| `STAGING_ACCESS_ENABLED`                                 | Server                | Schaltet den temporären Vorschau-Schutz explizit ein                                                           |
+| `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD`    | Server/Secret         | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                                                             |
+| `ANTHROPIC_API_KEY`                                      | Server/Secret         | Claude API für den Finder-Chat                                                                                 |
+| `DEV_LOGIN_ENABLED`                                      | nur lokal             | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden                                                |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                          | öffentlich, optional  | Consent-gesteuertes GA4                                                                                        |
+| `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`             | Server, optional      | GA-Karten im Admin-Dashboard                                                                                   |
+| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SECRET_KEY`       | nur Migrationsrechner | Read-only Quelle des Kopierwerkzeugs; kein App-Runtime-Zugriff                                                 |
 
 App Hosting stellt Application Default Credentials bereit. Lokal werden Emulatoren oder lokale ADC
 außerhalb des Repositories verwendet; Service-Account-JSON wird weder eingebaut noch committed.
@@ -73,32 +74,32 @@ Einstiegspunkte sind `src/app/layout.tsx`, `src/app/page.tsx`, `src/proxy.ts` un
 unter `src/app/api/`. `proxy.ts` macht nur frühes Routing; jede geschützte Datenoperation prüft die
 Firebase-Session und das aktuelle Profil erneut.
 
-| Pfad                                      | Zweck                                                                              |
-| ----------------------------------------- | ---------------------------------------------------------------------------------- |
-| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                  |
-| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren           |
-| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung           |
-| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding und Konto   |
-| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion               |
-| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                          |
-| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil        |
-| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                         |
-| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                   |
-| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export              |
-| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel     |
-| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                  |
-| `src/lib/http/`                           | Client-IP, Origin, Request-ID und zentrale HTTP-Sicherheitsheader                  |
-| `src/lib/mail/`                           | Provider-neutraler Nodemailer-Transport und lokale Auth-Mailvorlagen               |
-| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten             |
-| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                  |
-| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync     |
-| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff      |
-| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                    |
-| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify |
-| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                            |
-| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden               |
-| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                    |
-| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback       |
+| Pfad                                      | Zweck                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                                             |
+| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                      |
+| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                      |
+| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto              |
+| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion                                          |
+| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                     |
+| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                   |
+| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                    |
+| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                                              |
+| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                         |
+| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                |
+| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                             |
+| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                        |
+| `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager und gebrandete Auth-Mailvorlagen |
+| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten                                        |
+| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                             |
+| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                |
+| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                 |
+| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                               |
+| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                            |
+| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                       |
+| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                          |
+| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                               |
+| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                  |
 
 ### Datenfluss und Sicherheitsgrenze
 
@@ -154,6 +155,25 @@ Ein Admin-E-Mail-Wechsel verlangt eine höchstens fünf Minuten alte Authentifiz
 neue Adresse atomar und wird erst nach Firebase-Verifikation abgeschlossen. Firebase informiert die
 alte Adresse über die Änderung. Danach wird die Sitzung gelöscht und eine neue Anmeldung verlangt.
 
+Die SMTP-Zugangsdaten sind unter `/admin/smtp` administrierbar, ohne den Provider im Code zu kennen.
+Host, Port, TLS-Modus, Login, Passwort/Key, Absenderadresse und Absendername bilden **eine**
+vollständige Nutzlast, die als versionierte Secret-Manager-Version aktiviert wird. Jede Änderung
+verlangt aktiven Admin, exakten Origin, eine höchstens fünf Minuten alte Anmeldung, Zod-Validierung,
+ein Ratenlimit und einen `Idempotency-Key`; die vorgeschlagenen Werte werden zuerst serverseitig mit
+erzwungenem TLS gegen den Server authentifiziert und erst danach aktiviert. Ein Mailversand findet
+für diese Prüfung nicht statt. Die vorherige aktivierte Version bleibt als Rollback-Ziel erhalten und
+kann im selben Bereich wieder aktiviert werden. Das Passwort verlässt den Server nie: der Browser
+sieht ausschließlich „gesetzt“ oder „nicht gesetzt“, und das Auditereignis enthält nur Akteur-UID,
+Zeit, Version und geänderte Feldnamen. Die Laufzeit liest die aktive Nutzlast kurz zwischengespeichert
+pro warmer Instanz; solange keine Version aktiviert ist, gelten weiterhin die `SMTP_*`-Variablen der
+Umgebung. Emulator- und E2E-Läufe greifen nie auf Secret Manager zu.
+
+Die Anmelde-, Einladungs- und Adresswechsel-Mails verwenden eine gemeinsame gebrandete Vorlage, die
+Wortmarke, Farben und Schrift aus den Branding-Einstellungen übernimmt und bei einem Branding-Ausfall
+auf die Standardwerte zurückfällt. Sie bleibt tabellenbasiert und inline gestylt, lädt keine externen
+Schriften, Bilder oder Skripte und liefert immer eine Textalternative. Code und State stehen weiterhin
+ausschließlich im URL-Fragment.
+
 ### Firestore-Modell
 
 | Dokument/Collection                                      | Inhalt                                                                  |
@@ -168,6 +188,7 @@ alte Adresse über die Änderung. Danach wird die Sitzung gelöscht und eine neu
 | `clinicEvents`, `clinicMetrics`, `adminMetrics`          | PII-freie Events und günstige Monatsaggregate                           |
 | `claimLimits`, `chatDailyQuotas`                         | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                        |
 | `authEmailStates`, `pendingEmailOwners`                  | Kurzlebige Einmal-State- und E-Mail-Reservierungen                      |
+| `idempotencyKeys`                                        | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL   |
 | `logs`                                                   | PII-freie Admin-Protokolle, sieben Tage TTL                             |
 | `migrationRuns/{runId}`                                  | Nicht-PII Checkpoints, Counts und Checksummen                           |
 
@@ -373,6 +394,11 @@ Runtime-Dokumente werden weder verändert noch gelöscht. Danach immer erneut mi
       verifizieren; die gespeicherten Zugangsdaten werden akzeptiert.
 - [x] Brevo-Sender für Testversand verifizieren und Abrechnungssicherung konfigurieren.
 - [ ] Eigene Brevo-DKIM-Domainauthentifizierung vor Produktion abschließen.
+- [ ] Das versionierte Secret `smtpSettings` in `europe-west4` anlegen, der Runtime-Identität
+      ausschließlich `secretmanager.versions.access` und `secretmanager.versions.add` **auf genau
+      dieses Secret** gewähren und eine Firestore-TTL auf `idempotencyKeys.expiresAt` setzen. Bis
+      dahin bleibt `/admin/smtp` bewusst schreibgeschützt und der Versand nutzt die `SMTP_*`-Variablen
+      der Umgebung.
 - [x] Admin-Auswahl sowie günstige Cloud-Run-5xx-/Instanzlimit-Betriebsalarme einrichten.
 - [x] Das starke `stagingAccessPassword`-Secret erstellen und dem Backend gewähren.
 - [x] Den App-Hosting-Backend erstmals aus lokalem Quellstand hinter dem Zugriffsschutz ausrollen
@@ -391,12 +417,12 @@ Backend `web` bleibt zugriffsgeschützt. Der öffentliche Trafficwechsel, weiter
 und eine spätere Supabase-Deaktivierung benötigen weiterhin die im Plan festgelegten Eingaben,
 Prüfungen beziehungsweise ausdrücklichen Freigaben.
 
-Nach vollständig abgeschlossenem und abgenommenem Firebase-Cutover folgen bewusst separat ein
-Admin-Bereich für provider-neutrale SMTP-Konfiguration und die gewünschte visuelle Überarbeitung
-aller Auth-Mails. Passwörter/Keys bleiben dabei ausschließlich versioniert in Secret Manager und
-sind im Browser nur als „gesetzt“ sichtbar; die vollständigen Sicherheits-, Darstellungs- und
-Testanforderungen stehen als Phase 10 im Migrationsplan. Diese späteren Funktionen zählen nicht zum
-aktuellen Migrationsfortschritt.
+Der zuvor auf die Zeit nach dem Cutover verschobene Admin-Bereich für provider-neutrale
+SMTP-Konfiguration und die visuelle Überarbeitung aller Auth-Mails sind implementiert und getestet.
+Passwörter/Keys liegen ausschließlich versioniert in Secret Manager und sind im Browser nur als
+„gesetzt“ sichtbar. Die Funktion bleibt bis zur Cloud-Bereitstellung des Secrets bewusst
+schreibgeschützt; sie zählt weiterhin nicht zum Migrationsfortschritt und ändert den Staging-Status
+nicht.
 
 Der gewünschte kanonische Firebase-Leitfaden für zukünftige Agenten ist jetzt unter
 [`docs/firebase-agent-playbook.md`](docs/firebase-agent-playbook.md) vorhanden und aus der

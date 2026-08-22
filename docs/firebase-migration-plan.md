@@ -15,7 +15,8 @@ Legend: `[ ]` outstanding and `⛔` needs owner input or exact approval.
    connection itself is complete.
 2. Complete the post-copy Firestore content restore drill.
 3. Obtain the domain, legal text, and Brevo DKIM; then perform public cutover and observation.
-4. Implement the deferred SMTP-admin and auth-mail-design feature.
+4. Provision the `smtpSettings` secret and the `idempotencyKeys` TTL so the implemented SMTP-admin
+   and auth-mail feature can leave its read-only state.
 5. Decide whether to archive unused Supabase migration code; keep Supabase data intact unless the
    owner separately authorizes a service/data change.
 
@@ -77,21 +78,31 @@ remains on verified rollout 008. Exact verification and recovery commands are in
 
 ## 4 — Post-migration SMTP administration and e-mail design
 
-- [ ] Add an admin-only SMTP settings screen for provider-neutral host, port, TLS mode, login,
-      password/key, sender address, and sender name. Display secret fields only as set/unset.
-- [ ] Require active admin authorization, recent reauthentication, exact same-origin requests, Zod
-      validation, rate limiting, and an idempotency key for configuration changes.
-- [ ] Test the proposed settings server-side with required TLS/authentication before atomically
-      activating one complete versioned regional Secret Manager payload; retain a last-known-good
-      version for rollback.
-- [ ] Grant only narrow secret read/use permissions, cache the active configuration briefly per warm
-      instance, and record a PII-/secret-free audit event containing actor ID, time, and changed field
-      names only.
-- [ ] Redesign login, invitation, and address-change HTML/text e-mails to match the intended visual
-      formatting while preserving fragment-plus-POST privacy, expiry copy, escaping, multipart text,
-      and provider neutrality.
-- [ ] Add unit, authorization, validation, redaction, rollback, SMTP integration, accessibility, and
-      emulator/E2E tests before enabling the feature.
+The application side is implemented, tested, and merged-ready. The feature stays deliberately
+read-only until the cloud resources below exist; until then the runtime keeps using the `SMTP_*`
+environment variables.
+
+- [x] Admin-only SMTP settings screen at `/admin/smtp` for provider-neutral host, port, TLS mode,
+      login, password/key, sender address, and sender name. Secret fields show only as set/unset.
+- [x] Active admin authorization, recent reauthentication, exact same-origin requests, strict Zod
+      validation, per-admin rate limiting, and a required `Idempotency-Key` for every change.
+- [x] Server-side verification with required TLS and authentication before one complete versioned
+      Secret Manager payload is activated; the previous version is retained and re-activatable.
+- [x] Brief per-warm-instance cache of the active configuration and a PII-/secret-free audit event
+      containing actor ID, time, version, and changed field names only.
+- [x] Login, invitation, and address-change e-mails redesigned to the approved branded template while
+      preserving fragment-plus-POST privacy, expiry copy, escaping, multipart text, and provider
+      neutrality.
+- [x] Unit, authorization, validation, redaction, rollback, verification, accessibility, and
+      emulator/E2E tests, including two Firestore concurrency tests for the idempotency claim.
+- [ ] ⛔ Create the versioned secret `smtpSettings` in `europe-west4` after exact approval, and grant
+      `law-clinic-runtime` only `secretmanager.versions.access` and `secretmanager.versions.add` on
+      that single secret. No build identity and no other principal.
+- [ ] ⛔ Add a Firestore TTL policy on `idempotencyKeys.expiresAt`.
+- [ ] After provisioning: activate the first version from `/admin/smtp`, confirm a real magic-link
+      delivery, then confirm a rollback re-activates the previous version. Only then may the
+      `SMTP_LOGIN_EMAIL`, `SMTP_PASSWORD`, and `SMTP_FROM_EMAIL` secret references be considered for
+      removal from `apphosting.yaml` — keep them until the secret-backed path is proven in staging.
 
 ## 5 — Optional Supabase code decommission
 

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_BRANDING } from '@/lib/branding/branding';
+
 import type { EmailStateStore } from './email-state';
 import { sendEmailChangeLink } from './email-change-link';
 
@@ -29,6 +31,7 @@ describe(sendEmailChangeLink, () => {
         stateStore: stateStore(),
         siteUrl: 'https://law-clinic-finder.web.app',
         createState,
+        branding: async () => DEFAULT_BRANDING,
       },
     );
     expect(auth.generateVerifyAndChangeEmailLink).toHaveBeenCalledWith(

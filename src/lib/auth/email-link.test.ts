@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_BRANDING } from '@/lib/branding/branding';
+
 import type { EmailStateStore } from './email-state';
 import { sendSignInLink } from './email-link';
 
@@ -29,6 +31,7 @@ describe(sendSignInLink.name, () => {
         stateStore: stateStore(),
         siteUrl: 'https://law-clinic-finder.web.app',
         createState: vi.fn().mockResolvedValue(firstPartyState),
+        branding: async () => DEFAULT_BRANDING,
       },
     );
 
@@ -39,6 +42,7 @@ describe(sendSignInLink.name, () => {
     expect(mailer.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'clinic@example.com',
+        subject: 'Dein Anmeldelink',
         text: expect.stringContaining(
           `https://law-clinic-finder.web.app/auth/confirm#oobCode=generated-action-code&state=${firstPartyState}`,
         ),
@@ -59,6 +63,7 @@ describe(sendSignInLink.name, () => {
           stateStore: store,
           siteUrl: 'https://law-clinic-finder.web.app',
           createState: vi.fn().mockResolvedValue(firstPartyState),
+          branding: async () => DEFAULT_BRANDING,
         },
       ),
     ).rejects.toThrow('smtp unavailable');

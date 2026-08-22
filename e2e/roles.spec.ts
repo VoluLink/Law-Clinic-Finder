@@ -18,9 +18,33 @@ test.describe('admin session', () => {
     await expect(page.getByRole('radio', { name: /admin@example\.com/i })).toBeChecked();
   });
 
+  test('opens the SMTP screen read-only while no secret version is reachable', async ({ page }) => {
+    await page.goto('/admin/smtp');
+    await expect(page.getByRole('heading', { name: 'Serververbindung' })).toBeVisible();
+    await expect(page.getByLabel('Host')).toBeDisabled();
+    await expect(page.getByRole('button', { name: /Prüfen/ })).toBeDisabled();
+  });
+
+  test('rejects an SMTP change without an idempotency key', async ({ page }) => {
+    const response = await page.request.put('/api/admin/smtp', {
+      data: {
+        host: 'smtp.example.net',
+        port: 587,
+        tlsMode: 'starttls',
+        loginEmail: 'login@example.net',
+        fromEmail: 'no-reply@example.net',
+        fromName: 'Law Clinics',
+      },
+      headers: { origin: 'http://127.0.0.1:3100' },
+    });
+    expect(response.status()).toBe(400);
+  });
+
   test('has no serious automated accessibility violations', async ({ page }) => {
     await page.goto('/admin');
     await assertNoSeriousViolations(page, 'admin');
+    await page.goto('/admin/smtp');
+    await assertNoSeriousViolations(page, 'admin/smtp');
   });
 });
 
@@ -37,6 +61,10 @@ test.describe('clinic session', () => {
       headers: { origin: 'http://127.0.0.1:3100' },
     });
     expect(response.status()).toBe(403);
+    const smtp = await page.request.get('/api/admin/smtp', {
+      headers: { origin: 'http://127.0.0.1:3100' },
+    });
+    expect(smtp.status()).toBe(403);
   });
 
   test('has no serious automated accessibility violations', async ({ page }) => {

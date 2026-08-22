@@ -15,7 +15,8 @@
   --primary-foreground: #faf2e7;
   --accent: #f0e6d2;
   --accent-hover: #e6d8bc;
-  --danger: #c75050;
+  /* Darkened to clear WCAG AA (4.5:1) as body text on --surface. */
+  --danger: #b84747;
   --danger-foreground: #ffffff;
   --limit: #aa4728;
   --limit-foreground: #ffffff;
@@ -24,7 +25,8 @@
   --limit-border: #eab9a5;
   --success: #2f7a52;
   --success-surface: #e4f2e9;
-  --warning: #9a6b1f;
+  /* Darkened to clear WCAG AA (4.5:1) on --warning-surface at badge size. */
+  --warning: #8a5f1b;
   --warning-surface: #f7ecd6;
   /* Stronger positive green for dashboard deltas (▲ over the muted body green). */
   --success-strong: #3ea37b;

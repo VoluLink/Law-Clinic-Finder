@@ -2,11 +2,12 @@ import 'server-only';
 
 import { z } from 'zod';
 
+import type { Branding } from '@/lib/branding/branding';
 import { firebaseAdminAuth } from '@/lib/firebase/admin';
 import { createFirestoreEmailStateStore } from '@/lib/firebase/email-state-store';
 import { firebaseConfig } from '@/lib/firebase/env';
-import { createSmtpMailer } from '@/lib/mail/smtp';
 
+import { authEmailBranding, deliverAuthEmail, lazyActiveMailer } from './email-link';
 import { createEmailState, deleteEmailState, type EmailStateStore } from './email-state';
 import { confirmationLink } from './confirmation-payload';
 
@@ -36,6 +37,7 @@ type Dependencies = {
   stateStore: EmailStateStore;
   siteUrl: string;
   createState: typeof createEmailState;
+  branding: () => Promise<Branding>;
 };
 
 type EmailChangeMessage = { to: string; subject: string; text: string; html: string };
@@ -43,10 +45,11 @@ type EmailChangeMessage = { to: string; subject: string; text: string; html: str
 function defaultDependencies(): Dependencies {
   return {
     auth: firebaseAdminAuth(),
-    mailer: createSmtpMailer(),
+    mailer: lazyActiveMailer(),
     stateStore: createFirestoreEmailStateStore(),
     siteUrl: firebaseConfig().siteUrl,
     createState: createEmailState,
+    branding: authEmailBranding,
   };
 }
 
@@ -61,15 +64,6 @@ function actionCodeFrom(link: string): string {
 
 function firstPartyLink(siteUrl: string, actionCode: string, state: string): string {
   return confirmationLink(siteUrl, { oobCode: actionCode, state, flow: 'email-change' });
-}
-
-function messageFor(email: string, link: string): EmailChangeMessage {
-  const intro = 'Bestätige diese Adresse für deinen Admin-Zugang.';
-  const notice = 'Nach der Änderung wird die bisherige Adresse aus Sicherheitsgründen informiert.';
-  const text = `${intro}\n\n${link}\n\n${notice}\nDer Link ist 15 Minuten gültig.`;
-  const htmlLink = link.replaceAll('&', '&amp;');
-  const html = `<p>${intro}</p><p><a href="${htmlLink}">Neue E-Mail-Adresse bestätigen</a></p><p>${notice}</p><p>Der Link ist 15 Minuten gültig.</p>`;
-  return { to: email, subject: 'Neue Admin-E-Mail-Adresse bestätigen', text, html };
 }
 
 export async function sendEmailChangeLink(
@@ -92,7 +86,14 @@ export async function sendEmailChangeLink(
   });
   const link = firstPartyLink(dependencies.siteUrl, actionCode, state);
   try {
-    await dependencies.mailer.send(messageFor(request.newEmail, link));
+    await deliverAuthEmail({
+      mailer: dependencies.mailer,
+      branding: dependencies.branding,
+      siteUrl: dependencies.siteUrl,
+      to: request.newEmail,
+      link,
+      purpose: 'email_change',
+    });
   } catch (error) {
     await deleteEmailState(dependencies.stateStore, state);
     throw error;

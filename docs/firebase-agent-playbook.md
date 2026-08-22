@@ -263,9 +263,37 @@ without logging credentials, magic links, e-mail addresses, request bodies, or t
 - `apphosting.yaml` may contain non-secret values and secret **names**, never secret values.
 - Grant secret access to `law-clinic-runtime` only. Build identities must not read application
   secrets unless App Hosting requires a narrowly documented build-time reference.
-- Never replace the SMTP configuration with provider-specific code. A future admin UI must write a
-  complete versioned secret atomically, display only set/unset state, require recent admin
-  reauthentication, and record only redacted audit metadata.
+- Never replace the SMTP configuration with provider-specific code. The admin UI at `/admin/smtp`
+  implements this contract: it writes one complete versioned secret atomically, shows only set/unset
+  state, requires recent admin reauthentication plus an `Idempotency-Key`, verifies the settings
+  against the server with required TLS before activating, keeps the previous version as the rollback
+  target, and records only redacted audit metadata. Keep every one of those properties.
+- The runtime reads that payload through `src/lib/firebase/smtp-settings-store.ts`, cached briefly per
+  warm instance. Its name and region come from `SMTP_SETTINGS_SECRET` and
+  `SMTP_SETTINGS_SECRET_LOCATION`; an empty location means a global secret. Emulator runs never reach
+  Secret Manager. Until a version is activated, the `SMTP_*` variables remain the source.
+- Provisioning is an explicit cloud operation and needs exact approval. Grant the two permissions on
+  that single secret only — never a project-level Secret Manager role, and never to a build identity:
+
+```bash
+GCLOUD="$HOME/google-cloud-sdk/bin/gcloud"
+RUNTIME='serviceAccount:law-clinic-runtime@law-clinic-finder.iam.gserviceaccount.com'
+
+"$GCLOUD" secrets create smtpSettings \
+  --project law-clinic-finder --location europe-west4
+
+"$GCLOUD" secrets add-iam-policy-binding smtpSettings \
+  --project law-clinic-finder --location europe-west4 \
+  --member="$RUNTIME" --role='roles/secretmanager.secretAccessor'
+
+"$GCLOUD" secrets add-iam-policy-binding smtpSettings \
+  --project law-clinic-finder --location europe-west4 \
+  --member="$RUNTIME" --role='roles/secretmanager.secretVersionAdder'
+```
+
+Add the first version from `/admin/smtp`, never from the shell — the screen is what verifies the
+settings before activation. Also add a Firestore TTL policy on `idempotencyKeys.expiresAt`.
+
 - After environment changes, verify `.env` tracking/history as required by `AGENTS.md`.
 
 ## Data, Auth, and migration safety
