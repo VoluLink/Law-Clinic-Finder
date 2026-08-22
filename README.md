@@ -254,9 +254,10 @@ Zielprojekt: `law-clinic-finder`. Zielregion: `europe-west4`. Supabase ist derze
 in Benutzung und bleibt als Quelle/Backup vollständig erhalten. Die Migration kopiert ausschließlich;
 kein Transfer-Skript enthält eine Supabase-Delete-/Update-Operation.
 
-GitHub-Meilenstein: Branch `feat/firebase-migration` ist der erste zu GitHub gepushte Projektstand,
-der die Anwendung auf Firebase umstellt. Dieser Meilenstein ist ein zugriffsgeschützter
-Staging-Stand und ausdrücklich noch keine öffentliche Veröffentlichung.
+GitHub-Meilenstein: `main` enthält die vollständige Firebase-Migration direkt und ohne Pull Request;
+Commit `640036e` war die geprüfte Quelle des ersten anschließend ausgerollten Staging-Builds. Der
+Stand bleibt zugriffsgeschütztes Staging und ist ausdrücklich noch keine öffentliche
+Veröffentlichung.
 
 Aktueller Stand (2026-08-22): lokale App-Umstellung 100%, vollständige Migration bis zum
 produktiven Cutover ungefähr 94%. Runtime-Pfade für Public Site, Chat, Clinic/Admin, Auth, Signup,
@@ -274,18 +275,20 @@ gültige Identity-, Clinic-, Reservation-, Settings-, Branding- und Checkpoint-R
 wurde ausschließlich gelesen und bleibt vollständig erhalten; nur die zwei reservierten
 `@example.com`-Entwicklungsidentitäten wurden im Firebase-Ziel ausgelassen.
 
-Rollout `web-build-2026-08-22-007` läuft zu 100% hinter dem Secret-Manager-gestützten
-Staging-Schutz. Ein frischer, gehärteter Fragment-plus-POST-Magic-Link wurde durch den Nutzer bis
-`/admin` bestätigt und durch PII-freie, query-lose Cloud-Logs unabhängig belegt. Der Login zeigt
-jetzt den ausdrücklich gewünschten Fehler für nicht registrierte Adressen. Unter `/admin/admins`
-kann ein aktiver Admin als Empfänger der Google-Cloud-Betriebsalarme gewählt werden; Standard ist
-der einzige beziehungsweise älteste aktive Admin. Der ereignisgesteuerte Sync hat einen aktivierten
-E-Mail-Kanal und eingebaute Cloud-Run-Alarme für 5xx und das Instanzlimit angelegt. Die Auswahl wird
-im selben Schreibvorgang nochmals auf aktive Adminrolle geprüft, damit eine gleichzeitige Sperrung
-nicht zwischen Listenansicht und Speicherung geraten kann. Neun Playwright-E2E-Journeys laufen
-ausschließlich gegen Auth-/Firestore-/Storage-Emulatoren. Live-Staging-Prüfungen belegen zusätzlich
-strikte Browserregeln, echte Brevo-Anmeldung, inkrementelles NDJSON-Streaming und die verzögerte
-`after()`-Persistenz; die dabei exakt erzeugten Testdatensätze wurden anschließend entfernt.
+Rollout `web-build-2026-08-22-008` aus Commit `640036e` läuft zu 100% hinter dem
+Secret-Manager-gestützten Staging-Schutz unter `law-clinic-runtime`. Der erneute Smoke-Test erhielt
+401, `no-store`, den Basic-Challenge und die erwarteten HTTPS-Sicherheitsheader; die vom CLI erneut
+angelegte breite Build-Rolle wurde anschließend entfernt und es gab keine Error-Level-Logs der
+neuen Revision. Ein frischer, gehärteter Fragment-plus-POST-Magic-Link wurde auf dem vorherigen
+funktionsgleichen Rollout durch den Nutzer bis `/admin` bestätigt und durch PII-freie, query-lose
+Cloud-Logs unabhängig belegt. Der Login zeigt den ausdrücklich gewünschten Fehler für nicht
+registrierte Adressen. Unter `/admin/admins` kann ein aktiver Admin als Empfänger der
+Google-Cloud-Betriebsalarme gewählt werden; Standard ist der einzige beziehungsweise älteste aktive
+Admin. Der ereignisgesteuerte Sync hat einen aktivierten E-Mail-Kanal und eingebaute Cloud-Run-Alarme
+für 5xx und das Instanzlimit angelegt. Neun Playwright-E2E-Journeys laufen ausschließlich gegen
+Auth-/Firestore-/Storage-Emulatoren. Live-Staging-Prüfungen belegen zusätzlich strikte Browserregeln,
+echte Brevo-Anmeldung, inkrementelles NDJSON-Streaming und die verzögerte `after()`-Persistenz; die
+dabei exakt erzeugten Testdatensätze wurden anschließend entfernt.
 
 Der freigegebene Restore von `restore-drill-20260822` bewies Wiederherstellung und Isolation; nur die
 temporäre Datenbank wurde anschließend gelöscht, `primary-eu` blieb löschgeschützt und das Backup
