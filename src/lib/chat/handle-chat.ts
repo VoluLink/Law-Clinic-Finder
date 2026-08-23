@@ -1,12 +1,12 @@
 import { clientIp } from '@/lib/http/client-ip';
 import { isSameOrigin } from '@/lib/http/same-origin';
 import { challengeRequired, verifyChallenge } from '@/lib/security/challenge';
+import { deidentify } from '@/lib/security/deidentify';
 import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
 import type { ChatSettings, ChatSettingsResult } from '@/lib/settings';
 
 import type { DailyQuotaClaim } from './daily-quota';
-import { redactPatterns } from './redact';
 import type { ChatRunResult } from './run-chat';
 import { chatRequestSchema, type ChatMessage, type ChatRequest } from './schema';
 import { CHAT_STREAM_CONTENT_TYPE } from './stream-protocol';
@@ -66,7 +66,7 @@ export async function handleChatRequest(
   if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
   const quota = await enforceDailyQuota(deps, request, parsed.sessionId);
   if (quota instanceof Response) return quota;
-  return startChat(deps, loaded.settings, parsed, quota);
+  return startChat(deps, loaded.settings, parsed, quota, await minimize(parsed));
 }
 
 /**
@@ -115,18 +115,28 @@ async function enforceDailyQuota(deps: ChatHandlerDeps, request: Request, sessio
   return quota;
 }
 
+/**
+ * One boundary for both API transit and storage. `deidentify` always applies the
+ * local engine and, when configured, an additional Cloud DLP pass; it can only
+ * ever remove more, never hand back the original. The model never acts as the
+ * redactor and never needs the matched data.
+ */
+async function minimize(request: ChatRequest): Promise<ChatMessage[]> {
+  return Promise.all(
+    request.messages.map(async (message) => ({
+      role: message.role,
+      content: await deidentify(message.content),
+    })),
+  );
+}
+
 function startChat(
   deps: ChatHandlerDeps,
   settings: ChatSettings,
   request: ChatRequest,
   quota: Extract<DailyQuotaClaim, { ok: true }>,
+  messages: ChatMessage[],
 ): Response {
-  // Apply the same deterministic PII boundary before API transit and storage;
-  // the chat model never acts as the redactor and never needs the matched data.
-  const messages = request.messages.map((message) => ({
-    role: message.role,
-    content: redactPatterns(message.content),
-  }));
   const { stream, result } = deps.run(settings, messages);
   deps.schedule(() => finishRun(deps, messages, result, request.sessionId));
   return new Response(stream, {

@@ -177,10 +177,27 @@ describe(redactPatterns, () => {
     );
   });
 
-  it('replaces a postal code together with its city', () => {
+  it('replaces the postal code but keeps the city', () => {
     expect(redactPatterns('Meine Anschrift lautet 50667 Köln.')).toBe(
-      'Meine Anschrift lautet [PLZ-ORT].',
+      'Meine Anschrift lautet [PLZ] Köln.',
     );
+  });
+
+  // The finder exists to match a person to a clinic near them, and the model only
+  // knows where they are because they wrote it. Redacting the city would break
+  // the product while looking like a privacy improvement.
+  it.each([
+    ['Ich wohne in 50667 Köln zur Miete.', 'Köln'],
+    ['Ich suche Hilfe in 10115 Berlin.', 'Berlin'],
+    ['Wohnhaft 04109 Leipzig, Mietrecht.', 'Leipzig'],
+    ['Ich wohne in 79539 Bad Säckingen.', 'Bad Säckingen'],
+    ['Meine Adresse ist Musterstraße 12, 20095 Hamburg.', 'Hamburg'],
+  ])('leaves the city searchable in %s', (input, city) => {
+    expect(redactPatterns(input)).toContain(city);
+  });
+
+  it('keeps a bare city untouched', () => {
+    expect(redactPatterns('Ich wohne in Köln.')).toBe('Ich wohne in Köln.');
   });
 
   it('replaces a German identity card number', () => {

@@ -228,10 +228,17 @@ function redactLicencePlate(candidate: string, district: string): string {
   return NON_PLATE_PREFIXES.has(district) ? candidate : '[KENNZEICHEN]';
 }
 
+/*
+ * The city MUST survive. The whole product is matching a person to a law clinic
+ * near them, and the model only knows where they are because they wrote it — so
+ * removing "Köln" from "50667 Köln" would silently break the core feature while
+ * looking like a privacy win. Only the postal code goes: it narrows a person to a
+ * few streets, while the city narrows them to a few hundred thousand.
+ */
 function redactPostalCity(candidate: string, postalCode: string, city: string): string {
   if (postalCode.startsWith('00')) return candidate;
   const [firstWord] = city.split(/[\s-]/);
-  return NON_CITY_WORDS.has(firstWord) ? candidate : '[PLZ-ORT]';
+  return NON_CITY_WORDS.has(firstWord) ? candidate : `[PLZ] ${city}`;
 }
 
 function redactIdDocument(candidate: string): string {
