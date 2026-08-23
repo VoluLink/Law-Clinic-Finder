@@ -23,7 +23,8 @@
     "migrate:firebase:verify": "node --env-file=.env.local --import tsx scripts/firebase-migration/index.ts --verify",
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "chat:guidance": "node --env-file=.env.local --import tsx scripts/update-chat-guidance.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.2",
