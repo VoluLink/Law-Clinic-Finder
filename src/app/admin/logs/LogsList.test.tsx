@@ -77,6 +77,36 @@ describe('LogsList', () => {
 
   it('shows an empty-state message when there are no logs', () => {
     render(<LogsList logs={[]} />);
-    expect(screen.getByText('Noch keine Protokolle vorhanden.')).toBeInTheDocument();
+    expect(screen.getByText(/Keine Warnungen oder Fehler/)).toBeInTheDocument();
+  });
+
+  it('reports rows that could not be read instead of hiding the gap', () => {
+    render(<LogsList logs={[]} unreadable={3} />);
+    expect(screen.getByRole('status')).toHaveTextContent('3 Einträge konnten nicht gelesen werden');
+  });
+
+  it('filters to a single request when its correlation id is picked', async () => {
+    const rows: LogRow[] = [
+      {
+        id: '1',
+        logged_at: '2026-08-23T10:00:00.000Z',
+        level: 'error',
+        msg: 'chat run failed',
+        fields: { requestId: 'req-a' },
+      },
+      {
+        id: '2',
+        logged_at: '2026-08-23T10:00:01.000Z',
+        level: 'warn',
+        msg: 'unrelated warning',
+        fields: { requestId: 'req-b' },
+      },
+    ];
+    render(<LogsList logs={rows} />);
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Request anzeigen' })[0]);
+
+    expect(screen.getByText('chat run failed')).toBeInTheDocument();
+    expect(screen.queryByText('unrelated warning')).not.toBeInTheDocument();
   });
 });

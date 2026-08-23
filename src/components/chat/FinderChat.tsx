@@ -294,7 +294,9 @@ function DailyLimitNotice({ dict }: { dict: Dictionary }) {
     <div
       role="alert"
       data-daily-limit
-      className="flex w-full items-start gap-5 rounded-3xl border border-limit-border bg-limit-surface px-6 py-8 text-start shadow-panel animate-[chat-in_0.3s_ease] sm:gap-7 sm:px-10 sm:py-10"
+      /* Same width as SearchCard: this replaces the search card, so spanning the
+         full column made it read as a page-level banner instead of the chat. */
+      className="mx-auto flex w-full max-w-[780px] items-start gap-5 rounded-3xl border border-limit-border bg-limit-surface px-6 py-8 text-start shadow-panel animate-[chat-in_0.3s_ease] sm:gap-7 sm:px-10 sm:py-10"
     >
       <span
         aria-hidden

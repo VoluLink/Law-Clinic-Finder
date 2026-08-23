@@ -54,7 +54,14 @@ function toNdjson(rows: LogRow[]): string {
     .join('\n');
 }
 
-export function LogsList({ logs }: { logs: LogRow[] }) {
+/** The correlation id `proxy.ts` mints per request and threads through every
+ *  child logger; filtering on it reconstructs one failing request. */
+export function requestIdOf(row: LogRow): string | null {
+  const value = row.fields?.requestId;
+  return typeof value === 'string' ? value : null;
+}
+
+export function LogsList({ logs, unreadable = 0 }: { logs: LogRow[]; unreadable?: number }) {
   const router = useRouter();
   const [level, setLevel] = useState('all');
   const [search, setSearch] = useState('');
@@ -110,16 +117,22 @@ export function LogsList({ logs }: { logs: LogRow[] }) {
         </Button>
       </div>
 
+      {unreadable > 0 && (
+        <p role="status" className="text-sm text-warning">
+          {unreadable} Einträge konnten nicht gelesen werden und wurden übersprungen.
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <p className="text-sm text-muted">
           {logs.length === 0
-            ? 'Noch keine Protokolle vorhanden.'
+            ? 'Keine Warnungen oder Fehler in den letzten sieben Tagen — das ist der Normalfall.'
             : 'Keine Treffer für diesen Filter.'}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((row) => (
-            <LogCard key={row.id} row={row} />
+            <LogCard key={row.id} row={row} onSelectRequest={setSearch} />
           ))}
         </div>
       )}
@@ -127,13 +140,24 @@ export function LogsList({ logs }: { logs: LogRow[] }) {
   );
 }
 
-function LogCard({ row }: { row: LogRow }) {
+function LogCard({ row, onSelectRequest }: { row: LogRow; onSelectRequest: (id: string) => void }) {
+  const requestId = requestIdOf(row);
   return (
     <Card className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant={LEVEL_VARIANT[row.level]}>{row.level.toUpperCase()}</Badge>
         <span className="text-sm text-muted">{formatDate(row.logged_at)}</span>
         <span className="text-sm font-medium text-foreground">{row.msg}</span>
+        {requestId && (
+          <button
+            type="button"
+            onClick={() => onSelectRequest(requestId)}
+            title="Alle Zeilen dieses Requests anzeigen"
+            className="text-xs font-semibold text-primary underline underline-offset-2"
+          >
+            Request anzeigen
+          </button>
+        )}
       </div>
       {row.fields && (
         <pre className="overflow-x-auto rounded-lg bg-surface-tint p-3 text-xs text-muted">
