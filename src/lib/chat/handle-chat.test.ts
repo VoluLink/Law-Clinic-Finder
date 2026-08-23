@@ -47,6 +47,7 @@ function createDeps(overrides?: Partial<ChatHandlerDeps>): ChatHandlerDeps {
       }),
     }),
     persist: vi.fn().mockResolvedValue(undefined),
+    deidentify: vi.fn(async (messages) => ({ ok: true as const, messages })),
     schedule: (task) => void task(),
     logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn(), child: vi.fn() },
     ...overrides,
@@ -169,37 +170,71 @@ describe(handleChatRequest, () => {
     expect(deps.persist).toHaveBeenCalledWith(expect.anything(), expect.anything(), sessionId);
   });
 
-  it('strips sensitive details before the messages reach the model', async () => {
-    const deps = createDeps();
-    const body = {
-      sessionId,
-      messages: [
-        {
-          role: 'user',
-          content:
-            'Ich heiße Anna Beispiel, wohne in der Musterstraße 12 und bin unter 0221 4567890 erreichbar.',
-        },
-      ],
-    };
-    await handleChatRequest(chatRequest(body), deps);
-    expect(deps.run).toHaveBeenCalledWith(settings, [
-      {
-        role: 'user',
-        content: 'Ich heiße [NAME], wohne in der [ADRESSE] und bin unter [TELEFON] erreichbar.',
-      },
-    ]);
-  });
-
-  it('persists the redacted text, not what the user typed', async () => {
-    const deps = createDeps();
-    const body = {
+  describe('de-identification boundary', () => {
+    const typed = {
       sessionId,
       messages: [{ role: 'user', content: 'Meine Mail: anna@example.org' }],
     };
-    await handleChatRequest(chatRequest(body), deps);
-    await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
-    const [transcript] = vi.mocked(deps.persist).mock.calls[0];
-    expect(transcript[0].content).toBe('Meine Mail: [E-MAIL]');
+
+    function deidentified(content: string) {
+      return vi.fn(async () => ({
+        ok: true as const,
+        messages: [{ role: 'user' as const, content }],
+      }));
+    }
+
+    function refusing(reason: 'unconfigured' | 'timeout' | 'rejected' | 'unavailable') {
+      return vi.fn(async () => ({ ok: false as const, reason }));
+    }
+
+    it('sends the de-identified messages to the model, not what was typed', async () => {
+      const deps = createDeps({ deidentify: deidentified('Meine Mail: [EMAIL_ADDRESS]') });
+      await handleChatRequest(chatRequest(typed), deps);
+      expect(deps.run).toHaveBeenCalledWith(settings, [
+        { role: 'user', content: 'Meine Mail: [EMAIL_ADDRESS]' },
+      ]);
+    });
+
+    it('persists the de-identified messages, not what was typed', async () => {
+      const deps = createDeps({ deidentify: deidentified('Meine Mail: [EMAIL_ADDRESS]') });
+      await handleChatRequest(chatRequest(typed), deps);
+      await vi.waitFor(() => expect(deps.persist).toHaveBeenCalled());
+      const [transcript] = vi.mocked(deps.persist).mock.calls[0];
+      expect(transcript[0].content).toBe('Meine Mail: [EMAIL_ADDRESS]');
+    });
+
+    it.each(['unconfigured', 'timeout', 'rejected', 'unavailable'] as const)(
+      'refuses the turn with 503 when de-identification reports %s',
+      async (reason) => {
+        const deps = createDeps({ deidentify: refusing(reason) });
+        const response = await handleChatRequest(chatRequest(typed), deps);
+        expect(response.status).toBe(503);
+      },
+    );
+
+    it('never reaches the model when de-identification fails', async () => {
+      const deps = createDeps({ deidentify: refusing('unavailable') });
+      await handleChatRequest(chatRequest(typed), deps);
+      expect(deps.run).not.toHaveBeenCalled();
+      expect(deps.persist).not.toHaveBeenCalled();
+    });
+
+    /* A DLP outage is an infrastructure fault, not something the visitor did, so
+     * it must not cost them one of their few messages for the day. */
+    it('does not spend the daily quota when de-identification fails', async () => {
+      const claimQuota = vi.fn();
+      const deps = createDeps({ deidentify: refusing('timeout'), claimQuota });
+      await handleChatRequest(chatRequest(typed), deps);
+      expect(claimQuota).not.toHaveBeenCalled();
+    });
+
+    it('records the reason so the failure is visible in the admin log', async () => {
+      const deps = createDeps({ deidentify: refusing('rejected') });
+      await handleChatRequest(chatRequest(typed), deps);
+      expect(deps.logger.error).toHaveBeenCalledWith(expect.stringContaining('de-identification'), {
+        reason: 'rejected',
+      });
+    });
   });
 
   it('logs instead of throwing when the run fails after streaming started', async () => {

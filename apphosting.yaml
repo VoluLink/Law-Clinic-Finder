@@ -50,6 +50,19 @@ env:
     value: europe-west4
     availability:
       - RUNTIME
+
+  # Chat text is de-identified by Cloud Sensitive Data Protection before it
+  # reaches Anthropic or Firestore. There is no fallback redactor: if DLP cannot
+  # inspect a message the chat returns 503. Verify with `npm run dlp:check`
+  # after enabling the API and granting `law-clinic-runtime` the `dlp.user` role.
+  - variable: REDACTION_PROVIDER
+    value: dlp
+    availability:
+      - RUNTIME
+  - variable: DLP_LOCATION
+    value: europe-west4
+    availability:
+      - RUNTIME
   - variable: SITE_URL
     secret: siteUrl
   - variable: STAGING_ACCESS_ENABLED

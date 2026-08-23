@@ -1,11 +1,11 @@
 import type { Logger } from '@/lib/logger';
 
-import type { RedactionOutcome } from './redact';
+import type { TranscriptFacts } from './transcript-facts';
 import type { ChatMessage } from './schema';
 
 export type PersistDeps = {
   store: ConversationStore;
-  redact: (transcript: ChatMessage[]) => Promise<RedactionOutcome>;
+  readFacts: (transcript: ChatMessage[]) => Promise<TranscriptFacts>;
   logger: Logger;
 };
 
@@ -42,7 +42,7 @@ export async function persistConversation(
   run: PersistRunInfo,
   sessionId: string | null,
 ): Promise<void> {
-  const outcome = await deps.redact(transcript);
+  const outcome = await deps.readFacts(transcript);
   const redacted = outcome.status === 'ok' ? outcome : null;
   try {
     await deps.store.record({

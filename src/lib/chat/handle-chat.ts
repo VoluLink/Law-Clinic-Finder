@@ -1,7 +1,7 @@
 import { clientIp } from '@/lib/http/client-ip';
 import { isSameOrigin } from '@/lib/http/same-origin';
 import { challengeRequired, verifyChallenge } from '@/lib/security/challenge';
-import { deidentify } from '@/lib/security/deidentify';
+import { deidentifyMessages, type DeidentifyResult } from '@/lib/security/deidentify';
 import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
 import type { ChatSettings, ChatSettingsResult } from '@/lib/settings';
@@ -21,6 +21,8 @@ export type ChatHandlerDeps = {
   }) => Promise<boolean>;
   claimQuota: (request: Request, sessionId: string) => Promise<DailyQuotaClaim>;
   loadSettings: () => Promise<ChatSettingsResult>;
+  /** Injected so tests and the emulator never depend on a live DLP project. */
+  deidentify?: (messages: ChatMessage[]) => Promise<DeidentifyResult>;
   run: (
     settings: ChatSettings,
     messages: ChatMessage[],
@@ -64,9 +66,14 @@ export async function handleChatRequest(
   const loaded = await deps.loadSettings();
   if (!loaded.ok) return jsonError(503, 'Der Chat ist derzeit nicht konfiguriert.');
   if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
+  const minimized = await minimize(deps, parsed);
+  if (!minimized.ok) {
+    deps.logger.error('chat de-identification unavailable', { reason: minimized.reason });
+    return jsonError(503, 'Der Chat ist derzeit nicht verfügbar.');
+  }
   const quota = await enforceDailyQuota(deps, request, parsed.sessionId);
   if (quota instanceof Response) return quota;
-  return startChat(deps, loaded.settings, parsed, quota, await minimize(parsed));
+  return startChat(deps, loaded.settings, parsed, quota, minimized.messages);
 }
 
 /**
@@ -116,18 +123,16 @@ async function enforceDailyQuota(deps: ChatHandlerDeps, request: Request, sessio
 }
 
 /**
- * One boundary for both API transit and storage. `deidentify` always applies the
- * local engine and, when configured, an additional Cloud DLP pass; it can only
- * ever remove more, never hand back the original. The model never acts as the
- * redactor and never needs the matched data.
+ * One boundary for both API transit and storage: Cloud DLP inspects the whole
+ * transcript in a single call, and the model never sees anything it did not
+ * hand back. There is no fallback redactor, so a failure refuses the turn —
+ * forwarding an un-inspected message would defeat the boundary entirely.
+ *
+ * It runs before the quota claim so that a DLP outage, which is nobody's fault
+ * but ours, does not consume one of the visitor's messages for the day.
  */
-async function minimize(request: ChatRequest): Promise<ChatMessage[]> {
-  return Promise.all(
-    request.messages.map(async (message) => ({
-      role: message.role,
-      content: await deidentify(message.content),
-    })),
-  );
+function minimize(deps: ChatHandlerDeps, request: ChatRequest): Promise<DeidentifyResult> {
+  return (deps.deidentify ?? deidentifyMessages)(request.messages);
 }
 
 function startChat(

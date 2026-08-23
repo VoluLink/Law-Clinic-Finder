@@ -85,7 +85,7 @@ Firebase-Session und das aktuelle Profil erneut.
 | `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                                                    |
 | `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                                                    |
 | `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto                                            |
-| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON und lokaler PII-Redaktion                                                                        |
+| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON hinter der DLP-De-Identifikation                                                                 |
 | `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                                                   |
 | `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                                                 |
 | `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                                                  |
@@ -94,12 +94,12 @@ Firebase-Session und das aktuelle Profil erneut.
 | `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                              |
 | `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                           |
 | `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                      |
-| `src/lib/security/`                       | Provider-neutrale Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile) samt Browser-Löser                                        |
+| `src/lib/security/`                       | Cloud-DLP-De-Identifikation und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                                             |
 | `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                               |
 | `src/components/chat/pdf-layout.ts`       | Reine, testbare Seitenberechnung des Empfehlungs-PDFs; `recommendation-pdf.ts` zeichnet sie als Vektoren                                    |
 | `scripts/update-chat-guidance.ts`         | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                             |
 | `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
-| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten                                                                      |
+| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Transkript-Fakten und Tokenkosten                                                              |
 | `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                           |
 | `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                              |
 | `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                               |
@@ -223,14 +223,22 @@ Profil verwenden. Der letzte Admin und der handelnde Admin selbst können nicht 
 
 ### Chat, Privatsphäre und Kosten
 
-- PII-Muster werden lokal vor Anthropic und erneut vor Speicherung redigiert; keine zweite KI wird
-  zur Redaktion aufgerufen. Optional lässt sich über `REDACTION_PROVIDER=dlp` zusätzlich Google Cloud
-  Sensitive Data Protection vorschalten; es läuft **nach** der lokalen Stufe, kann also nur mehr
-  entfernen, und fällt bei jedem Fehler auf das lokale Ergebnis zurück — nie auf den Rohtext.
-- **Stadt und Region bleiben lesbar.** Der Finder vermittelt an eine Clinic in der Nähe, und das
-  Modell kennt den Ort nur, weil die ratsuchende Person ihn geschrieben hat. Aus „50667 Köln" wird
-  deshalb „[PLZ] Köln": die Postleitzahl grenzt auf wenige Straßen ein, die Stadt auf Hunderttausende.
-  Ortsbezogene DLP-Detektoren werden aus demselben Grund nie angefordert.
+- **Google Cloud Sensitive Data Protection ist der Redaktor** (`REDACTION_PROVIDER=dlp`). Der
+  gesamte Transkript-Verlauf geht als _eine_ Table-Anfrage an `content:deidentify` in
+  `europe-west4`, bevor Anthropic oder Firestore ihn sehen. Es gibt **keine lokale Ersatzstufe**:
+  Schlägt DLP fehl, antwortet der Chat mit 503, statt einen ungeprüften Text weiterzureichen
+  („fail closed"). Die Prüfung läuft **vor** dem Tageskontingent, damit ein DLP-Ausfall keine
+  Nachricht der ratsuchenden Person verbraucht. `npm run dlp:check` verifiziert die Konfiguration.
+- **Postleitzahl, Stadt und Region bleiben lesbar.** Der Finder vermittelt an eine Clinic in der
+  Nähe, und das Modell kennt den Ort nur, weil die ratsuchende Person ihn geschrieben hat. Deshalb
+  wird kein ortsbezogener Detektor angefordert (`LOCATION`, `LOCATION_COORDINATES`,
+  `STREET_ADDRESS`, `GEOGRAPHIC_DATA`), eine Exclusion-Rule schützt die Regionsliste des Finders vor
+  `PERSON_NAME`, und eine Nachbedingung verwirft eine Antwort, die eine Postleitzahl oder Region
+  doch entfernt hat.
+- **Bekannte Restrisiken der DLP-only-Entscheidung:** Für verschleierte E-Mail-Adressen
+  („anna (at) beispiel (punkt) de"), Sozialversicherungsnummern, Aktenzeichen und deutsche
+  Kfz-Kennzeichen gibt es keinen DLP-Detektor; diese Angaben erreichen das Modell unredigiert. Ein
+  DLP-Ausfall ist ein Chat-Ausfall.
 - Das Modell sieht nur validierte Directory-Daten ohne Beratungsmails und darf nur IDs empfehlen,
   die es im selben Gespräch aus der Suche erhielt.
 - Der Stream ist NDJSON. Clients puffern Teilzeilen und ignorieren unbekannte Frames.

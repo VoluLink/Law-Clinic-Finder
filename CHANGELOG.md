@@ -9,14 +9,14 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added
 
+- `npm run dlp:check`: Vorabprüfung der De-Identifikation gegen das echte DLP-Projekt, bevor die
+  Konfiguration scharf geschaltet wird.
 - Hinweis „Du interagierst gerade mit einer künstlichen Intelligenz." unter dem Chat-Eingabefeld,
   übersetzt in alle neun öffentlichen Sprachen (EU-KI-VO Art. 50).
 - Missbrauchs-Challenge vor der ersten Chatnachricht mit provider-neutraler Grenze: selbst
   gehosteter Proof-of-Work als Standard, Cloudflare Turnstile per Konfiguration.
 - Selbstverwaltete Sichtbarkeit für Clinics: befristet oder unbefristet ausblenden, ohne Konto oder
   Daten zu löschen; eine geplante Cloud Function beendet befristete Pausen.
-- Optionale zweite Redaktionsstufe über Google Cloud Sensitive Data Protection
-  (`REDACTION_PROVIDER=dlp`); sie läuft nach der lokalen Stufe und fällt bei Fehlern auf diese zurück.
 - Eigene Fehlermeldungen je Ausfallart des KI-Dienstes samt „Erneut versuchen"; das NDJSON-Protokoll
   überträgt dafür einen Fehlerframe statt die Verbindung abzubrechen.
 - GA4-Kennzahlen im Dashboard über die Data API (REST), passend zum gewählten Monat.
@@ -25,6 +25,15 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   Prüfsummen gegen Fehlalarme.
 
 ### Changed
+
+- **Google Cloud Sensitive Data Protection ersetzt die lokale Redaktions-Engine.** Der gesamte
+  Verlauf wird in einer Table-Anfrage in `europe-west4` de-identifiziert, bevor er Anthropic oder
+  Firestore erreicht. Es gibt keinen lokalen Fallback mehr: Schlägt DLP fehl, antwortet der Chat mit
+  503, statt ungeprüften Text weiterzureichen. Die Prüfung läuft vor dem Tageskontingent, damit ein
+  Ausfall keine Nachricht verbraucht. Ortsbezogene Detektoren bleiben abgeschaltet; eine
+  Nachbedingung verwirft Antworten, die Postleitzahl oder Region entfernt haben. Für verschleierte
+  E-Mail-Adressen, Sozialversicherungsnummern, Aktenzeichen und Kfz-Kennzeichen gibt es keinen
+  DLP-Detektor — diese Angaben werden nicht mehr redigiert.
 
 - Admin-Bereich „Benachrichtigungen" bündelt Empfängerauswahl und SMTP-Zugangsdaten.
 - Gespeicherte Gespräche folgen dem Monatsumschalter; die Liste ist so hoch wie die Kachel daneben

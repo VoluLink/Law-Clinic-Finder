@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { deidentify, DLP_INFO_TYPES, FORBIDDEN_INFO_TYPES, redactionProvider } from './deidentify';
+import { REGION_SUGGESTIONS } from '@/lib/clinics/options';
+
+import {
+  deidentifyMessages,
+  DLP_INFO_TYPES,
+  FORBIDDEN_INFO_TYPES,
+  type DeidentifyResult,
+} from './deidentify';
 
 const PROJECT = 'law-clinic-finder';
 
@@ -15,24 +22,41 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function dlpResponse(value: string) {
-  return Response.json({ item: { value } });
+function useDlp(): void {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('REDACTION_PROVIDER', 'dlp');
+  vi.stubEnv('FIREBASE_PROJECT_ID', PROJECT);
 }
 
-describe(redactionProvider, () => {
-  it('defaults to the local engine', () => {
-    expect(redactionProvider()).toBe('local');
-  });
+function user(...contents: string[]) {
+  return contents.map((content) => ({ role: 'user' as const, content }));
+}
 
-  it('falls back to local for an unknown provider', () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'presidio');
-    expect(redactionProvider()).toBe('local');
+/** Mirrors DLP's table response shape for the values it is handed back. */
+function dlpTable(...values: string[]) {
+  return Response.json({
+    item: { table: { rows: values.map((value) => ({ values: [{ stringValue: value }] })) } },
   });
-});
+}
 
-describe('DLP info types', () => {
-  // Enabling any of these would strip the city, and the finder cannot match a
-  // clinic to someone whose location it no longer knows.
+function stubFetch(...responses: Response[]) {
+  const mock = vi.fn();
+  for (const response of responses) mock.mockResolvedValueOnce(response);
+  vi.stubGlobal('fetch', mock);
+  return mock;
+}
+
+function requestBody(mock: ReturnType<typeof vi.fn>, call = 0) {
+  return JSON.parse(String(mock.mock.calls[call][1].body));
+}
+
+function reasonOf(result: DeidentifyResult): string {
+  return result.ok ? 'ok' : result.reason;
+}
+
+describe('DLP configuration', () => {
+  // Enabling any of these would strip the place a visitor named, and the finder
+  // cannot match a clinic to someone whose location it no longer knows.
   it.each(FORBIDDEN_INFO_TYPES)('never requests %s', (forbidden) => {
     expect(DLP_INFO_TYPES).not.toContain(forbidden);
   });
@@ -43,89 +67,165 @@ describe('DLP info types', () => {
   });
 });
 
-describe(deidentify, () => {
-  it('applies the local engine when no provider is configured', async () => {
-    await expect(deidentify('Schreib mir an max@example.org bitte.')).resolves.toContain(
-      '[E-MAIL]',
-    );
-  });
-
-  it('never calls out when the provider is local', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    await deidentify('Hallo');
+describe(deidentifyMessages, () => {
+  it('refuses when no provider is configured', async () => {
+    const fetchMock = stubFetch();
+    vi.stubEnv('NODE_ENV', 'production');
+    const result = await deidentifyMessages(user('Hallo'));
+    expect(reasonOf(result)).toBe('unconfigured');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('sends the locally redacted text, not the original, to DLP', async () => {
+  it('refuses when the project is unknown', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    const fetchMock = vi.fn().mockResolvedValue(dlpResponse('geprüft'));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await deidentify('Schreib mir an max@example.org.', PROJECT);
-
-    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
-    expect(body.item.value).toContain('[E-MAIL]');
-    expect(body.item.value).not.toContain('max@example.org');
+    vi.stubEnv('FIREBASE_PROJECT_ID', '');
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('unconfigured');
   });
 
-  it('keeps the city in the text handed to DLP', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    const fetchMock = vi.fn().mockResolvedValue(dlpResponse('ok'));
-    vi.stubGlobal('fetch', fetchMock);
+  it('returns the text DLP produced', async () => {
+    useDlp();
+    stubFetch(dlpTable('Mein Name ist [PERSON_NAME].'));
+    const result = await deidentifyMessages(user('Mein Name ist Max Mustermann.'));
+    expect(result).toEqual({
+      ok: true,
+      messages: [{ role: 'user', content: 'Mein Name ist [PERSON_NAME].' }],
+    });
+  });
 
-    await deidentify('Ich wohne in 50667 Köln.', PROJECT);
+  it('sends the whole transcript as one request', async () => {
+    useDlp();
+    const fetchMock = stubFetch(dlpTable('eins', 'zwei', 'drei'));
+    await deidentifyMessages(user('eins', 'zwei', 'drei'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(requestBody(fetchMock).item.table.rows).toHaveLength(3);
+  });
 
-    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
-    expect(body.item.value).toContain('Köln');
+  it('processes inside the configured region', async () => {
+    useDlp();
+    vi.stubEnv('DLP_LOCATION', 'europe-west4');
+    const fetchMock = stubFetch(dlpTable('ok'));
+    await deidentifyMessages(user('Hallo'));
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      `projects/${PROJECT}/locations/europe-west4/content:deidentify`,
+    );
   });
 
   it('requests no location detector', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    const fetchMock = vi.fn().mockResolvedValue(dlpResponse('ok'));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await deidentify('Hallo', PROJECT);
-
-    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
-    const requested = body.inspectConfig.infoTypes.map((type: { name: string }) => type.name);
+    useDlp();
+    const fetchMock = stubFetch(dlpTable('ok'));
+    await deidentifyMessages(user('Hallo'));
+    const requested = requestBody(fetchMock).inspectConfig.infoTypes.map(
+      (type: { name: string }) => type.name,
+    );
     for (const forbidden of FORBIDDEN_INFO_TYPES) expect(requested).not.toContain(forbidden);
   });
 
-  it('returns the de-identified text DLP produced', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(dlpResponse('Mein Name ist [PERSON_NAME].')));
-    await expect(deidentify('Mein Name ist Max Mustermann.', PROJECT)).resolves.toBe(
-      'Mein Name ist [PERSON_NAME].',
+  it('excludes the finder’s own region vocabulary from name detection', async () => {
+    useDlp();
+    const fetchMock = stubFetch(dlpTable('ok'));
+    await deidentifyMessages(user('Hallo'));
+    const [rule] = requestBody(fetchMock).inspectConfig.ruleSet;
+    expect(rule.infoTypes).toEqual([{ name: 'PERSON_NAME' }]);
+    expect(rule.rules[0].exclusionRule.dictionary.wordList.words).toEqual([...REGION_SUGGESTIONS]);
+  });
+
+  it('refuses a response that removed a postal code', async () => {
+    useDlp();
+    stubFetch(dlpTable('Ich wohne in [LOCATION].'));
+    expect(reasonOf(await deidentifyMessages(user('Ich wohne in 50667 Köln.')))).toBe('rejected');
+  });
+
+  it('refuses a response that removed a region name', async () => {
+    useDlp();
+    stubFetch(dlpTable('Ich wohne in [PERSON_NAME].'));
+    expect(reasonOf(await deidentifyMessages(user('Ich wohne in Bayern.')))).toBe('rejected');
+  });
+
+  it('keeps a postal code and city that DLP left alone', async () => {
+    useDlp();
+    stubFetch(dlpTable('Ich wohne in 50667 Köln.'));
+    const result = await deidentifyMessages(user('Ich wohne in 50667 Köln.'));
+    expect(result).toEqual({
+      ok: true,
+      messages: [{ role: 'user', content: 'Ich wohne in 50667 Köln.' }],
+    });
+  });
+
+  it('refuses when DLP rejects the request', async () => {
+    useDlp();
+    const fetchMock = stubFetch(new Response(null, { status: 400 }));
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('rejected');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once, then refuses, when DLP is unavailable', async () => {
+    useDlp();
+    const fetchMock = stubFetch(
+      new Response(null, { status: 503 }),
+      new Response(null, { status: 503 }),
     );
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('unavailable');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('degrades to the local result when DLP errors, never to raw text', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
-    const result = await deidentify('Schreib mir an max@example.org.', PROJECT);
-    expect(result).toContain('[E-MAIL]');
-    expect(result).not.toContain('max@example.org');
+  it('recovers when a retry succeeds', async () => {
+    useDlp();
+    stubFetch(new Response(null, { status: 500 }), dlpTable('geprüft'));
+    const result = await deidentifyMessages(user('Hallo'));
+    expect(result).toEqual({ ok: true, messages: [{ role: 'user', content: 'geprüft' }] });
   });
 
-  it('degrades to the local result when DLP is unreachable', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
+  it('refuses when DLP is unreachable', async () => {
+    useDlp();
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
-    await expect(deidentify('max@example.org', PROJECT)).resolves.toContain('[E-MAIL]');
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('unavailable');
   });
 
-  it('degrades to the local result when the project is unknown', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    vi.stubEnv('FIREBASE_PROJECT_ID', '');
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    await expect(deidentify('max@example.org')).resolves.toContain('[E-MAIL]');
+  it('refuses when DLP returns an unexpected body', async () => {
+    useDlp();
+    stubFetch(Response.json({ unexpected: true }));
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('rejected');
+  });
+
+  it('refuses when DLP returns the wrong number of rows', async () => {
+    useDlp();
+    stubFetch(dlpTable('nur eine'));
+    expect(reasonOf(await deidentifyMessages(user('eins', 'zwei')))).toBe('rejected');
+  });
+
+  it('never returns the original text on any failure', async () => {
+    useDlp();
+    const secret = 'max@example.org';
+    for (const response of [
+      new Response(null, { status: 400 }),
+      Response.json({ unexpected: true }),
+      dlpTable('[LOCATION]'),
+    ]) {
+      stubFetch(response, response);
+      const result = await deidentifyMessages(user(`Schreib an ${secret} aus 50667 Köln.`));
+      expect(result.ok).toBe(false);
+      expect(JSON.stringify(result)).not.toContain(secret);
+    }
+  });
+});
+
+describe('development bypass', () => {
+  it('passes text through untouched outside production', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('REDACTION_PROVIDER', 'none');
+    const fetchMock = stubFetch();
+    const result = await deidentifyMessages(user('Mein Name ist Max.'));
+    expect(result).toEqual({
+      ok: true,
+      messages: [{ role: 'user', content: 'Mein Name ist Max.' }],
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('degrades to the local result when DLP returns an unexpected body', async () => {
-    vi.stubEnv('REDACTION_PROVIDER', 'dlp');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ unexpected: true })));
-    await expect(deidentify('max@example.org', PROJECT)).resolves.toContain('[E-MAIL]');
+  it('cannot be switched on in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('REDACTION_PROVIDER', 'none');
+    expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('unconfigured');
   });
 });

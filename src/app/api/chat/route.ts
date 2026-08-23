@@ -5,7 +5,7 @@ import { listDirectoryTerms } from '@/lib/chat/directory-terms';
 import { claimDailyChatQuota } from '@/lib/chat/daily-quota';
 import { handleChatRequest, type ChatHandlerDeps } from '@/lib/chat/handle-chat';
 import { persistConversation } from '@/lib/chat/persist-conversation';
-import { redactTranscript } from '@/lib/chat/redact';
+import { readTranscriptFacts } from '@/lib/chat/transcript-facts';
 import { recommendClinics } from '@/lib/chat/recommend-clinics';
 import { runChat } from '@/lib/chat/run-chat';
 import { searchClinics } from '@/lib/chat/search-clinics';
@@ -64,7 +64,7 @@ function buildRunner(anthropic: Anthropic): ChatHandlerDeps['run'] {
 function buildPersister(logger: Logger): ChatHandlerDeps['persist'] {
   return (transcript, run, sessionId) =>
     persistConversation(
-      { store: firebaseConversationStore, redact: redactTranscript, logger },
+      { store: firebaseConversationStore, readFacts: readTranscriptFacts, logger },
       transcript,
       {
         matchedClinicCount: run.matchedClinicCount,

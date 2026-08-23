@@ -28,7 +28,7 @@ function createDeps(overrides?: {
   const lines: LogLine[] = [];
   const deps: PersistDeps = {
     store: { record },
-    redact: vi
+    readFacts: vi
       .fn()
       .mockResolvedValue(
         overrides?.redactStatus === 'failed'

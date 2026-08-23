@@ -138,12 +138,15 @@ action; none has been performed.
       Set `TRUSTED_PROXY=cloudflare` **only after** the origin is restricted to Cloudflare ranges;
       before that, `CF-Connecting-IP` is forgeable and every per-IP limit becomes meaningless. Check
       the free plan's 100-second proxy timeout against the streaming chat.
-- [ ] ⛔ Optional stronger de-identification: enable the Sensitive Data Protection API, grant
-      `law-clinic-runtime` the `dlp.user` role, and set `REDACTION_PROVIDER=dlp`. The local engine
-      stays the baseline either way and DLP only removes more. Note the trade-off before enabling it:
-      a network hop on the chat's hot path, a further processor for message content that belongs in
-      the Datenschutzerklärung, and per-unit billing. The requested detectors deliberately exclude
-      every location type — the finder cannot match a clinic to someone whose city has been redacted.
+- [ ] ⛔ **Required before the chat can serve anyone.** Cloud Sensitive Data Protection is now the
+      only redactor and the chat fails closed without it: enable the Sensitive Data Protection API
+      in `law-clinic-finder`, grant `law-clinic-runtime` the `dlp.user` role, then run
+      `npm run dlp:check` and confirm it reports identifiers removed **and** postal code plus city
+      kept. `apphosting.yaml` already sets `REDACTION_PROVIDER=dlp` and `DLP_LOCATION=europe-west4`,
+      so a rollout before the API is enabled leaves the chat returning 503 — do this first.
+      Add DLP to the Datenschutzerklärung as a processor for message content. The requested
+      detectors deliberately exclude every location type; the finder cannot match a clinic to
+      someone whose city has been redacted.
 - [ ] Optional: lower `LOG_PERSIST_LEVEL` to `info` temporarily when diagnosing something specific.
 
 After this plan, continue with [`security-hardening-plan.md`](security-hardening-plan.md). Four of

@@ -24,7 +24,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "chat:guidance": "node --env-file=.env.local --import tsx scripts/update-chat-guidance.ts"
+    "chat:guidance": "node --env-file=.env.local --import tsx scripts/update-chat-guidance.ts",
+    "dlp:check": "REDACTION_PROVIDER=dlp tsx scripts/check-dlp.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.2",
