@@ -1,12 +1,28 @@
 import type { Lang } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/dictionary';
 
+import {
+  FONT_SIZES,
+  PAGE,
+  PDF_COLORS,
+  planRecommendationPdf,
+  type Block,
+  type ClinicBlock,
+  type ConcernBlock,
+  type PdfPlan,
+  type TextMeasurer,
+} from './pdf-layout';
 import { formatExportDate, type RecommendationExport } from './recommendation-export';
 
 const PDF_FILE_NAME = 'law-clinic-finder-recommendation.pdf';
 const FINDER_QR_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAMAAADypuvZAAAALVBMVEW7u7v///93d3cAAABEREQzMzPd3d1mZmbMzMyZmZkiIiKIiIju7u5VVVUREREjl1flAAAACXBIWXMAAAsTAAALEwEAmpwYAAAC9UlEQVRIx9VWy3LkMAgEjC1p7Jn//9xtQA+ceDdVua0OsaNSWw3dwBD/YtF/AJJtLu37viX2Flu6jsgA7RrLThxCvvXaVLB2+wtQP7Ev0GBpILIbsNXv9ydAg1oCNftKM5B9q6pK3PQCCQlQHMmgHgNA9qT+vGjf/NVAceQZZARogiMXP4J0FzAMkOVEhT0R/wT5Zzsop/wBdBDW0UGVqPK2W0A4USy3AMWRBCoSK0AN+6aPiyJvLUavnygLlBwxogZj5zIZf3GEXxyrMp1bofGdSDmRMR7rGIbFYb7s3w5CIL7sht1PXvhzHTiyXD7sE1lLxtWRWApHyQQ1LY0F+tgzeL8Vd4saiCx+U888/DKzrZTvxuWsAQK9k+YWm51mumQWoV/soiYbDZ152imJS3I03Ao6cLfJV+EdNS4GeoU4Bvrou3yvJ3vtn52Xb7mINem0pHOQp8rzqxab/2N6Va7nojfKHas6PXsKHZFQVW7FmQvRAz2eUfOy0XD5cNZoLDhXkQskgA/PhyXC60maSyke7u0meAWsC4XRUj1Vuti2IFVxyeiuk0c/aps7SPsWu3R6B3nU1no06slB0KnBXXjVdoCmMc0gTm20e7i/psr/2ve6kqeVwYypnJE9Mht2kSeoaXUbqZU9FJUd3oGl/UR0I2x99Aa60SPnsE1ROCXiC8h93yvWUlYcdM1yR8or37rR0cu7g3AyQKWHlzrI8t4q6Fnua1oQc+pVy+Ve0NAJy8tdCxJxGEg/IZ1X/FbeqZ5uLSxSrTwaUuhV6bth8/gcNHXaafbPu7h5fBrIhpr3YjK3A4TGhMQ0q6v2PD63/lmP2nl0Pv3yx0m45cadyKM0dPvLUHN6CttgvQV9M6b6x/onAmjP43O4m0cr5LBRlP0TPZS7FPW5pC6m3+j1BGd/nm8Kg2nEMkui+BQqt18sKXuz4saI4jWG9ZaIpNPowWGu1wSBroMg3aMjJJcYpd8RWaeb93wizjVaGLx3eGnQb3/v/QHDvRlzUJNKqwAAAABJRU5ErkJggg==';
 
+/**
+ * Draws the recommendation sheet with jsPDF's vector API. Text stays real text —
+ * selectable, searchable, correct umlauts, a small file — and the page geometry
+ * comes from `pdf-layout`, so what is measured is exactly what is drawn.
+ */
 type PdfOptions = {
   data: RecommendationExport;
   dict: Dictionary;
@@ -14,122 +30,207 @@ type PdfOptions = {
   rtl: boolean;
 };
 
-export async function downloadRecommendationPdf(options: PdfOptions): Promise<void> {
-  await document.fonts?.ready;
-  const root = createPdfDocument(options);
-  document.body.append(root);
-  try {
-    const { jsPDF } = await import('jspdf');
-    const pdf = new jsPDF({ format: 'a4', unit: 'pt' });
-    await pdf.html(root, pdfRenderOptions());
-    pdf.save(PDF_FILE_NAME);
-  } finally {
-    root.remove();
-  }
+type Doc = {
+  setFont: (family: string, style?: string) => void;
+  setFontSize: (size: number) => void;
+  setTextColor: (color: string) => void;
+  setFillColor: (color: string) => void;
+  setDrawColor: (color: string) => void;
+  setLineWidth: (width: number) => void;
+  text: (text: string, x: number, y: number, options?: { align?: string }) => void;
+  rect: (x: number, y: number, w: number, h: number, style?: string) => void;
+  roundedRect: (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    rx: number,
+    ry: number,
+    style?: string,
+  ) => void;
+  line: (x1: number, y1: number, x2: number, y2: number) => void;
+  circle: (x: number, y: number, r: number, style?: string) => void;
+  addImage: (data: string, format: string, x: number, y: number, w: number, h: number) => void;
+  addPage: () => void;
+  splitTextToSize: (text: string, width: number) => string[];
+  getTextWidth: (text: string) => number;
+  save: (name: string) => void;
+};
+
+const FAMILY = 'helvetica';
+const CARD_RADIUS = 12;
+const CARD_PADDING = 16;
+const RANK_RADIUS = 10;
+
+function selectFont(doc: Doc, size: number, bold: boolean, color: string): void {
+  doc.setFont(FAMILY, bold ? 'bold' : 'normal');
+  doc.setFontSize(size);
+  doc.setTextColor(color);
 }
 
-function pdfRenderOptions() {
+/** jsPDF measures against whatever font is currently selected, so the measurer
+ *  sets it before asking — otherwise wrapping is computed for the wrong metrics. */
+function measurer(doc: Doc): TextMeasurer {
   return {
-    autoPaging: 'text' as const,
-    html2canvas: { backgroundColor: '#ffffff', logging: false, scale: 2 },
-    margin: 0,
-    width: 595,
-    windowWidth: 595,
+    widthOf: (text, size, bold) => {
+      selectFont(doc, size, bold, PDF_COLORS.text);
+      return doc.getTextWidth(text);
+    },
+    wrap: (text, width, size, bold) => {
+      selectFont(doc, size, bold, PDF_COLORS.text);
+      return doc.splitTextToSize(text, Math.max(width, 1));
+    },
   };
 }
 
-function createPdfDocument({ data, dict, lang, rtl }: PdfOptions): HTMLElement {
-  const root = document.createElement('article');
-  root.setAttribute('dir', rtl ? 'rtl' : 'ltr');
-  root.setAttribute('lang', lang);
-  root.style.cssText = documentStyle(rtl);
-  root.innerHTML = buildRecommendationPdfMarkup(data, dict, lang);
-  return root;
+function drawPageBackground(doc: Doc): void {
+  doc.setFillColor(PDF_COLORS.page);
+  doc.rect(0, 0, PAGE.width, PAGE.height, 'F');
 }
 
-function documentStyle(rtl: boolean): string {
-  return [
-    'position:fixed',
-    'top:0',
-    'left:-10000px',
-    'z-index:0',
-    'width:595px',
-    'min-height:842px',
-    'box-sizing:border-box',
-    'background:#ffffff',
-    'padding:14px',
-    'color:#365d68',
-    'font-family:var(--font-hanken-grotesk),Arial,"Noto Sans Arabic",sans-serif',
-    'font-size:11px',
-    'line-height:1.45',
-    `text-align:${rtl ? 'right' : 'left'}`,
-  ].join(';');
+function drawWordmark(doc: Doc, x: number, y: number): void {
+  selectFont(doc, 12, true, PDF_COLORS.primary);
+  doc.text('law clinics', x, y);
+  selectFont(doc, 9, true, PDF_COLORS.primary);
+  doc.text('deutschland', x + 10, y + 10);
+  doc.setFillColor(PDF_COLORS.primary);
+  doc.rect(x + 62, y - 9, 3.5, 20, 'F');
 }
 
-export function buildRecommendationPdfMarkup(
-  data: RecommendationExport,
-  dict: Dictionary,
-  lang: Lang,
-): string {
-  const createdAt = formatExportDate(data.generatedAt, lang);
-  const cards = data.clinics.map((clinic) => clinicMarkup(clinic, dict)).join('');
-  const content = `${pdfHeader(dict, createdAt)}${detailsMarkup(data.details, dict)}${cards}${pdfFooter(dict)}`;
-  return `<main data-export-page style="box-sizing:border-box;min-height:814px;background:#fbf3e7;color:#365d68;padding:23px">${content}</main>`;
+function drawHeader(doc: Doc, plan: PdfPlan, dict: Dictionary): void {
+  const top = PAGE.margin + 14;
+  drawWordmark(doc, PAGE.margin, top);
+  selectFont(doc, FONT_SIZES.small, true, PDF_COLORS.muted);
+  doc.text(`${dict.exportGeneratedOn} ${plan.createdAt}`, PAGE.width - PAGE.margin, top, {
+    align: 'right',
+  });
+  doc.setDrawColor(PDF_COLORS.rule);
+  doc.setLineWidth(0.6);
+  doc.line(PAGE.margin, top + 20, PAGE.width - PAGE.margin, top + 20);
+  selectFont(doc, FONT_SIZES.title, true, PDF_COLORS.primary);
+  doc.text(plan.title, PAGE.margin, top + 50);
 }
 
-function pdfHeader(dict: Dictionary, createdAt: string): string {
-  return `<header style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #afc5ca;padding-bottom:9px"><strong style="display:flex;align-items:flex-start;color:#07566a"><span style="font-size:13px;line-height:11px;letter-spacing:-.5px"><span style="display:block">law clinics</span><span style="display:block;margin-left:11px;font-size:10px;line-height:10px">deutschland</span></span><span style="width:4px;height:22px;margin:1px 0 0 4px;background:#07566a"></span></strong><span style="font-size:9px;font-weight:700;color:#7898a0">${escapeHtml(dict.exportGeneratedOn)} ${escapeHtml(createdAt)}</span></header><h1 style="color:#07566a;font-size:24px;line-height:1.1;letter-spacing:-1px;margin:13px 0 10px;font-weight:800">${escapeHtml(dict.exportTitle)}</h1>`;
+function drawConcern(doc: Doc, block: ConcernBlock, y: number): void {
+  const width = PAGE.width - PAGE.margin * 2;
+  doc.setFillColor(PDF_COLORS.concern);
+  doc.roundedRect(PAGE.margin, y, width, block.height, CARD_RADIUS, CARD_RADIUS, 'F');
+  selectFont(doc, FONT_SIZES.label, true, PDF_COLORS.muted);
+  doc.text(block.label.toUpperCase(), PAGE.margin + CARD_PADDING, y + CARD_PADDING + 6);
+  selectFont(doc, FONT_SIZES.body, false, PDF_COLORS.text);
+  block.lines.forEach((line, index) => {
+    doc.text(
+      line,
+      PAGE.margin + CARD_PADDING,
+      y + CARD_PADDING + 22 + index * FONT_SIZES.body * 1.45,
+    );
+  });
 }
 
-function detailsMarkup(details: string[], dict: Dictionary): string {
-  const detail = details[0] ?? '';
-  return `<section style="box-sizing:border-box;min-height:70px;background:#f1e5cf;border-radius:13px;padding:12px 15px;margin-bottom:13px"><strong style="display:block;font-size:8px;line-height:10px;letter-spacing:1.15px;text-transform:uppercase;color:#39717d;margin-bottom:6px">${escapeHtml(dict.exportConcern)}</strong><p data-export-detail style="margin:0;font-size:11px;line-height:16px">${escapeHtml(detail)}</p></section>`;
+function drawChips(doc: Doc, block: ClinicBlock, left: number, top: number): number {
+  let y = top;
+  for (const row of block.chipRows) {
+    for (const chip of row) {
+      doc.setFillColor(PDF_COLORS.chip);
+      doc.roundedRect(left + chip.x, y, chip.width, 15, 4, 4, 'F');
+      selectFont(doc, FONT_SIZES.chip, true, PDF_COLORS.primary);
+      doc.text(chip.text, left + chip.x + 7, y + 10);
+    }
+    y += 20;
+  }
+  return y;
 }
 
-function clinicMarkup(clinic: RecommendationExport['clinics'][number], dict: Dictionary): string {
-  const location = clinic.region
-    ? `<span style="color:#7898a0;font-size:11px">${escapeHtml(clinic.region)}</span>`
-    : '';
-  return `<section style="background:#ffffff;border:1px solid #cbdde1;border-radius:12px;padding:14px;margin-bottom:8px;page-break-inside:avoid"><div style="display:flex;align-items:flex-start;gap:10px"><span style="display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#07566a;color:#fff;font-size:10px;font-weight:700">${clinic.rank}</span><div style="flex:1;min-width:0"><div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap"><strong style="color:#07566a;font-size:16px;line-height:20px">${escapeHtml(clinic.name)}</strong>${location}</div>${areaMarkup(clinic.areas)}<p style="margin:12px 0 0;font-size:11px;line-height:16px"><strong style="color:#07566a">${escapeHtml(dict.whyFits)}</strong> ${escapeHtml(clinic.reason)}</p>${contactMarkup(clinic, dict)}</div></div></section>`;
+function drawContact(doc: Doc, block: ClinicBlock, left: number, right: number, top: number): void {
+  if (block.contact.length === 0) return;
+  doc.setDrawColor(PDF_COLORS.cardBorder);
+  doc.setLineWidth(0.5);
+  doc.line(left, top, right, top);
+  block.contact.forEach((row, index) => {
+    const y = top + 14 + index * FONT_SIZES.small * 1.45;
+    selectFont(doc, FONT_SIZES.small, true, PDF_COLORS.primary);
+    const label = `${row.label}: `;
+    doc.text(label, left, y);
+    selectFont(doc, FONT_SIZES.small, false, PDF_COLORS.text);
+    doc.text(row.value, left + doc.getTextWidth(label), y);
+  });
 }
 
-function areaMarkup(areas: string[]): string {
-  if (areas.length === 0) return '';
-  const tags = areas
-    .map(
-      (area) =>
-        `<span style="display:inline-block;border-radius:4px;background:#edf3f4;color:#07566a;padding:3px 7px;font-size:8px;font-weight:700">${escapeHtml(area)}</span>`,
-    )
-    .join(' ');
-  return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${tags}</div>`;
+function drawClinic(doc: Doc, block: ClinicBlock, y: number): void {
+  const width = PAGE.width - PAGE.margin * 2;
+  doc.setFillColor(PDF_COLORS.card);
+  doc.setDrawColor(PDF_COLORS.cardBorder);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(PAGE.margin, y, width, block.height, CARD_RADIUS, CARD_RADIUS, 'FD');
+
+  const left = PAGE.margin + CARD_PADDING;
+  const textLeft = left + RANK_RADIUS * 2 + 10;
+  const right = PAGE.width - PAGE.margin - CARD_PADDING;
+  const titleBaseline = y + CARD_PADDING + 13;
+
+  doc.setFillColor(PDF_COLORS.primary);
+  doc.circle(left + RANK_RADIUS, titleBaseline - 4, RANK_RADIUS, 'F');
+  selectFont(doc, FONT_SIZES.small, true, '#ffffff');
+  doc.text(block.rank, left + RANK_RADIUS, titleBaseline - 1, { align: 'center' });
+
+  selectFont(doc, FONT_SIZES.clinicName, true, PDF_COLORS.primary);
+  doc.text(block.name, textLeft, titleBaseline);
+  if (block.region) {
+    const offset = doc.getTextWidth(block.name) + 8;
+    selectFont(doc, FONT_SIZES.small, false, PDF_COLORS.muted);
+    doc.text(block.region, textLeft + offset, titleBaseline);
+  }
+
+  let cursor = titleBaseline + 10;
+  if (block.chipRows.length > 0) cursor = drawChips(doc, block, textLeft, cursor);
+
+  selectFont(doc, FONT_SIZES.body, true, PDF_COLORS.primary);
+  doc.text(block.reasonLabel, textLeft, cursor + 10);
+  const indent = doc.getTextWidth(block.reasonLabel);
+  selectFont(doc, FONT_SIZES.body, false, PDF_COLORS.text);
+  block.reasonLines.forEach((line, index) => {
+    const x = index === 0 ? textLeft + indent : textLeft;
+    doc.text(line, x, cursor + 10 + index * FONT_SIZES.body * 1.45);
+  });
+  const reasonBottom = cursor + 10 + block.reasonLines.length * FONT_SIZES.body * 1.45;
+  drawContact(doc, block, textLeft, right, reasonBottom);
 }
 
-function contactMarkup(clinic: RecommendationExport['clinics'][number], dict: Dictionary): string {
-  if (!clinic.website && !clinic.email) return '';
-  const website = clinic.website
-    ? `<div><strong>${escapeHtml(dict.exportWebsite)}:</strong> <span style="text-decoration:underline">${escapeHtml(clinic.website)}</span></div>`
-    : '';
-  const email = clinic.email
-    ? `<div><strong>${escapeHtml(dict.exportEmail)}:</strong> <span style="text-decoration:underline">${escapeHtml(clinic.email)}</span></div>`
-    : '';
-  return `<div style="border-top:1px solid #dce7e9;margin-top:10px;padding-top:8px;font-size:10px;line-height:16px;color:#365d68">${website}${email}</div>`;
+function drawFooter(doc: Doc, plan: PdfPlan): void {
+  const y = PAGE.height - PAGE.margin - 58;
+  doc.setFillColor(PDF_COLORS.card);
+  doc.roundedRect(PAGE.margin, y, 58, 58, 10, 10, 'F');
+  doc.addImage(FINDER_QR_DATA_URL, 'PNG', PAGE.margin + 9, y + 9, 40, 40);
+  selectFont(doc, FONT_SIZES.body, true, PDF_COLORS.primary);
+  doc.text(plan.footer.title, PAGE.margin + 72, y + 26);
+  selectFont(doc, FONT_SIZES.small, false, PDF_COLORS.muted);
+  doc.text(plan.footer.url, PAGE.margin + 72, y + 40);
 }
 
-function pdfFooter(dict: Dictionary): string {
-  return `<footer style="display:flex;align-items:center;gap:12px;margin-top:17px;page-break-inside:avoid"><span data-export-qr-frame style="display:inline-flex;background:#ffffff;border-radius:11px;padding:10px"><img data-export-qr src="${FINDER_QR_DATA_URL}" width="48" height="48" alt="" style="image-rendering:pixelated"></span><span><strong style="display:block;color:#07566a;font-size:11px;line-height:14px">${escapeHtml(dict.exportFindMore)}</strong><span style="display:block;margin-top:2px;color:#7898a0;font-size:10px;line-height:12px;text-decoration:underline">law-clinics.de/finder</span></span></footer>`;
+function drawBlock(doc: Doc, block: Block, y: number): void {
+  if (block.kind === 'concern') return drawConcern(doc, block, y);
+  return drawClinic(doc, block, y);
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => htmlEntity(character));
+export function renderPlan(doc: Doc, plan: PdfPlan, dict: Dictionary): void {
+  plan.pages.forEach((page, index) => {
+    if (index > 0) doc.addPage();
+    drawPageBackground(doc);
+    if (index === 0) drawHeader(doc, plan, dict);
+    for (const placed of page.blocks) drawBlock(doc, placed.block, placed.y);
+    if (index === plan.pages.length - 1) drawFooter(doc, plan);
+  });
 }
 
-function htmlEntity(character: string): string {
-  const entities: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return entities[character] ?? character;
+export async function downloadRecommendationPdf(options: PdfOptions): Promise<void> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ format: 'a4', unit: 'pt' }) as unknown as Doc;
+  const plan = planRecommendationPdf(
+    options.data,
+    options.dict,
+    measurer(doc),
+    formatExportDate(options.data.generatedAt, options.lang),
+  );
+  renderPlan(doc, plan, options.dict);
+  doc.save(PDF_FILE_NAME);
 }

@@ -10,14 +10,32 @@ import { RecommendationExport } from './RecommendationExport';
 const de = getDictionary('de');
 
 const pdfMocks = vi.hoisted(() => ({
-  html: vi.fn().mockResolvedValue(undefined),
   save: vi.fn(),
+  text: vi.fn(),
+  addPage: vi.fn(),
+  addImage: vi.fn(),
 }));
 
+/** Stands in for jsPDF's vector API. `splitTextToSize` and `getTextWidth` return
+ *  deterministic metrics so the export can be exercised without a font engine. */
 vi.mock('jspdf', () => ({
   jsPDF: class {
-    html = pdfMocks.html;
     save = pdfMocks.save;
+    text = pdfMocks.text;
+    addPage = pdfMocks.addPage;
+    addImage = pdfMocks.addImage;
+    setFont = vi.fn();
+    setFontSize = vi.fn();
+    setTextColor = vi.fn();
+    setFillColor = vi.fn();
+    setDrawColor = vi.fn();
+    setLineWidth = vi.fn();
+    rect = vi.fn();
+    roundedRect = vi.fn();
+    line = vi.fn();
+    circle = vi.fn();
+    splitTextToSize = (text: string) => [text];
+    getTextWidth = (text: string) => text.length * 5;
   },
 }));
 
@@ -60,7 +78,7 @@ describe('RecommendationExport', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('captures the printable document off-screen at A4 dimensions', async () => {
+  it('draws real text rather than rasterising a DOM tree', async () => {
     render(
       <RecommendationExport
         data={{
@@ -75,15 +93,10 @@ describe('RecommendationExport', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: de.downloadPdf }));
-    await waitFor(() => expect(pdfMocks.html).toHaveBeenCalledOnce());
+    await waitFor(() => expect(pdfMocks.save).toHaveBeenCalledOnce());
 
-    const [root, options] = pdfMocks.html.mock.calls[0] as [HTMLElement, Record<string, unknown>];
-    expect(root.style.left).toBe('-10000px');
-    expect(root.style.zIndex).toBe('0');
-    expect(options).toMatchObject({
-      html2canvas: { backgroundColor: '#ffffff', logging: false, scale: 2 },
-      width: 595,
-      windowWidth: 595,
-    });
+    const drawn = pdfMocks.text.mock.calls.map(([value]) => String(value));
+    expect(drawn).toContain('Law Clinic Köln');
+    expect(pdfMocks.save).toHaveBeenCalledWith('law-clinic-finder-recommendation.pdf');
   });
 });
