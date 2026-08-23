@@ -81,6 +81,7 @@ export type EmailChangeCompletionDependencies = {
   readAuthEmail(userId: string): Promise<string | null>;
   applyActionCode(actionCode: string): Promise<AppliedChange>;
   finalize(userId: string, newEmail: string): Promise<void>;
+  revokeSessions(userId: string): Promise<void>;
 };
 
 export async function completeEmailChange(
@@ -93,6 +94,7 @@ export async function completeEmailChange(
   const changed = await ensureAuthEmail(record, actionCode, dependencies);
   if (!changed) return { ok: false };
   await dependencies.finalize(record.userId, record.email);
+  await dependencies.revokeSessions(record.userId);
   await dependencies.consume(state, actionCode);
   return { ok: true };
 }

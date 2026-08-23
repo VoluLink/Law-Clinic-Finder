@@ -86,17 +86,61 @@ describe(requestEmailChange, () => {
 });
 
 describe(completeEmailChange, () => {
-  it('applies the action code, finalizes reservations, then consumes state', async () => {
+  it('finalizes the change, revokes existing sessions, then consumes state', async () => {
     const dependencies = {
       lookup: vi.fn().mockResolvedValue(stateRecord),
       consume: vi.fn().mockResolvedValue(stateRecord),
       readAuthEmail: vi.fn().mockResolvedValue(CURRENT_EMAIL),
       applyActionCode: vi.fn().mockResolvedValue({ userId: USER_ID, email: NEW_EMAIL }),
       finalize: vi.fn().mockResolvedValue(undefined),
+      revokeSessions: vi.fn().mockResolvedValue(undefined),
     };
     expect(await completeEmailChange('state', 'action-code', dependencies)).toEqual({ ok: true });
     expect(dependencies.finalize).toHaveBeenCalledWith(USER_ID, NEW_EMAIL);
+    expect(dependencies.revokeSessions).toHaveBeenCalledWith(USER_ID);
     expect(dependencies.consume).toHaveBeenCalledWith('state', 'action-code');
+    expect(dependencies.finalize.mock.invocationCallOrder[0]).toBeLessThan(
+      dependencies.revokeSessions.mock.invocationCallOrder[0],
+    );
+    expect(dependencies.revokeSessions.mock.invocationCallOrder[0]).toBeLessThan(
+      dependencies.consume.mock.invocationCallOrder[0],
+    );
+  });
+
+  /*
+   * The address is already changed in Firebase Auth by the time revocation runs,
+   * so a revocation failure must not consume the one-time state — otherwise the
+   * account keeps the new address while every pre-change session stays valid and
+   * the visitor has no link left to finish with.
+   */
+  it('leaves the one-time state unconsumed when revocation fails', async () => {
+    const dependencies = {
+      lookup: vi.fn().mockResolvedValue(stateRecord),
+      consume: vi.fn().mockResolvedValue(stateRecord),
+      readAuthEmail: vi.fn().mockResolvedValue(CURRENT_EMAIL),
+      applyActionCode: vi.fn().mockResolvedValue({ userId: USER_ID, email: NEW_EMAIL }),
+      finalize: vi.fn().mockResolvedValue(undefined),
+      revokeSessions: vi.fn().mockRejectedValue(new Error('revoke failed')),
+    };
+    await expect(completeEmailChange('state', 'action-code', dependencies)).rejects.toThrow();
+    expect(dependencies.consume).not.toHaveBeenCalled();
+  });
+
+  it('completes on a retry after a revocation failure', async () => {
+    const dependencies = {
+      lookup: vi.fn().mockResolvedValue(stateRecord),
+      consume: vi.fn().mockResolvedValue(stateRecord),
+      readAuthEmail: vi.fn().mockResolvedValue(NEW_EMAIL),
+      applyActionCode: vi.fn(),
+      finalize: vi.fn().mockResolvedValue(undefined),
+      revokeSessions: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('revoke failed'))
+        .mockResolvedValue(undefined),
+    };
+    await expect(completeEmailChange('state', 'action-code', dependencies)).rejects.toThrow();
+    expect(await completeEmailChange('state', 'action-code', dependencies)).toEqual({ ok: true });
+    expect(dependencies.consume).toHaveBeenCalledTimes(1);
   });
 
   it('recovers after the Auth action was applied before a retry', async () => {
@@ -106,6 +150,7 @@ describe(completeEmailChange, () => {
       readAuthEmail: vi.fn().mockResolvedValue(NEW_EMAIL),
       applyActionCode: vi.fn(),
       finalize: vi.fn().mockResolvedValue(undefined),
+      revokeSessions: vi.fn().mockResolvedValue(undefined),
     };
     expect(await completeEmailChange('state', 'action-code', dependencies)).toEqual({ ok: true });
     expect(dependencies.applyActionCode).not.toHaveBeenCalled();
@@ -118,6 +163,7 @@ describe(completeEmailChange, () => {
       readAuthEmail: vi.fn(),
       applyActionCode: vi.fn(),
       finalize: vi.fn(),
+      revokeSessions: vi.fn(),
     };
     expect(await completeEmailChange('state', 'action-code', dependencies)).toEqual({ ok: false });
     expect(dependencies.applyActionCode).not.toHaveBeenCalled();

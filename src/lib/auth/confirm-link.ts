@@ -11,6 +11,7 @@ import {
 import { consumeEmailState, lookupEmailState } from '@/lib/auth/email-state';
 import { applyEmailChangeCode, exchangeEmailLink } from '@/lib/auth/identity-toolkit';
 import { activateFirstAccess } from '@/lib/firebase/activate-access';
+import { firebaseAdminAuth } from '@/lib/firebase/admin';
 import { createFirestoreEmailStateStore } from '@/lib/firebase/email-state-store';
 import { finalizeEmailChange, readFirebaseAuthEmail } from '@/lib/firebase/email-change-store';
 import { readProfile } from '@/lib/firebase/profile-repository';
@@ -56,6 +57,7 @@ function emailChangeDependencies(): EmailChangeCompletionDependencies {
     readAuthEmail: readFirebaseAuthEmail,
     applyActionCode: applyEmailChangeCode,
     finalize: finalizeEmailChange,
+    revokeSessions: (userId) => firebaseAdminAuth().revokeRefreshTokens(userId),
   };
 }
 
