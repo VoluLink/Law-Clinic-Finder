@@ -31,6 +31,38 @@ describe('createRateLimiter', () => {
     expect(limiter.isLimited('ip-1', START + 60_001)).toBe(false);
   });
 
+  it('bounds the number of tracked keys', () => {
+    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 60_000, maxKeys: 2 });
+    limiter.isLimited('ip-1', START);
+    limiter.isLimited('ip-2', START);
+    limiter.isLimited('ip-3', START);
+    expect(limiter.isLimited('ip-1', START + 1)).toBe(false);
+  });
+
+  it('evicts the least recently used key rather than the first one seen', () => {
+    const limiter = createRateLimiter({ maxRequests: 2, windowMs: 60_000, maxKeys: 2 });
+    limiter.isLimited('ip-1', START);
+    limiter.isLimited('ip-2', START);
+    limiter.isLimited('ip-1', START + 1);
+    limiter.isLimited('ip-3', START + 2);
+    expect(limiter.isLimited('ip-1', START + 3)).toBe(true);
+  });
+
+  it('counts a blocked request as recent use, so the abusive key survives', () => {
+    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 60_000, maxKeys: 2 });
+    limiter.isLimited('ip-1', START);
+    limiter.isLimited('ip-2', START + 1);
+    limiter.isLimited('ip-1', START + 2);
+    limiter.isLimited('ip-3', START + 3);
+    expect(limiter.isLimited('ip-1', START + 4)).toBe(true);
+  });
+
+  it('rejects a limiter that cannot track a single key', () => {
+    expect(() => createRateLimiter({ maxRequests: 1, windowMs: 60_000, maxKeys: 0 })).toThrow(
+      RangeError,
+    );
+  });
+
   it('exports sensible chat defaults', () => {
     expect(CHAT_RATE_LIMIT.maxRequests).toBeGreaterThan(0);
     expect(CHAT_RATE_LIMIT.windowMs).toBeGreaterThan(0);

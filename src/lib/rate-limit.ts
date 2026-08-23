@@ -1,6 +1,7 @@
 export type RateLimitConfig = {
   maxRequests: number;
   windowMs: number;
+  maxKeys?: number;
 };
 
 export type RateLimiter = {
@@ -13,6 +14,7 @@ export const CHAT_RATE_LIMIT: RateLimitConfig = {
 };
 
 const MS_PER_DAY = 86_400_000;
+const DEFAULT_MAX_RATE_LIMIT_KEYS = 10_000;
 
 /** Signup endpoints: interactive search may be chatty; email sends are precious. */
 export const SIGNUP_SEARCH_RATE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
@@ -29,23 +31,45 @@ export const AUTH_CONFIRM_RATE_LIMIT: RateLimitConfig = { maxRequests: 20, windo
 export const SMTP_SETTINGS_RATE_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: 60 * 60_000 };
 
 /**
- * In-memory sliding-window limiter. Per-process only — behind multiple
- * instances, enforce limits at the proxy layer as well.
+ * Re-inserting the key on every touch makes the Map's iteration order
+ * least-recently-used, so the entry dropped under pressure is the one idle
+ * longest. Evicting by first-insertion instead would discard exactly the
+ * long-running abusive key the limiter exists to hold on to.
  */
-export function createRateLimiter({ maxRequests, windowMs }: RateLimitConfig): RateLimiter {
+function touch(hits: Map<string, number[]>, key: string, recent: number[], maxKeys: number): void {
+  hits.delete(key);
+  while (hits.size >= maxKeys) {
+    const oldest = hits.keys().next().value;
+    if (oldest === undefined) break;
+    hits.delete(oldest);
+  }
+  hits.set(key, recent);
+}
+
+/**
+ * In-memory sliding-window limiter. Per-process only — behind multiple
+ * instances, enforce limits at the proxy layer as well. `maxKeys` bounds memory
+ * against a flood of distinct keys; it is availability protection, not a
+ * substitute for a distributed limit.
+ */
+export function createRateLimiter({
+  maxRequests,
+  windowMs,
+  maxKeys = DEFAULT_MAX_RATE_LIMIT_KEYS,
+}: RateLimitConfig): RateLimiter {
+  if (!Number.isInteger(maxKeys) || maxKeys < 1) {
+    throw new RangeError(`maxKeys must be a positive integer, received ${maxKeys}`);
+  }
   const hits = new Map<string, number[]>();
 
   return {
     isLimited(key, now = Date.now()) {
       const windowStart = now - windowMs;
       const recent = (hits.get(key) ?? []).filter((timestamp) => timestamp > windowStart);
-      if (recent.length >= maxRequests) {
-        hits.set(key, recent);
-        return true;
-      }
-      recent.push(now);
-      hits.set(key, recent);
-      return false;
+      const limited = recent.length >= maxRequests;
+      if (!limited) recent.push(now);
+      touch(hits, key, recent, maxKeys);
+      return limited;
     },
   };
 }
