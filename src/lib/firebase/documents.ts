@@ -36,6 +36,12 @@ export const clinicDocumentSchema = z
        notifications existed, so both stay optional rather than defaulted. */
     submissionNotifiedAt: firestoreDateSchema.nullish(),
     publishNotifiedAt: firestoreDateSchema.nullish(),
+    /* Self-service visibility. `hiddenUntil` set means a temporary pause that a
+       scheduled job restores; null with reason 'permanent' means the clinic hid
+       itself indefinitely and can republish whenever it wants. Both are absent on
+       every document written before this existed. */
+    hiddenUntil: firestoreDateSchema.nullish(),
+    hiddenReason: z.enum(['temporary', 'permanent']).nullish(),
   })
   .strict()
   .refine((clinic) => clinic.approvalStatus === 'approved' || !clinic.isPublished, {

@@ -17,6 +17,9 @@ export type ClinicView = ClinicEditable & {
   id: string;
   is_published: boolean;
   approval_status: 'pending' | 'approved';
+  /** Set only while a self-service pause is running. */
+  hidden_until: string | null;
+  hidden_reason: 'temporary' | 'permanent' | null;
   created_at: string;
   updated_at: string;
 };
@@ -72,6 +75,8 @@ export async function readClinic(clinicId: string): Promise<ClinicView | null> {
     advises_clients: clinic.advisesClients,
     is_published: clinic.isPublished,
     approval_status: clinic.approvalStatus,
+    hidden_until: clinic.hiddenUntil ? clinic.hiddenUntil.toISOString() : null,
+    hidden_reason: clinic.hiddenReason ?? null,
     created_at: clinic.createdAt.toISOString(),
     updated_at: clinic.updatedAt.toISOString(),
   };

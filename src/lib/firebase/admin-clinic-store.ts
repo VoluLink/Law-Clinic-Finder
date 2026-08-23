@@ -134,6 +134,8 @@ function adminClinicRecord(
     ...legacyClinicFields(clinic, contact),
     is_published: clinic.isPublished,
     approval_status: clinic.approvalStatus,
+    hidden_until: clinic.hiddenUntil ? clinic.hiddenUntil.toISOString() : null,
+    hidden_reason: clinic.hiddenReason ?? null,
     created_at: clinic.createdAt.toISOString(),
     updated_at: clinic.updatedAt.toISOString(),
     profile: profiles.get(id) ?? null,
