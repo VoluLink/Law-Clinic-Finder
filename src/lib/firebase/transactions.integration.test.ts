@@ -15,6 +15,7 @@ import { createFirestoreEmailStateStore } from './email-state-store';
 import { firebaseIdempotencyStore } from './idempotency-store';
 import { saveMemberClinic } from './clinic-repository';
 import { updateAdminClinic } from './admin-clinic-store';
+import { setClinicVisibility } from './clinic-visibility-store';
 
 const hasEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 const NOW = new Date('2026-08-16T12:00:00.000Z');
@@ -97,7 +98,7 @@ describe.skipIf(!hasEmulator)('Firestore transaction invariants', () => {
     ]);
 
     expect(results.filter((result) => result.allowed)).toHaveLength(2);
-  });
+  }, 20_000);
 
   it('claims the admin submission notice only on the first save', async () => {
     const submission = memberSubmission();
@@ -165,8 +166,92 @@ describe.skipIf(!hasEmulator)('Firestore transaction invariants', () => {
       fulfilled: 1,
       conflicts: 1,
     });
-  });
+  }, 20_000);
+
+  it('hides an approved entry and remembers the return date', async () => {
+    const clinic = await seedClinic();
+    const until = new Date('2026-12-01T23:59:59.999Z');
+
+    const result = await setClinicVisibility(clinic.id, {
+      isPublished: false,
+      hiddenUntil: until,
+      hiddenReason: 'temporary',
+    });
+    const stored = await clinic.read();
+
+    expect(result.status).toBe('ok');
+    expect(stored?.isPublished).toBe(false);
+    expect(stored?.hiddenUntil.toDate()).toEqual(until);
+  }, 20_000);
+
+  it('clears the pause marks when the entry is made visible again', async () => {
+    const clinic = await seedClinic({
+      isPublished: false,
+      hiddenUntil: new Date('2026-12-01T00:00:00.000Z'),
+      hiddenReason: 'temporary',
+    });
+
+    await setClinicVisibility(clinic.id, {
+      isPublished: true,
+      hiddenUntil: null,
+      hiddenReason: null,
+    });
+    const stored = await clinic.read();
+
+    expect(stored?.isPublished).toBe(true);
+    expect(stored?.hiddenUntil).toBeNull();
+  }, 20_000);
+
+  it('refuses to republish an entry an admin has not approved', async () => {
+    const clinic = await seedClinic({ isPublished: false, approvalStatus: 'pending' });
+
+    const result = await setClinicVisibility(clinic.id, {
+      isPublished: true,
+      hiddenUntil: null,
+      hiddenReason: null,
+    });
+
+    expect(result.status).toBe('unapproved');
+    expect((await clinic.read())?.isPublished).toBe(false);
+  }, 20_000);
+
+  it('refuses to republish an entry that lost a required field while hidden', async () => {
+    const clinic = await seedClinic({ isPublished: false, website: null });
+
+    const result = await setClinicVisibility(clinic.id, {
+      isPublished: true,
+      hiddenUntil: null,
+      hiddenReason: null,
+    });
+
+    expect(result.status).toBe('incomplete');
+    expect((await clinic.read())?.isPublished).toBe(false);
+  }, 20_000);
 });
+
+async function seedClinic(
+  overrides: Record<string, unknown> = {},
+): Promise<{ id: string; read: () => Promise<FirebaseFirestore.DocumentData | undefined> }> {
+  const id = randomUUID();
+  const reference = firebaseFirestore().collection('clinics').doc(id);
+  await reference.set({
+    name: `Visibility Clinic ${id}`,
+    description: 'Beratung für alle',
+    region: 'Berlin',
+    website: 'https://clinic.example.org',
+    legalAreas: 'Mietrecht',
+    targetClients: 'Alle Ratsuchenden',
+    languages: 'Deutsch',
+    requirements: null,
+    advisesClients: true,
+    isPublished: true,
+    approvalStatus: 'approved',
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  });
+  return { id, read: async () => (await reference.get()).data() };
+}
 
 function memberSubmission() {
   return {

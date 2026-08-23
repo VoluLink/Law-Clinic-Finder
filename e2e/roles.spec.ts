@@ -49,6 +49,22 @@ test.describe('admin session', () => {
     await page.goto('/admin/smtp');
     await assertNoSeriousViolations(page, 'admin/smtp');
   });
+
+  // The dashboard tiles used to widen past the viewport, which left the sticky
+  // header and page background ending mid-scroll. A page must never scroll
+  // sideways; wide content scrolls inside its own container instead.
+  for (const width of [360, 768, 1024]) {
+    test(`does not scroll sideways at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      for (const path of ['/admin', '/admin/clinics', '/admin/logs']) {
+        await page.goto(path);
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow, `${path} overflows horizontally`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
 });
 
 test.describe('clinic session', () => {
