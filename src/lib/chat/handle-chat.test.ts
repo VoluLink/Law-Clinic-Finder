@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { combineRateLimiters, createRateLimiter, type RateLimitConfig } from '@/lib/rate-limit';
 import { makeChatSettings } from '@/lib/settings.fixtures';
@@ -213,5 +213,80 @@ describe(handleChatRequest, () => {
     expect(response.status).toBe(200);
     await vi.waitFor(() => expect(deps.logger.error).toHaveBeenCalled());
     expect(deps.persist).not.toHaveBeenCalled();
+  });
+
+  describe('abuse challenge', () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    const secondTurn = {
+      sessionId,
+      messages: [
+        { role: 'user', content: 'Hilfe bei Mietrecht?' },
+        { role: 'assistant', content: 'Gern.' },
+        { role: 'user', content: 'In Köln.' },
+      ],
+    };
+
+    it('is skipped entirely when not enabled, so local runs are never gated', async () => {
+      const verify = vi.fn();
+      const response = await handleChatRequest(
+        chatRequest(validBody),
+        createDeps({ verifyChallenge: verify }),
+      );
+      expect(verify).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+    });
+
+    it('rejects a first message with no solution', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const response = await handleChatRequest(chatRequest(validBody), createDeps());
+      expect(response.status).toBe(403);
+    });
+
+    it('rejects a first message whose solution does not verify', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const response = await handleChatRequest(
+        chatRequest({ ...validBody, challenge: 'wrong' }),
+        createDeps({ verifyChallenge: vi.fn().mockResolvedValue(false) }),
+      );
+      expect(response.status).toBe(403);
+    });
+
+    it('accepts a first message with a valid solution', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const response = await handleChatRequest(
+        chatRequest({ ...validBody, challenge: '4711' }),
+        createDeps({ verifyChallenge: vi.fn().mockResolvedValue(true) }),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it('binds the solution to the conversation it was solved for', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const verify = vi.fn().mockResolvedValue(true);
+      await handleChatRequest(
+        chatRequest({ ...validBody, challenge: '4711' }),
+        createDeps({ verifyChallenge: verify }),
+      );
+      expect(verify).toHaveBeenCalledWith(expect.objectContaining({ sessionId, token: '4711' }));
+    });
+
+    it('does not re-challenge a continuing conversation', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const verify = vi.fn();
+      const response = await handleChatRequest(
+        chatRequest(secondTurn),
+        createDeps({ verifyChallenge: verify }),
+      );
+      expect(verify).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+    });
+
+    it('checks the challenge before spending the daily quota', async () => {
+      vi.stubEnv('CHALLENGE_ENABLED', 'true');
+      const claimQuota = vi.fn();
+      await handleChatRequest(chatRequest(validBody), createDeps({ claimQuota }));
+      expect(claimQuota).not.toHaveBeenCalled();
+    });
   });
 });

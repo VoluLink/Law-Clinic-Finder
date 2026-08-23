@@ -14,6 +14,7 @@ import { BrandLine } from '@/components/layout/BrandLine';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { MAX_CHAT_MESSAGE_CHARS, trimChatHistory } from '@/lib/chat/schema';
+import { solveChatChallenge } from '@/lib/security/client-challenge';
 import {
   decodeChatEvents,
   type ChatErrorCode,
@@ -92,7 +93,9 @@ export function FinderChat({ dict, lang = 'de', rtl, greeting = '' }: FinderChat
     setInput('');
     setPending(true);
     try {
-      const outcome = await streamReply(history, setMessages, sessionId.current);
+      const challenge =
+        history.length === 1 ? await solveChatChallenge(sessionId.current) : undefined;
+      const outcome = await streamReply(history, setMessages, sessionId.current, challenge);
       if (outcome === 'unavailable') {
         setMessages((prev) => [
           ...prev,
@@ -152,11 +155,12 @@ async function streamReply(
   messages: Message[],
   setMessages: Dispatch<SetStateAction<Message[]>>,
   sessionId: string,
+  challenge?: string,
 ): Promise<ReplyOutcome> {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, messages }),
+    body: JSON.stringify({ sessionId, messages, challenge }),
   });
   if (response.status === 429) {
     const body: unknown = await response.json().catch(() => null);

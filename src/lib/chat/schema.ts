@@ -13,6 +13,8 @@ export const chatRequestSchema = z.object({
   // Stable per-chat id from the client, so every turn's tokens accumulate onto
   // one conversation row and the daily quota can distinguish conversations.
   sessionId: z.uuid(),
+  // Abuse challenge solution, required only on the first turn of a conversation.
+  challenge: z.string().trim().min(1).max(4096).optional(),
   messages: z
     .array(chatMessageSchema)
     .min(1)

@@ -1,5 +1,6 @@
 import { clientIp } from '@/lib/http/client-ip';
 import { isSameOrigin } from '@/lib/http/same-origin';
+import { challengeRequired, verifyChallenge } from '@/lib/security/challenge';
 import type { Logger } from '@/lib/logger';
 import type { ScopedRateLimiter } from '@/lib/rate-limit';
 import type { ChatSettings, ChatSettingsResult } from '@/lib/settings';
@@ -12,6 +13,12 @@ import { CHAT_STREAM_CONTENT_TYPE } from './stream-protocol';
 
 export type ChatHandlerDeps = {
   limiter: ScopedRateLimiter;
+  /** Injected so tests and the emulator never depend on the live provider. */
+  verifyChallenge?: (context: {
+    sessionId: string;
+    token: string;
+    clientIp: string | null;
+  }) => Promise<boolean>;
   claimQuota: (request: Request, sessionId: string) => Promise<DailyQuotaClaim>;
   loadSettings: () => Promise<ChatSettingsResult>;
   run: (
@@ -51,12 +58,39 @@ export async function handleChatRequest(
   if (limitScope) return burstLimitResponse(limitScope);
   const parsed = await parseChatRequest(request);
   if (!parsed) return jsonError(400, 'Ungültige Anfrage.');
+  if (!(await passesChallenge(deps, request, parsed))) {
+    return jsonError(403, 'Sicherheitsprüfung fehlgeschlagen. Bitte lade die Seite neu.');
+  }
   const loaded = await deps.loadSettings();
   if (!loaded.ok) return jsonError(503, 'Der Chat ist derzeit nicht konfiguriert.');
   if (!loaded.settings.chat_enabled) return jsonError(503, 'Der Chat ist derzeit deaktiviert.');
   const quota = await enforceDailyQuota(deps, request, parsed.sessionId);
   if (quota instanceof Response) return quota;
   return startChat(deps, loaded.settings, parsed, quota);
+}
+
+/**
+ * Only the opening turn is challenged. Later turns are already bound to a
+ * conversation that paid the cost, and re-challenging mid-conversation would
+ * interrupt someone describing a legal problem.
+ */
+function isFirstTurn(parsed: ChatRequest): boolean {
+  return parsed.messages.length === 1;
+}
+
+async function passesChallenge(
+  deps: ChatHandlerDeps,
+  request: Request,
+  parsed: ChatRequest,
+): Promise<boolean> {
+  if (!challengeRequired() || !isFirstTurn(parsed)) return true;
+  if (!parsed.challenge) return false;
+  const verify = deps.verifyChallenge ?? verifyChallenge;
+  return verify({
+    sessionId: parsed.sessionId,
+    token: parsed.challenge,
+    clientIp: clientIp(request),
+  });
 }
 
 async function parseChatRequest(request: Request): Promise<ChatRequest | null> {
