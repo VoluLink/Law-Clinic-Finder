@@ -113,3 +113,33 @@ environment variables.
 - [ ] Re-run tracked-file, history, secret, PII, dependency, build-archive, and runtime-import checks.
 - [ ] Keep the Supabase project and its data unchanged unless the owner gives separate, exact,
       destructive authorization. Code cleanup never implies cloud-data deletion.
+
+## 6 — Cloud steps for the post-migration feature work
+
+The application side of this work is implemented, tested and committed. Each item below is an owner
+action; none has been performed.
+
+- [ ] ⛔ Create the secret `gaServiceAccountJson` in `europe-west4`, grant `law-clinic-runtime` only
+      `secretmanager.versions.access` on that one secret, then uncomment the `GA_SERVICE_ACCOUNT_JSON`
+      entry in `apphosting.yaml`. It is deliberately commented out because App Hosting fails a
+      rollout when a `secret:` reference cannot be resolved. Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
+      the numeric `GA_PROPERTY_ID` in the same change; the eight operator steps are in the plan file.
+- [ ] ⛔ Deploy the scheduled function `restoreScheduledVisibility` (europe-west4, daily 03:15
+      Europe/Berlin) and grant it write access to `clinics` in `primary-eu`. Until it runs, a
+      temporary self-service pause never ends on its own — the entry stays hidden and the clinic can
+      still republish manually.
+- [ ] ⛔ Apply the assistant guidance to `settings/chat`. `npm run chat:guidance` previews and writes
+      nothing; adding `--apply --confirm-target law-clinic-finder` performs the change. It is
+      idempotent and also updates the frozen revert baseline.
+- [ ] ⛔ Decide on the abuse challenge before public launch: set `CHALLENGE_ENABLED=true` with the
+      default proof of work, or obtain a Turnstile site/secret key. The proof of work needs nothing
+      provisioned; Turnstile additionally needs the client widget and a Datenschutzerklärung entry.
+- [ ] ⛔ Cloudflare in front of App Hosting (a reverse proxy, not a Tunnel), once the domain exists.
+      Set `TRUSTED_PROXY=cloudflare` **only after** the origin is restricted to Cloudflare ranges;
+      before that, `CF-Connecting-IP` is forgeable and every per-IP limit becomes meaningless. Check
+      the free plan's 100-second proxy timeout against the streaming chat.
+- [ ] Optional: lower `LOG_PERSIST_LEVEL` to `info` temporarily when diagnosing something specific.
+
+After this plan, continue with [`security-hardening-plan.md`](security-hardening-plan.md). Four of
+its open DECISIONs are already settled by this work: G (transcript retention → 90 days), H (AI
+disclosure → the notice under the chat input), J (CAPTCHA → first-message challenge) and part of B.

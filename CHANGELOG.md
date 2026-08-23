@@ -7,6 +7,39 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Added
+
+- Hinweis „Du interagierst gerade mit einer künstlichen Intelligenz." unter dem Chat-Eingabefeld,
+  übersetzt in alle neun öffentlichen Sprachen (EU-KI-VO Art. 50).
+- Missbrauchs-Challenge vor der ersten Chatnachricht mit provider-neutraler Grenze: selbst
+  gehosteter Proof-of-Work als Standard, Cloudflare Turnstile per Konfiguration.
+- Selbstverwaltete Sichtbarkeit für Clinics: befristet oder unbefristet ausblenden, ohne Konto oder
+  Daten zu löschen; eine geplante Cloud Function beendet befristete Pausen.
+- Eigene Fehlermeldungen je Ausfallart des KI-Dienstes samt „Erneut versuchen"; das NDJSON-Protokoll
+  überträgt dafür einen Fehlerframe statt die Verbindung abzubrechen.
+- GA4-Kennzahlen im Dashboard über die Data API (REST), passend zum gewählten Monat.
+- Zusätzliche deutsche PII-Erkennungen in der lokalen Redaktion (Steuer-ID, Sozialversicherungs-
+  nummer, Kreditkarte, Geburtsdatum, Aktenzeichen, Kennzeichen, PLZ/Ort, Ausweisnummern) mit
+  Prüfsummen gegen Fehlalarme.
+
+### Changed
+
+- Admin-Bereich „Benachrichtigungen" bündelt Empfängerauswahl und SMTP-Zugangsdaten.
+- Gespeicherte Gespräche folgen dem Monatsumschalter; die Liste ist so hoch wie die Kachel daneben
+  und lässt sich aufklappen.
+- Lesbare Transkripte laufen nach 90 Tagen ab (Statistiken weiterhin zwölf Monate).
+- Freigabe-Ansicht nennt die Folge der Aktion und zeigt die eingereichten Angaben.
+- Empfehlungs-PDF wird als Vektor gezeichnet statt als Rasterbild.
+
+### Fixed
+
+- Navigationslinks laden nicht mehr spekulativ vor; das beendet die Kaltstart-Welle, die den
+  Cloud-Run-Instanzalarm auslöste.
+- Admin-Protokolle waren leer: die Log-Senke lag in Modulzustand, den Next.js dupliziert, und eine
+  einzelne unlesbare Zeile ließ die ganze Liste scheitern.
+- Dashboard-Kacheln skalieren auf schmalen Bildschirmen; „Tageslimit erreicht" ist so breit wie das
+  Chatfenster.
+
 ### Empfehlungs-PDF und Seitentitel
 
 - Das lokal erzeugte Empfehlungs-PDF entspricht wieder der freigegebenen A4-Gestaltung mit

@@ -61,7 +61,12 @@ Reale Werte gehören ausschließlich in `.env.local` bzw. App Hosting Secret Man
 | `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD`    | Server/Secret         | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                                                             |
 | `ANTHROPIC_API_KEY`                                      | Server/Secret         | Claude API für den Finder-Chat                                                                                 |
 | `DEV_LOGIN_ENABLED`                                      | nur lokal             | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden                                                |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                          | öffentlich, optional  | Consent-gesteuertes GA4                                                                                        |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                          | öffentlich, optional  | Consent-gesteuertes GA4; ohne diesen Wert erscheint auch kein Cookie-Banner                                    |
+| `CHALLENGE_ENABLED` / `CHALLENGE_PROVIDER`               | Server                | Missbrauchs-Challenge vor der ersten Chatnachricht; `pow` (Standard) oder `turnstile`                          |
+| `CHALLENGE_POW_DIFFICULTY` / `TURNSTILE_SECRET`          | Server/Secret         | Schwierigkeit des Proof-of-Work bzw. Cloudflare-Turnstile-Secret                                               |
+| `NEXT_PUBLIC_CHALLENGE_PROVIDER` / `…_POW_DIFFICULTY`    | öffentlich            | Spiegel für den Browser; der Server bleibt die Autorität                                                       |
+| `TRUSTED_PROXY`                                          | Server                | `cloudflare` nur, wenn der Origin auf Cloudflare beschränkt ist — sonst sind alle Per-IP-Limits fälschbar      |
+| `LOG_PERSIST_LEVEL`                                      | Server, optional      | Niedrigstes Level, das nach Firestore geschrieben wird; Standard `warn`                                        |
 | `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`             | Server, optional      | GA-Karten im Admin-Dashboard                                                                                   |
 | `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SECRET_KEY`       | nur Migrationsrechner | Read-only Quelle des Kopierwerkzeugs; kein App-Runtime-Zugriff                                                 |
 
@@ -89,6 +94,10 @@ Firebase-Session und das aktuelle Profil erneut.
 | `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                              |
 | `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                           |
 | `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                      |
+| `src/lib/security/`                       | Provider-neutrale Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile) samt Browser-Löser                                        |
+| `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                               |
+| `src/components/chat/pdf-layout.ts`       | Reine, testbare Seitenberechnung des Empfehlungs-PDFs; `recommendation-pdf.ts` zeichnet sie als Vektoren                                    |
+| `scripts/update-chat-guidance.ts`         | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                             |
 | `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
 | `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Redaktion und Tokenkosten                                                                      |
 | `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                           |
@@ -98,6 +107,7 @@ Firebase-Session und das aktuelle Profil erneut.
 | `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                          |
 | `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                     |
 | `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                        |
+| `docs/security-hardening-plan.md`         | Resumierbarer ASVS-/AISVS-Sicherheitsaudit, verifizierte Befunde, Teilstand und gebündelte Entscheidungsoptionen                            |
 | `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                                                             |
 | `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                |
 
@@ -188,22 +198,23 @@ ausschließlich im URL-Fragment.
 
 ### Firestore-Modell
 
-| Dokument/Collection                                        | Inhalt                                                                  |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `clinics/{id}` / `clinicContacts/{id}`                     | Öffentlicher Eintrag / private Beratungsmail                            |
-| `clinics/{id}.submissionNotifiedAt` / `.publishNotifiedAt` | Transaktionale Marken der beiden Benachrichtigungen                     |
-| `profiles/{uid}`                                           | Rolle, Clinic-Zuordnung, Zugangsstatus und Aktivierung                  |
-| `uniqueClinicNames`, `uniqueClinicOwners`, `emailOwners`   | Transaktionale Ersatz-Invarianten für SQL-Unique/FK                     |
-| `settings/chat`                                            | Einzige Quelle für alle Live-Prompts, Regler und eingefrorenen Defaults |
-| `settings/operations`                                      | Ausgewählte Admin-UID für Betriebsalarme; keine E-Mail-Kopie            |
-| `branding/current` + `branding/**` in Storage              | Theme und als PNG normalisiertes Logo                                   |
-| `conversations`, `conversationTranscripts`, `retention`    | Statistik, höchstens 200 redigierte Verläufe und Cap-State              |
-| `clinicEvents`, `clinicMetrics`, `adminMetrics`            | PII-freie Events und günstige Monatsaggregate                           |
-| `claimLimits`, `chatDailyQuotas`                           | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                        |
-| `authEmailStates`, `pendingEmailOwners`                    | Kurzlebige Einmal-State- und E-Mail-Reservierungen                      |
-| `idempotencyKeys`                                          | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL   |
-| `logs`                                                     | PII-freie Admin-Protokolle, sieben Tage TTL                             |
-| `migrationRuns/{runId}`                                    | Nicht-PII Checkpoints, Counts und Checksummen                           |
+| Dokument/Collection                                        | Inhalt                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `clinics/{id}` / `clinicContacts/{id}`                     | Öffentlicher Eintrag / private Beratungsmail                               |
+| `clinics/{id}.submissionNotifiedAt` / `.publishNotifiedAt` | Transaktionale Marken der beiden Benachrichtigungen                        |
+| `clinics/{id}.hiddenUntil` / `.hiddenReason`               | Selbstverwaltete Sichtbarkeit; `hiddenUntil` beendet eine befristete Pause |
+| `profiles/{uid}`                                           | Rolle, Clinic-Zuordnung, Zugangsstatus und Aktivierung                     |
+| `uniqueClinicNames`, `uniqueClinicOwners`, `emailOwners`   | Transaktionale Ersatz-Invarianten für SQL-Unique/FK                        |
+| `settings/chat`                                            | Einzige Quelle für alle Live-Prompts, Regler und eingefrorenen Defaults    |
+| `settings/operations`                                      | Ausgewählte Admin-UID für Betriebsalarme; keine E-Mail-Kopie               |
+| `branding/current` + `branding/**` in Storage              | Theme und als PNG normalisiertes Logo                                      |
+| `conversations`, `conversationTranscripts`, `retention`    | Statistik, höchstens 200 redigierte Verläufe und Cap-State                 |
+| `clinicEvents`, `clinicMetrics`, `adminMetrics`            | PII-freie Events und günstige Monatsaggregate                              |
+| `claimLimits`, `chatDailyQuotas`                           | Transaktionale Missbrauchs-/Tagesgrenzen mit TTL                           |
+| `authEmailStates`, `pendingEmailOwners`                    | Kurzlebige Einmal-State- und E-Mail-Reservierungen                         |
+| `idempotencyKeys`                                          | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL      |
+| `logs`                                                     | PII-freie Admin-Protokolle, sieben Tage TTL                                |
+| `migrationRuns/{runId}`                                    | Nicht-PII Checkpoints, Counts und Checksummen                              |
 
 Firestore ersetzt keine SQL-Constraints automatisch. Alle Namen, Eigentümer und E-Mail-Adressen
 werden deshalb über Hash-/Reservation-Dokumente in Transaktionen vergeben. Ein Pending-Eintrag kann
@@ -223,6 +234,33 @@ Profil verwenden. Der letzte Admin und der handelnde Admin selbst können nicht 
   Eine Transaktion erlaubt zwei Gespräche pro Berliner Kalendertag und acht User-Turns je Gespräch.
 - Kurzes IP-Burst-Limit bleibt pro Instanz; App Hosting/Proxy muss die echte Client-IP liefern.
 - Monatsaggregate verhindern teure Vollscans. Nicht abgefragte große/TTL-Felder sind nicht indexiert.
+
+### Kosten und Wirtschaftlichkeit
+
+- Navigationslinks in Admin- und Mitgliederbereich laden **nicht** spekulativ vor. Ein Aufruf von
+  `/admin` löste sonst sechs parallele RSC-Anfragen aus; bei `minInstances: 0` ist jede davon ein
+  Kaltstart, drei Instanzen liefen gleichzeitig und der Cloud-Run-Instanzalarm schlug an.
+- Das Dashboard zählt Clinics über Aggregationsabfragen statt über das Einlesen aller Dokumente:
+  fünf Kennzahlen kosten drei Reads statt 118.
+- Nur `warn` und `error` landen in Firestore; `info`/`debug` bleiben in Cloud Logging.
+- Lesbare Transkripte laufen nach 90 Tagen ab, Statistiken nach zwölf Monaten.
+- GA-Kennzahlen werden fünf Minuten pro warmer Instanz zwischengespeichert.
+
+### Missbrauchsschutz
+
+Die erste Nachricht eines Gesprächs muss eine Challenge lösen. Die Grenze ist provider-neutral:
+Standard ist ein selbst gehosteter Proof-of-Work — keine dritte Partei, kein Cookie, kein
+Einwilligungsbedarf und nichts bereitzustellen. Cloudflare Turnstile ist implementiert und wird über
+`CHALLENGE_PROVIDER=turnstile` aktiv, sobald die Seite hinter Cloudflare steht; das Client-Widget
+benötigt dann noch einen Site-Key. Nur der erste Zug wird geprüft, die Lösung ist an die `sessionId`
+gebunden, und geprüft wird vor dem Verbrauch des Tageskontingents.
+
+Firebase App Hosting liegt hinter dem Google Front End, das volumetrische L3/L4-Angriffe abfängt.
+Eine L7-WAF, Bot-Filterung oder Ratenbegrenzung gibt es dort **nicht**, und App Hosting stellt Cloud
+Armor nicht bereit. Der geplante Weg ist Cloudflare als Reverse Proxy vor App Hosting — nicht ein
+Cloudflare Tunnel, der einen privaten Origin veröffentlicht. Vor der Umstellung muss
+`TRUSTED_PROXY=cloudflare` gesetzt **und** der Origin auf Cloudflare-Bereiche beschränkt werden;
+sonst ist `CF-Connecting-IP` fälschbar und jedes Per-IP-Limit wirkungslos.
 
 ### Hosting
 
@@ -293,7 +331,9 @@ gibt weder Uptime-Polling noch eine eigene Log-Metrik.
 - `console.log`, Klartext-Secrets, Service-Account-Dateien und `.env`-Dateien gehören nicht in
   ausgelieferten Code oder Git.
 - Wachsende Daten erhalten TTL: Auth-/Quota-State kurzlebig, Logs sieben Tage, Conversation/Event-
-  Statistik etwa zwölf Monate; nur die neuesten 200 Transkripte bleiben detailliert.
+  Statistik etwa zwölf Monate; lesbare Transkripte nur 90 Tage und höchstens die neuesten 200.
+  Nach Firestore werden ausschließlich `warn` und `error` geschrieben — Routinemeldungen bleiben in
+  Cloud Logging, weil jede persistierte Zeile ein Dokument-Write kostet.
 - Per-IP-Limits verwenden bei App Hosting die validierte, vorletzte Adresse der von Google
   ergänzten `X-Forwarded-For`-Kette; ein vom Client gesetzter Präfix wird nie vertraut.
 - Tests liegen neben der Implementierung. Kritische Transaktionen benötigen Emulator-Integration;
@@ -363,6 +403,14 @@ Der verschlankte Arbeitsplan enthält ausschließlich noch offene Arbeit und die
 [`docs/firebase-migration-plan.md`](docs/firebase-migration-plan.md). Abgeschlossene
 Migrationshistorie bleibt in Git und `CHANGELOG.md`; laufende Firebase-Konventionen stehen im
 [`Firebase Agent Playbook`](docs/firebase-agent-playbook.md).
+
+Ein zusätzlicher, derzeit nur dokumentierter Sicherheits- und Datenschutz-Härtungslauf ist begonnen
+und wegen des Sitzungsbudgets pausiert. Der vollständige Übergabestand einschließlich verifizierter
+Auth-/API-Befunde, unvollständig geprüfter Bereiche, lokaler Teiländerungen, ASVS-/AISVS-Zielniveau
+und später gemeinsam zu stellender Produktentscheidungen steht in
+[`docs/security-hardening-plan.md`](docs/security-hardening-plan.md). Dieser Plan ist noch kein
+abgeschlossener Sicherheitsaudit und die uncommitteten Teiländerungen sind noch nicht vollständig
+durch alle Qualitätsgates gelaufen.
 
 ### Sichere Datenkopie
 
