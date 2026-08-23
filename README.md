@@ -224,7 +224,13 @@ Profil verwenden. Der letzte Admin und der handelnde Admin selbst können nicht 
 ### Chat, Privatsphäre und Kosten
 
 - PII-Muster werden lokal vor Anthropic und erneut vor Speicherung redigiert; keine zweite KI wird
-  zur Redaktion aufgerufen.
+  zur Redaktion aufgerufen. Optional lässt sich über `REDACTION_PROVIDER=dlp` zusätzlich Google Cloud
+  Sensitive Data Protection vorschalten; es läuft **nach** der lokalen Stufe, kann also nur mehr
+  entfernen, und fällt bei jedem Fehler auf das lokale Ergebnis zurück — nie auf den Rohtext.
+- **Stadt und Region bleiben lesbar.** Der Finder vermittelt an eine Clinic in der Nähe, und das
+  Modell kennt den Ort nur, weil die ratsuchende Person ihn geschrieben hat. Aus „50667 Köln" wird
+  deshalb „[PLZ] Köln": die Postleitzahl grenzt auf wenige Straßen ein, die Stadt auf Hunderttausende.
+  Ortsbezogene DLP-Detektoren werden aus demselben Grund nie angefordert.
 - Das Modell sieht nur validierte Directory-Daten ohne Beratungsmails und darf nur IDs empfehlen,
   die es im selben Gespräch aus der Suche erhielt.
 - Der Stream ist NDJSON. Clients puffern Teilzeilen und ignorieren unbekannte Frames.

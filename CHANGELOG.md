@@ -15,6 +15,8 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   gehosteter Proof-of-Work als Standard, Cloudflare Turnstile per Konfiguration.
 - Selbstverwaltete Sichtbarkeit für Clinics: befristet oder unbefristet ausblenden, ohne Konto oder
   Daten zu löschen; eine geplante Cloud Function beendet befristete Pausen.
+- Optionale zweite Redaktionsstufe über Google Cloud Sensitive Data Protection
+  (`REDACTION_PROVIDER=dlp`); sie läuft nach der lokalen Stufe und fällt bei Fehlern auf diese zurück.
 - Eigene Fehlermeldungen je Ausfallart des KI-Dienstes samt „Erneut versuchen"; das NDJSON-Protokoll
   überträgt dafür einen Fehlerframe statt die Verbindung abzubrechen.
 - GA4-Kennzahlen im Dashboard über die Data API (REST), passend zum gewählten Monat.
@@ -33,6 +35,8 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Fixed
 
+- Stadt und Region bleiben in der Redaktion erhalten; nur die Postleitzahl wird ersetzt. Ohne den
+  Ort könnte die KI keine Clinic in der Nähe mehr finden.
 - Navigationslinks laden nicht mehr spekulativ vor; das beendet die Kaltstart-Welle, die den
   Cloud-Run-Instanzalarm auslöste.
 - Admin-Protokolle waren leer: die Log-Senke lag in Modulzustand, den Next.js dupliziert, und eine
