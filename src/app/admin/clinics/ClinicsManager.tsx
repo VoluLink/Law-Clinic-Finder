@@ -51,6 +51,15 @@ export type PendingReview = {
   contact_email: string | null;
   /** 'new' is a self-registered entry, 'claim' an application for an existing one. */
   kind: 'new' | 'claim';
+  website: string | null;
+  target_clients: string | null;
+  languages: string | null;
+  requirements: string | null;
+  description: string | null;
+  advises_clients: boolean;
+  is_published: boolean;
+  /** Publish-required fields still empty, as display labels. */
+  missing: string[];
 };
 
 type EditableKey =
@@ -699,6 +708,68 @@ function ZugangCell({
   );
 }
 
+/** Says plainly what the button will do, so approving is never a guess. */
+function approveLabel(review: PendingReview): string {
+  if (review.kind === 'claim') return 'Zugang freischalten';
+  return review.missing.length === 0 ? 'Freigeben & veröffentlichen' : 'Freigeben (unvollständig)';
+}
+
+function PendingOutcome({ review }: { review: PendingReview }) {
+  return (
+    <p className="mt-2 text-sm text-foreground">
+      <span className="font-semibold">Freigabe bedeutet: </span>
+      {outcomeText(review)}
+    </p>
+  );
+}
+
+function outcomeText(review: PendingReview): string {
+  if (review.kind === 'claim') {
+    return review.is_published
+      ? 'Die Person kann den bereits veröffentlichten Eintrag bearbeiten. Der Eintrag bleibt sichtbar.'
+      : 'Die Person kann den Eintrag bearbeiten. Veröffentlicht wird er dadurch nicht.';
+  }
+  if (review.missing.length > 0) {
+    return `Der Eintrag wird freigegeben, aber noch nicht veröffentlicht — es fehlt: ${review.missing.join(', ')}.`;
+  }
+  return 'Der Eintrag wird veröffentlicht und die KI kann ihn ab sofort vorschlagen.';
+}
+
+const PENDING_FIELDS = [
+  ['Homepage', (review: PendingReview) => review.website],
+  ['Rechtsgebiete', (review: PendingReview) => review.legal_areas],
+  ['Mandant:innen', (review: PendingReview) => review.target_clients],
+  ['Sprachen', (review: PendingReview) => review.languages],
+  ['Voraussetzungen', (review: PendingReview) => review.requirements],
+  ['Beratungsarbeit', (review: PendingReview) => review.description],
+] as const;
+
+/** The full submission, collapsed — the admin approves the content, not a name. */
+function PendingDetails({ review }: { review: PendingReview }) {
+  const rows = PENDING_FIELDS.map(([label, read]) => [label, read(review)] as const).filter(
+    ([, value]) => Boolean(value),
+  );
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-sm font-semibold text-primary">
+        Eingereichte Angaben ansehen
+      </summary>
+      <dl className="mt-2 flex flex-col gap-1.5">
+        <div className="flex flex-wrap gap-x-2 text-sm">
+          <dt className="font-semibold text-foreground">Berät individuell:</dt>
+          <dd className="text-muted">{review.advises_clients ? 'Ja' : 'Nein'}</dd>
+        </div>
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex flex-wrap gap-x-2 text-sm">
+            <dt className="font-semibold text-foreground">{label}:</dt>
+            <dd className="min-w-0 break-words text-muted">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 function PendingPanel({
   pending,
   focus,
@@ -729,8 +800,8 @@ function PendingPanel({
               focus.id === review.id ? FOCUS_TINT : 'bg-surface',
             )}
           >
-            <div className="text-sm">
-              <div className="flex items-center gap-2 font-semibold text-foreground">
+            <div className="min-w-0 text-sm">
+              <div className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
                 {review.name}
                 <Badge variant="neutral">
                   {review.kind === 'new' ? 'Neuer Eintrag' : 'Übernahme'}
@@ -740,10 +811,12 @@ function PendingPanel({
                 {review.region ?? 'Region unbekannt'} · {review.legal_areas} ·{' '}
                 {review.contact_email ?? 'keine Adresse'}
               </div>
+              <PendingOutcome review={review} />
+              <PendingDetails review={review} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               <Button variant="primary" onClick={() => onApprove(review.id)}>
-                Freischalten
+                {approveLabel(review)}
               </Button>
               <Button variant="secondary" onClick={() => onReject(review.id)}>
                 Ablehnen

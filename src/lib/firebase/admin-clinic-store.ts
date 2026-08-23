@@ -74,6 +74,8 @@ export type ClinicDashboardCounts = {
   published: number;
   accessActive: number;
   accessInvited: number;
+  /** Entries and takeovers waiting for an admin decision. */
+  pendingReviews: number;
 };
 
 /*
@@ -85,17 +87,21 @@ export type ClinicDashboardCounts = {
  */
 export async function loadClinicDashboardCounts(): Promise<ClinicDashboardCounts> {
   const clinics = firebaseFirestore().collection('clinics');
-  const [total, published, profiles] = await Promise.all([
+  const [total, published, pendingEntries, profiles] = await Promise.all([
     clinics.count().get(),
     clinics.where('isPublished', '==', true).count().get(),
+    clinics.where('approvalStatus', '==', 'pending').count().get(),
     loadClinicProfiles(await loadAllAuthUsers()),
   ]);
-  const states = [...profiles.values()].map((profile) => signInState(profile.lastSignInAt));
+  const all = [...profiles.values()];
+  const states = all.map((profile) => signInState(profile.lastSignInAt));
+  const pendingClaims = all.filter((profile) => profile.accessStatus === 'pending').length;
   return {
     total: total.data().count,
     published: published.data().count,
     accessActive: states.filter((state) => state === 'active').length,
     accessInvited: states.filter((state) => state === 'invited').length,
+    pendingReviews: pendingEntries.data().count + pendingClaims,
   };
 }
 

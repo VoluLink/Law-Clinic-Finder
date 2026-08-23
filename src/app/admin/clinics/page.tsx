@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { signInState, type AccessState } from '@/lib/admin/clinic-access';
+import { publishBlockers, toRequiredLabels } from '@/lib/clinics/publish-requirements';
 import { AuthError, requireRole } from '@/lib/auth/require-role';
 import { listAdminClinics, type AdminClinicRecord } from '@/lib/firebase/admin-clinic-store';
 
@@ -23,6 +24,12 @@ function accessState(clinic: AdminClinicRecord): AccessState {
   return signInState(clinic.profile.lastSignInAt);
 }
 
+/*
+ * The admin decides on the whole submission, so the panel gets the whole
+ * submission — not just a name and a region. `missing` is computed with the same
+ * publishBlockers the server enforces, so the panel can say plainly whether
+ * approval will also publish the entry or only unblock the login.
+ */
 function pendingReview(clinic: AdminClinicRecord): PendingReview | null {
   const kind = reviewKind(clinic);
   if (!kind) return null;
@@ -33,6 +40,14 @@ function pendingReview(clinic: AdminClinicRecord): PendingReview | null {
     legal_areas: clinic.legal_areas,
     contact_email: clinic.contact_email,
     kind,
+    website: clinic.website,
+    target_clients: clinic.target_clients,
+    languages: clinic.languages,
+    requirements: clinic.requirements,
+    description: clinic.description,
+    advises_clients: clinic.advises_clients,
+    is_published: clinic.is_published,
+    missing: toRequiredLabels(publishBlockers(clinic)),
   };
 }
 

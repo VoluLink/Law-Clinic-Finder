@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { MonthStepper } from '@/components/admin/MonthStepper';
@@ -67,6 +68,7 @@ async function loadDashboard(monthParam: string | undefined) {
     published: firebase.counts.published,
     access: { active: firebase.counts.accessActive, invited: firebase.counts.accessInvited },
     conversationTotal: total,
+    pendingReviews: firebase.counts.pendingReviews,
     hasMoreConversations: firebase.hasMoreConversations,
     costUsd: metricCost(firebase.metric),
     matchRate: total === 0 ? 0 : Math.round((matched / total) * 100),
@@ -109,6 +111,8 @@ export default async function AdminDashboardPage({
           hint="Google Analytics"
         />
       </div>
+
+      {data.pendingReviews > 0 && <PendingReviewsNotice count={data.pendingReviews} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-extrabold text-primary">KI-Statistiken · {monthLabel}</h2>
@@ -165,6 +169,24 @@ export default async function AdminDashboardPage({
         </Panel>
       </div>
     </div>
+  );
+}
+
+/** Waiting entries are invisible from the dashboard otherwise, so a clinic can
+ *  sit unpublished for days without anyone noticing. */
+function PendingReviewsNotice({ count }: { count: number }) {
+  const label = count === 1 ? 'Eintrag wartet' : 'Einträge warten';
+  return (
+    <Link
+      href="/admin/clinics"
+      prefetch={false}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-warning/40 bg-warning-surface/50 p-5 hover:border-warning"
+    >
+      <span className="text-sm font-semibold text-foreground">
+        {fmt(count)} {label} auf deine Freigabe.
+      </span>
+      <span className="text-sm font-bold text-primary">Jetzt prüfen →</span>
+    </Link>
   );
 }
 

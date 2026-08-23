@@ -45,16 +45,27 @@ const noEmail = clinic({
   is_published: false,
   lastSignInLabel: null,
 });
-const pending: PendingReview[] = [
-  {
+function pendingReview(overrides: Partial<PendingReview> = {}): PendingReview {
+  return {
     id: 'p1',
     name: 'Neue Clinic',
     region: 'Hamburg',
     legal_areas: 'Sozialrecht',
     contact_email: 'new@example.org',
     kind: 'new',
-  },
-];
+    website: 'https://neue-clinic.example',
+    target_clients: 'Studierende',
+    languages: 'Deutsch',
+    requirements: 'Kein laufendes Verfahren',
+    description: 'Wir beraten wöchentlich.',
+    advises_clients: true,
+    is_published: false,
+    missing: [],
+    ...overrides,
+  };
+}
+
+const pending: PendingReview[] = [pendingReview()];
 
 function renderManager() {
   const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
@@ -235,8 +246,20 @@ describe('ClinicsManager', () => {
 
   it('approves a pending submission via the API', async () => {
     const fetchMock = renderManager();
-    await userEvent.click(screen.getByRole('button', { name: 'Freischalten' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Freigeben & veröffentlichen' }));
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/submissions/p1', { method: 'POST' });
+  });
+
+  it('says the entry will be published when nothing is missing', () => {
+    renderManager();
+    expect(screen.getByText(/Der Eintrag wird veröffentlicht/)).toBeInTheDocument();
+  });
+
+  it('shows the submitted answers so the decision is informed', async () => {
+    renderManager();
+    await userEvent.click(screen.getByText('Eingereichte Angaben ansehen'));
+    expect(screen.getByText('https://neue-clinic.example')).toBeInTheDocument();
+    expect(screen.getByText('Kein laufendes Verfahren')).toBeInTheDocument();
   });
 
   it('opens a confirmation dialog before resetting access', async () => {
