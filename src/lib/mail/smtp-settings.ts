@@ -8,12 +8,18 @@ export type SmtpTlsMode = (typeof SMTP_TLS_MODES)[number];
 
 export const SMTP_SETTINGS_SCHEMA_VERSION = 1;
 
+/** A dotted DNS name whose last label is alphabetic. That shape rules out an IP
+ *  literal and a bare `localhost`, both of which only exist to defeat a
+ *  name-based destination check; every real provider is reached by name. */
 const hostSchema = z
   .string()
   .trim()
   .min(1)
   .max(253)
-  .regex(/^[a-zA-Z0-9.-]+$/, 'Nur Hostname, keine URL.');
+  .regex(
+    /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/,
+    'Nur ein öffentlicher Hostname, keine URL und keine IP-Adresse.',
+  );
 
 const senderNameSchema = z
   .string()

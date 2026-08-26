@@ -79,37 +79,37 @@ Einstiegspunkte sind `src/app/layout.tsx`, `src/app/page.tsx`, `src/proxy.ts` un
 unter `src/app/api/`. `proxy.ts` macht nur frühes Routing; jede geschützte Datenoperation prüft die
 Firebase-Session und das aktuelle Profil erneut.
 
-| Pfad                                      | Zweck                                                                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                                                                           |
-| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                                                    |
-| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                                                    |
-| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto                                            |
-| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON hinter der DLP-De-Identifikation                                                                 |
-| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                                                   |
-| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                                                 |
-| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                                                  |
-| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                                                                            |
-| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                                                       |
-| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                              |
-| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                           |
-| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                      |
-| `src/lib/security/`                       | Cloud-DLP-De-Identifikation und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                                             |
-| `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                               |
-| `src/components/chat/pdf-layout.ts`       | Reine, testbare Seitenberechnung des Empfehlungs-PDFs; `recommendation-pdf.ts` zeichnet sie als Vektoren                                    |
-| `scripts/update-chat-guidance.ts`         | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                             |
-| `src/lib/mail/`                           | Provider-neutraler Transport, geprüfte SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
-| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Transkript-Fakten und Tokenkosten                                                              |
-| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                           |
-| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                              |
-| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                               |
-| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                             |
-| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                          |
-| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                     |
-| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                        |
-| `docs/security-hardening-plan.md`         | Resumierbarer ASVS-/AISVS-Sicherheitsaudit, verifizierte Befunde, Teilstand und gebündelte Entscheidungsoptionen                            |
-| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                                                             |
-| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                |
+| Pfad                                      | Zweck                                                                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/login/`, `src/app/auth/confirm/` | Passwortlose Firebase-Anmeldung, E-Mail-Aktion und Session-Cookie                                                                                     |
+| `src/app/signup/`                         | Eintrag beanspruchen, Übernahme beantragen oder neue Clinic registrieren                                                                              |
+| `src/app/clinic/`                         | Eigener Eintrag, rollierende Statistik, Pending-Status und Kontolöschung                                                                              |
+| `src/app/admin/`                          | Dashboard, Clinics/Freigaben, Admins, KI-Einstellungen, Logs, Branding, E-Mail-Versand und Konto                                                      |
+| `src/app/api/chat/`                       | Streamender Anthropic-Tool-Loop mit NDJSON hinter der DLP-De-Identifikation                                                                           |
+| `src/app/api/admin/**`                    | Rollenprüfende Admin-Workflows; alle Inputs Zod-validiert                                                                                             |
+| `src/app/api/clinic/**`                   | Clinic-Self-Service; Clinic-ID stammt ausschließlich aus dem aktiven Profil                                                                           |
+| `src/app/api/signup/**`                   | Rate-limitierte öffentliche Suche, Claim und Registrierung                                                                                            |
+| `src/components/ui/`                      | Gemeinsames UI-Kit und Varianten                                                                                                                      |
+| `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                                                                 |
+| `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                                        |
+| `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                                     |
+| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                                |
+| `src/lib/security/`                       | Cloud-DLP-De-Identifikation und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                                                       |
+| `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                                         |
+| `src/components/chat/pdf-layout.ts`       | Reine, testbare Seitenberechnung des Empfehlungs-PDFs; `recommendation-pdf.ts` zeichnet sie als Vektoren                                              |
+| `scripts/update-chat-guidance.ts`         | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                                       |
+| `src/lib/mail/`                           | Provider-neutraler Transport mit geprüftem Ziel, SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
+| `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Transkript-Fakten und Tokenkosten                                                                        |
+| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                                     |
+| `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                                        |
+| `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                                         |
+| `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                                       |
+| `scripts/firebase-migration/`             | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                                    |
+| `docs/firebase-migration-plan.md`         | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                               |
+| `docs/firebase-agent-playbook.md`         | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                                  |
+| `docs/security-hardening-plan.md`         | Resumierbarer ASVS-/AISVS-Sicherheitsaudit, verifizierte Befunde, Teilstand und gebündelte Entscheidungsoptionen                                      |
+| `.github/workflows/ci.yml`                | Read-only CI-Gates für Pull Requests und `main`                                                                                                       |
+| `supabase/migrations/`                    | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                          |
 
 ### Datenfluss und Sicherheitsgrenze
 
@@ -155,6 +155,17 @@ an App Hosting gesendet wird; die Bestätigungsseite entfernt es sofort aus der 
 und seine Antwort erlaubt nur feste lokale Ziele. Auf der Bestätigungsseite wird kein
 Drittanbieter-Analytics initialisiert; optionale GA4-IDs werden vor Einbettung in das
 nonce-autorisierte Skript streng validiert.
+
+**Das SMTP-Ziel wird vor jeder Verbindung geprüft.** Admins konfigurieren den Host frei, also darf
+der Server nicht auf beliebige Adressen verbinden: Alle A- und AAAA-Antworten werden unmittelbar vor
+dem Verbindungsaufbau aufgelöst und abgelehnt, sobald _eine_ davon loopback, link-local, privat,
+CGNAT oder anderweitig reserviert ist — auch in IPv4-gemappter IPv6-Form. IP-Literale als Host sind
+nicht zulässig. Verbunden wird dann mit genau der geprüften Adresse, während der DNS-Name nur noch
+zur Zertifikatsprüfung dient; damit kann der Name zwischen Prüfung und Verbindung nicht wechseln
+(DNS-Rebinding). Port 465 nutzt implizites TLS, jeder andere Port erzwingt STARTTLS, und
+`rejectUnauthorized` ist im Typ als `true` festgeschrieben. Ein abgelehntes Ziel meldet dem Admin
+denselben allgemeinen Verbindungsfehler wie ein nicht erreichbarer Host, damit die Oberfläche kein
+Netzwerk-Orakel wird.
 
 Konten entstehen ausschließlich in geprüften Admin-/Signup-Workflows über das Admin SDK. Identity
 Platform wird zusätzlich so konfiguriert, dass Endnutzer-Signup und -Löschung deaktiviert sind; die

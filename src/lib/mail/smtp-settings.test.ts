@@ -61,6 +61,28 @@ describe('smtpSettingsUpdateSchema', () => {
     ).toMatchObject({ success: false });
   });
 
+  it.each([
+    ['an IPv4 literal', '169.254.169.254'],
+    ['an IPv6 literal', '::1'],
+    ['a bracketed IPv6 literal', '[::1]'],
+    ['a single label without a public suffix', 'localhost'],
+    ['a trailing numeric label', 'smtp.example.42'],
+  ])('rejects %s as the host', (_label, host) => {
+    expect(smtpSettingsUpdateSchema.safeParse({ ...SETTINGS, host })).toMatchObject({
+      success: false,
+    });
+  });
+
+  it.each([
+    ['smtp-relay.brevo.com'],
+    ['smtp.office365.com'],
+    ['email-smtp.eu-west-1.amazonaws.com'],
+  ])('keeps accepting the public provider name %s', (host) => {
+    expect(smtpSettingsUpdateSchema.safeParse({ ...SETTINGS, host })).toMatchObject({
+      success: true,
+    });
+  });
+
   it('rejects unknown fields', () => {
     expect(smtpSettingsUpdateSchema.safeParse({ ...SETTINGS, provider: 'brevo' })).toMatchObject({
       success: false,
