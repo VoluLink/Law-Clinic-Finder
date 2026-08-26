@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { InviteResult } from '@/lib/admin/invite-clinic';
 import type { Logger } from '@/lib/logger';
 
-import type { DirectoryMatch } from './directory';
+import type { ClaimMatch } from './directory';
 
 export const signupClaimSchema = z.object({
   clinicId: z.uuid(),
@@ -13,7 +13,7 @@ export const signupClaimSchema = z.object({
 type AttemptReservation = { allowed: true } | { allowed: false; retryDays: number };
 
 export type ClinicClaimStore = {
-  readMatch: (clinicId: string) => Promise<DirectoryMatch | null>;
+  readMatch: (clinicId: string) => Promise<ClaimMatch | null>;
   isEmailTaken: (email: string) => Promise<boolean>;
   reserveAttempt: (clinicId: string, now: Date) => Promise<AttemptReservation>;
 };
@@ -77,7 +77,7 @@ async function claimOnFileAddress(
 
 async function claimSuppliedAddress(
   deps: ClaimDeps,
-  match: DirectoryMatch,
+  match: ClaimMatch,
   email: string | undefined,
   now: Date,
 ): Promise<ClaimResult> {

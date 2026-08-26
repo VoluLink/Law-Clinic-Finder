@@ -26,6 +26,14 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- SMTP-Ziele werden vor jeder Verbindung aufgelöst und geprüft: private, loopback-, link-local-,
+  CGNAT- und reservierte Adressen werden abgelehnt, ebenso IP-Literale als Host. Verbunden wird mit
+  der geprüften Adresse, der Name dient nur der Zertifikatsprüfung — DNS-Rebinding ist damit
+  wirkungslos. TLS wird aus dem Port abgeleitet und ist nicht mehr abschaltbar.
+- Die öffentliche Clinic-Suche im Signup verlangt mindestens drei Zeichen, liefert höchstens zehn
+  Treffer und zeigt keine — auch keine maskierte — E-Mail-Adresse mehr. Zuvor konnte eine leere
+  Suche das gesamte freigegebene Verzeichnis samt maskierter Adressen ausgeben.
+
 - Abmelden macht alle bestehenden Sitzungen des Kontos ungültig, nicht nur das Cookie im aktuellen
   Browser. Eine zuvor kopierte Sitzung war sonst bis zu fünf Tage weiter gültig.
 - Admin-Sitzungen laufen nach acht Stunden ab, Clinic-Sitzungen weiterhin nach fünf Tagen. Ein

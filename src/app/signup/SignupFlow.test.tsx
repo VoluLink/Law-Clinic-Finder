@@ -14,7 +14,6 @@ const unclaimed: DirectoryMatch = {
   region: 'Köln',
   claimed: false,
   hasContactEmail: true,
-  maskedEmail: 'k****t@example.org',
 };
 
 const claimed: DirectoryMatch = {
@@ -67,9 +66,15 @@ describe('SignupFlow', () => {
     });
     render(<SignupFlow />);
     await userEvent.click(await screen.findByRole('button', { name: 'Das ist meine' }));
-    expect(screen.getByText('k****t@example.org')).toBeInTheDocument();
+    /* The confirm screen says an address is on file but never shows it: the
+     * search that led here is public, so anything it renders is harvestable. */
+    expect(screen.getByText(/bereits eine E-Mail-Adresse hinterlegt/)).toBeInTheDocument();
+    expect(screen.queryByText('k****t@example.org')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Anmeldelink anfordern' }));
+    /* Once a claim is actually made, the masked address is shown — by then the
+     * claimant has triggered a mail to it and needs to know which one to open. */
     expect(await screen.findByText('Prüfe dein Postfach')).toBeInTheDocument();
+    expect(screen.getByText('k****t@example.org')).toBeInTheDocument();
   });
 
   it('offers login instead of claiming for already active clinics', async () => {

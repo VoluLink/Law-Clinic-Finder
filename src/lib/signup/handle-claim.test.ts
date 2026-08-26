@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { DirectoryMatch } from './directory';
+import type { ClaimMatch } from './directory';
 import { claimClinic, signupClaimSchema, type ClaimDeps } from './handle-claim';
 import { testLogger } from './test-utils';
 
@@ -8,7 +8,7 @@ const NOW = new Date('2025-06-15T12:00:00.000Z');
 const CLINIC_ID = '9f8b6c3a-0000-4000-8000-000000000001';
 const SUPPLIED_EMAIL = 'new-address@example.org';
 
-const onFileMatch: DirectoryMatch = {
+const onFileMatch: ClaimMatch = {
   id: CLINIC_ID,
   name: 'Mietrecht Law Clinic Cologne',
   region: 'Köln',
@@ -17,7 +17,7 @@ const onFileMatch: DirectoryMatch = {
   maskedEmail: 'k****t@example.org',
 };
 
-function dependencies(match: DirectoryMatch | null = onFileMatch): ClaimDeps {
+function dependencies(match: ClaimMatch | null = onFileMatch): ClaimDeps {
   return {
     store: {
       readMatch: vi.fn().mockResolvedValue(match),

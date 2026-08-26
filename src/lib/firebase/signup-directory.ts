@@ -2,12 +2,19 @@ import { FieldPath } from 'firebase-admin/firestore';
 
 import type { DirectoryMatch } from '@/lib/signup/directory';
 import type { SignupDirectoryStore } from '@/lib/signup/handle-search';
-import { maskEmail } from '@/lib/signup/mask-email';
 
 import { firebaseFirestore } from './admin';
 import { clinicContactDocumentSchema, clinicDocumentSchema } from './documents';
 
 const MAX_RESULTS = 200;
+
+/**
+ * A claimant knows their clinic's name, so a short term and a small page are
+ * enough to find it. Both numbers exist to stop the search doubling as a
+ * directory export.
+ */
+const MIN_QUERY_CHARS = 3;
+const MAX_MATCHES = 10;
 const CACHE_MS = 5 * 60 * 1000;
 
 type Cache = { expiresAt: number; rows: Promise<DirectoryMatch[]> };
@@ -40,7 +47,6 @@ async function loadApprovedDirectory(): Promise<DirectoryMatch[]> {
       region: clinic.region,
       claimed: owners[index].exists,
       hasContactEmail: Boolean(email),
-      maskedEmail: email ? maskEmail(email) : null,
     };
   });
 }
@@ -56,11 +62,21 @@ async function cachedDirectory(): Promise<DirectoryMatch[]> {
   return rows;
 }
 
-async function search(query: string): Promise<DirectoryMatch[]> {
-  const rows = await cachedDirectory();
+/** Extracted so the bounds can be tested without standing up Firestore. */
+export function matchDirectory(rows: DirectoryMatch[], query: string): DirectoryMatch[] {
   const term = query.trim().toLocaleLowerCase('de');
-  return term ? rows.filter((row) => row.name.toLocaleLowerCase('de').includes(term)) : rows;
+  if (term.length < MIN_QUERY_CHARS) return [];
+  return rows
+    .filter((row) => row.name.toLocaleLowerCase('de').includes(term))
+    .slice(0, MAX_MATCHES);
 }
+
+async function search(query: string): Promise<DirectoryMatch[]> {
+  if (query.trim().length < MIN_QUERY_CHARS) return [];
+  return matchDirectory(await cachedDirectory(), query);
+}
+
+export const SIGNUP_SEARCH_LIMITS = { minQueryChars: MIN_QUERY_CHARS, maxMatches: MAX_MATCHES };
 
 export function invalidateSignupDirectory(): void {
   cache = null;

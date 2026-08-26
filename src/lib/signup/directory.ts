@@ -9,19 +9,27 @@ export type ClinicDirectoryRow = {
   profiles: { user_id: string }[] | { user_id: string } | null;
 };
 
-/** What the public signup API exposes per clinic — never the full address. */
+/**
+ * What the public signup search exposes per clinic. Deliberately no address at
+ * all, not even a masked one: an unauthenticated caller could otherwise walk the
+ * directory and collect a recognisable fragment of every clinic's contact
+ * address. Whether one is on file is enough to explain what will happen next.
+ */
 export type DirectoryMatch = {
   id: string;
   name: string;
   region: string | null;
   claimed: boolean;
   hasContactEmail: boolean;
-  maskedEmail: string | null;
 };
+
+/** The claim path additionally needs the masked address, but only to tell the
+ *  person who just claimed which mailbox to open. */
+export type ClaimMatch = DirectoryMatch & { maskedEmail: string | null };
 
 export const DIRECTORY_COLUMNS = 'id, name, region, contact_email, profiles(user_id)';
 
-export function toDirectoryMatch(row: ClinicDirectoryRow): DirectoryMatch {
+export function toDirectoryMatch(row: ClinicDirectoryRow): ClaimMatch {
   const claimed = Array.isArray(row.profiles) ? row.profiles.length > 0 : row.profiles !== null;
   return {
     id: row.id,

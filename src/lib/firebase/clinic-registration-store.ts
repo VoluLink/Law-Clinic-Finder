@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Timestamp } from 'firebase-admin/firestore';
 
 import type { ClinicSubmission } from '@/lib/clinics/schema';
-import type { DirectoryMatch } from '@/lib/signup/directory';
+import type { ClaimMatch } from '@/lib/signup/directory';
 import type { ClinicRegistrationStore } from '@/lib/signup/handle-register';
 import { maskEmail } from '@/lib/signup/mask-email';
 
@@ -13,7 +13,7 @@ import { ClinicNameConflictError, clinicNameReservationId, readClinic } from './
 import { isEmailReserved } from './identity-reservations';
 import { invalidateSignupDirectory } from './signup-directory';
 
-async function findByName(name: string): Promise<DirectoryMatch | null> {
+async function findByName(name: string): Promise<ClaimMatch | null> {
   const database = firebaseFirestore();
   const reservation = await database
     .collection('uniqueClinicNames')

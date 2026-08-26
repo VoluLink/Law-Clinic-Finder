@@ -240,9 +240,8 @@ function ClaimStage({
       <StageHeading>{clinic.name}</StageHeading>
       {clinic.hasContactEmail ? (
         <p className="text-base text-muted">
-          Zur Bestätigung senden wir einen Anmeldelink an die hinterlegte Adresse{' '}
-          <strong className="text-foreground">{clinic.maskedEmail}</strong>. Nur wer dieses Postfach
-          liest, kann den Eintrag übernehmen.
+          Für diesen Eintrag ist bereits eine E-Mail-Adresse hinterlegt. Zur Bestätigung senden wir
+          einen Anmeldelink dorthin. Nur wer dieses Postfach liest, kann den Eintrag übernehmen.
         </p>
       ) : (
         <>
