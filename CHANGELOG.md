@@ -26,6 +26,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Folgenreiche Admin-Aktionen verlangen eine Anmeldung innerhalb der letzten fünf Minuten: Admins
+  anlegen und entfernen, Clinic oder Zugang löschen, Verläufe und Protokolle löschen, Empfänger der
+  Betriebsmeldungen ändern, Assistenten-Einstellungen speichern und SMTP zurückrollen. Lesen und das
+  normale Bearbeiten von Clinic-Inhalten bleiben ohne zusätzliche Hürde.
+
 - SMTP-Ziele werden vor jeder Verbindung aufgelöst und geprüft: private, loopback-, link-local-,
   CGNAT- und reservierte Adressen werden abgelehnt, ebenso IP-Literale als Host. Verbunden wird mit
   der geprüften Adresse, der Name dient nur der Zertifikatsprüfung — DNS-Rebinding ist damit

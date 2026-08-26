@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requireAdminRoute, requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { clinicAdminSchema } from '@/lib/clinics/schema';
 import { toRequiredLabels } from '@/lib/clinics/publish-requirements';
 import {
@@ -60,7 +60,7 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
 
 export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const clinicId = await clinicIdFrom(context);
   if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });

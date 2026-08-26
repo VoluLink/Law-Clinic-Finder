@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const listAdmins = vi.hoisted(() => vi.fn());
-const requireAdminRoute = vi.hoisted(() => vi.fn());
+const requirePrivilegedAdminRoute = vi.hoisted(() => vi.fn());
 const selectOperationalAlertRecipient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/admin/manage-admins', () => ({ listAdmins }));
 vi.mock('@/lib/admin/operational-alerts', () => ({ selectOperationalAlertRecipient }));
-vi.mock('@/lib/auth/admin-guard', () => ({ requireAdminRoute }));
+vi.mock('@/lib/auth/admin-guard', () => ({ requirePrivilegedAdminRoute }));
 
 import { PUT } from './route';
 
@@ -20,7 +20,7 @@ function request(): Request {
 
 describe('PUT /api/admin/operational-alerts', () => {
   beforeEach(() => {
-    requireAdminRoute.mockReset().mockResolvedValue({ userId: 'acting-admin' });
+    requirePrivilegedAdminRoute.mockReset().mockResolvedValue({ userId: 'acting-admin' });
     listAdmins.mockReset().mockResolvedValue([]);
     selectOperationalAlertRecipient.mockReset().mockResolvedValue({ status: 'ok' });
   });

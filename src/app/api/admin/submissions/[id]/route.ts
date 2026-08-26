@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { approveAccess, rejectAccess, type ReviewResult } from '@/lib/admin/approve-access';
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requireAdminRoute, requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAccessReviewStore } from '@/lib/firebase/access-review-store';
 import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
 import { requestLogger } from '@/lib/http/request-id';
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext): Promise
 /** Reject: remove the login and free the claim slot. */
 export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const clinicId = await clinicIdFrom(context);
   if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });

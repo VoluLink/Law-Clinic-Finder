@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { listAdmins, removeAdmin } from '@/lib/admin/manage-admins';
 import { reconcileOperationalAlertRecipient } from '@/lib/admin/operational-alerts';
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAdminAccountStore } from '@/lib/firebase/admin-account-store';
 import { firebaseUidSchema } from '@/lib/firebase/identity-reservations';
 import { firebaseOperationalAlertStore } from '@/lib/firebase/operational-alert-store';
@@ -19,7 +19,7 @@ const FAILURES: Record<string, { message: string; status: number }> = {
 
 export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const { id } = await context.params;
   if (!firebaseUidSchema.safeParse(id).success) {

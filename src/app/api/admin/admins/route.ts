@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { inviteAdmin, listAdmins } from '@/lib/admin/manage-admins';
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requireAdminRoute, requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAdminAccountStore } from '@/lib/firebase/admin-account-store';
 import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
@@ -25,7 +25,7 @@ export async function GET(request?: NextRequest): Promise<Response> {
 
 export async function POST(request: NextRequest): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const body = await readJsonBody(request);
   if (!body.ok) return bodyRejectionResponse(body.reason);

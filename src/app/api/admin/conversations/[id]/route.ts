@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { deleteConversation } from '@/lib/firebase/conversation-store';
 import { requestLogger } from '@/lib/http/request-id';
 
@@ -9,7 +9,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) {

@@ -1,10 +1,10 @@
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseLogRepository } from '@/lib/firebase/log-repository';
 import { requestLogger } from '@/lib/http/request-id';
 
 export async function DELETE(request: Request): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   try {
     await firebaseLogRepository.clear();

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { revokeClinicAccess } from '@/lib/clinics/revoke-access';
 import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
 import { requestLogger } from '@/lib/http/request-id';
@@ -12,7 +12,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 // contact/login email, while preserving the directory publication state.
 export async function DELETE(request: NextRequest, context: RouteContext): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) {

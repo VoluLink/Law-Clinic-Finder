@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { listAdmins } from '@/lib/admin/manage-admins';
 import { selectOperationalAlertRecipient } from '@/lib/admin/operational-alerts';
-import { requireAdminRoute } from '@/lib/auth/admin-guard';
+import { requirePrivilegedAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAdminAccountStore } from '@/lib/firebase/admin-account-store';
 import { firebaseUidSchema } from '@/lib/firebase/identity-reservations';
 import { firebaseOperationalAlertStore } from '@/lib/firebase/operational-alert-store';
@@ -13,7 +13,7 @@ const requestSchema = z.object({ userId: firebaseUidSchema }).strict();
 
 export async function PUT(request: Request): Promise<Response> {
   const logger = requestLogger(request);
-  const guard = await requireAdminRoute(request);
+  const guard = await requirePrivilegedAdminRoute(request);
   if ('response' in guard) return guard.response;
   const body = await readJsonBody(request);
   if (!body.ok) return bodyRejectionResponse(body.reason);
