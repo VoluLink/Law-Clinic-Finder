@@ -118,6 +118,12 @@
       "collectionGroup": "settings",
       "fieldPath": "values",
       "indexes": []
+    },
+    {
+      "collectionGroup": "abuseLimits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

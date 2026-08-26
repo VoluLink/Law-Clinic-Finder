@@ -7,7 +7,7 @@ import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 import { SIGNUP_CLAIM_RATE_LIMIT, createRateLimiter } from '@/lib/rate-limit';
 import { claimClinic, signupClaimSchema, type ClaimResult } from '@/lib/signup/handle-claim';
-import { guardSignupRequest } from '@/lib/signup/route-guard';
+import { guardSignupRequest, guardSignupSubject } from '@/lib/signup/route-guard';
 
 const limiter = createRateLimiter(SIGNUP_CLAIM_RATE_LIMIT);
 
@@ -24,6 +24,8 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!body.ok) return bodyRejectionResponse(body.reason);
   const parsed = signupClaimSchema.safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Anfrage.' }, { status: 400 });
+  const limited = await guardSignupSubject(request, parsed.data.email, logger);
+  if (limited) return limited;
 
   const inviteDeps = { store: firebaseClinicInviteStore, logger };
   const result = await claimClinic(

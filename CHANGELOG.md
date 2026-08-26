@@ -9,6 +9,10 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added
 
+- Dauerhafte Missbrauchsgrenzen in Firestore für Login-Mails sowie Namens- und Identitäts-
+  reservierungen. Die bisherigen Grenzen lagen in einer Map pro Prozess und setzten sich bei jedem
+  Kaltstart und jeder neuen Instanz zurück. Gespeichert werden nur Zeitstempel unter einem
+  gehashten Schlüssel — weder Adresse noch IP; die IP zählt ohnehin nur als /24 bzw. /48.
 - Unbeantwortete Registrierungen und Übernahmen verfallen nach sieben Tagen. Bis dahin reservierte
   ein nie bestätigter Antrag den Clinic-Namen, die E-Mail-Adresse, den Eigentümerplatz und eine
   Auth-Identität dauerhaft — jeder konnte damit den Namen einer echten Law Clinic blockieren. Die

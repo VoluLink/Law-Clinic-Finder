@@ -37,3 +37,23 @@ export function clientIp(request: Request): string {
     ? cloudflareIp(request)
     : forwardedForIp(request);
 }
+
+/**
+ * A network-sized bucket for the durable limits: /24 for IPv4, /48 for IPv6.
+ * One machine changing its last octet, or one IPv6 host cycling through the /64
+ * its provider handed it, stays inside a single bucket. Coarse on purpose — the
+ * value is hashed before it is stored, but a whole address is still an
+ * identifier, and a prefix is enough to do the counting.
+ */
+export function coarseIpKey(address: string): string {
+  if (isIP(address) === 4) return `${address.split('.').slice(0, 3).join('.')}.0/24`;
+  if (isIP(address) === 6) return `${expandedPrefix(address, 3)}::/48`;
+  return UNKNOWN;
+}
+
+function expandedPrefix(address: string, groups: number): string {
+  const [head] = address.split('::');
+  const parts = head.split(':').filter(Boolean).slice(0, groups);
+  while (parts.length < groups) parts.push('0');
+  return parts.map((part) => part.toLowerCase().replace(/^0+(?=.)/, '')).join(':');
+}

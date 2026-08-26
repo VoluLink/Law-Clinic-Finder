@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { clientIp } from './client-ip';
+import { clientIp, coarseIpKey } from './client-ip';
 
 function request(forwardedFor?: string): Request {
   return new Request('https://web--law-clinic-finder.europe-west4.hosted.app/api/chat', {
@@ -50,5 +50,35 @@ describe(clientIp, () => {
       const request = cloudflareRequest({ 'x-forwarded-for': '203.0.113.9, 198.51.100.1' });
       expect(clientIp(request)).toBe('unknown');
     });
+  });
+});
+
+describe(coarseIpKey, () => {
+  it('buckets an IPv4 address by its /24', () => {
+    expect(coarseIpKey('203.0.113.42')).toBe('203.0.113.0/24');
+  });
+
+  it('puts two addresses on the same /24 in one bucket', () => {
+    expect(coarseIpKey('203.0.113.42')).toBe(coarseIpKey('203.0.113.199'));
+  });
+
+  it('separates neighbouring /24s', () => {
+    expect(coarseIpKey('203.0.113.42')).not.toBe(coarseIpKey('203.0.114.42'));
+  });
+
+  it('buckets an IPv6 address by its /48', () => {
+    expect(coarseIpKey('2001:0db8:1234:5678::1')).toBe('2001:db8:1234::/48');
+  });
+
+  it('puts a whole IPv6 /64 allocation in one bucket', () => {
+    expect(coarseIpKey('2001:db8:1234:5678::1')).toBe(coarseIpKey('2001:db8:1234:9999::abcd'));
+  });
+
+  it('expands a compressed IPv6 prefix rather than mis-slicing it', () => {
+    expect(coarseIpKey('2001:db8::1')).toBe('2001:db8:0::/48');
+  });
+
+  it('keeps an unusable address in its own bucket rather than inventing one', () => {
+    expect(coarseIpKey('unknown')).toBe('unknown');
   });
 });

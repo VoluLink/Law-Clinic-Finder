@@ -94,7 +94,7 @@ Firebase-Session und das aktuelle Profil erneut.
 | `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                                        |
 | `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                                     |
 | `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel, Body-Grenzen, URL-Schema-Prüfung und zentrale HTTP-Sicherheitsheader                              |
-| `src/lib/security/`                       | Cloud-DLP-De-Identifikation und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                                                       |
+| `src/lib/security/`                       | Cloud-DLP-De-Identifikation, dauerhafte Missbrauchsfenster und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                        |
 | `src/lib/google/`                         | Namensregeln für Google-Cloud-Ressourcen, die in eine Request-URL einfließen                                                                          |
 | `src/lib/text/`                           | Entfernen unsichtbarer Steuerzeichen — je nach Ziel mit oder ohne die für Farsi/Arabisch nötigen Zeichen                                              |
 | `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                                         |
