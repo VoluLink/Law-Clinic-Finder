@@ -37,6 +37,8 @@ export const fa: Translations = {
   copyText: 'کپی متن',
   copiedText: 'متن کپی شد',
   pdfPreparing: 'PDF در حال ایجاد است…',
+  pdfUnavailableScript:
+    'در این زبان PDF وجود ندارد، چون حروف در آن درست نمایش داده نمی‌شوند. به‌جای آن متن را کپی کن.',
   exportError: 'ذخیره‌سازی انجام نشد. لطفاً دوباره تلاش کن.',
   exportTitle: 'پیشنهاد Law Clinic Finder',
   exportConcern: 'اطلاعاتی که ارائه کردی',

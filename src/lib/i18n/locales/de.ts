@@ -77,6 +77,8 @@ export const de: Translations = {
   copyText: 'Text kopieren',
   copiedText: 'Text kopiert',
   pdfPreparing: 'PDF wird erstellt…',
+  pdfUnavailableScript:
+    'In dieser Sprache gibt es kein PDF – die Schrift wird darin nicht richtig dargestellt. Kopiere stattdessen den Text.',
   exportError: 'Das Speichern hat nicht funktioniert. Bitte versuche es erneut.',
   exportTitle: 'Law Clinic Finder Empfehlung',
   exportConcern: 'Angaben aus dem Chat',

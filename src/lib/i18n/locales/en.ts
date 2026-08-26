@@ -38,6 +38,8 @@ export const en: Translations = {
   copyText: 'Copy text',
   copiedText: 'Text copied',
   pdfPreparing: 'Creating PDF…',
+  pdfUnavailableScript:
+    'There is no PDF in this language – the script is not displayed correctly in it. Copy the text instead.',
   exportError: 'Saving did not work. Please try again.',
   exportTitle: 'Law Clinic Finder recommendation',
   exportConcern: 'Details you provided',

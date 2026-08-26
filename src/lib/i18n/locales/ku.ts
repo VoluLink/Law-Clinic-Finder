@@ -37,6 +37,8 @@ export const ku: Translations = {
   copyText: 'Nivîsê kopî bike',
   copiedText: 'Nivîs hate kopîkirin',
   pdfPreparing: 'PDF tê çêkirin…',
+  pdfUnavailableScript:
+    'Bi vî zimanî PDF tune ye, ji ber ku tîp tê de rast nayên nîşandan. Li şûna wê nivîsê kopî bike.',
   exportError: 'Tomarkirin bi ser neket. Dîsa biceribîne.',
   exportTitle: 'Pêşniyara Law Clinic Finder',
   exportConcern: 'Agahiyên ku te dane',

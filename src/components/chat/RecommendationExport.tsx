@@ -12,7 +12,7 @@ import {
   copyRecommendationText,
   type RecommendationExport as RecommendationExportData,
 } from './recommendation-export';
-import { downloadRecommendationPdf } from './recommendation-pdf';
+import { downloadRecommendationPdf, supportsPdfExport } from './recommendation-pdf';
 
 type Feedback = 'copied' | 'error' | 'preparing' | null;
 
@@ -26,6 +26,7 @@ type RecommendationExportProps = {
 export function RecommendationExport({ data, dict, lang, rtl }: RecommendationExportProps) {
   const [feedback, setFeedback] = useState<Feedback>(null);
   const text = buildRecommendationText(data, dict, lang);
+  const pdfAvailable = supportsPdfExport(lang);
 
   async function handleDownload(): Promise<void> {
     setFeedback('preparing');
@@ -60,25 +61,34 @@ export function RecommendationExport({ data, dict, lang, rtl }: RecommendationEx
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <Button
-            variant="accent"
-            disabled={feedback === 'preparing'}
-            onClick={() => void handleDownload()}
-            className="gap-2 px-4 py-3 text-sm font-bold"
-          >
-            <Icon name="file-lines" className="size-4" />
-            {feedback === 'preparing' ? dict.pdfPreparing : dict.downloadPdf}
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={feedback === 'preparing'}
-            onClick={() => void handleCopy()}
-            className="gap-2 border-primary-foreground/45 bg-transparent px-4 py-3 text-sm font-bold text-primary-foreground hover:border-primary-foreground hover:bg-primary-foreground/10"
-          >
-            <Icon name="copy" className="size-4" />
-            {feedback === 'copied' ? dict.copiedText : dict.copyText}
-          </Button>
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-wrap gap-2.5">
+            {pdfAvailable && (
+              <Button
+                variant="accent"
+                disabled={feedback === 'preparing'}
+                onClick={() => void handleDownload()}
+                className="gap-2 px-4 py-3 text-sm font-bold"
+              >
+                <Icon name="file-lines" className="size-4" />
+                {feedback === 'preparing' ? dict.pdfPreparing : dict.downloadPdf}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              disabled={feedback === 'preparing'}
+              onClick={() => void handleCopy()}
+              className="gap-2 border-primary-foreground/45 bg-transparent px-4 py-3 text-sm font-bold text-primary-foreground hover:border-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Icon name="copy" className="size-4" />
+              {feedback === 'copied' ? dict.copiedText : dict.copyText}
+            </Button>
+          </div>
+          {!pdfAvailable && (
+            <p className="max-w-[320px] text-sm leading-relaxed text-primary-foreground/75">
+              {dict.pdfUnavailableScript}
+            </p>
+          )}
         </div>
       </div>
       <p aria-live="polite" className="sr-only">

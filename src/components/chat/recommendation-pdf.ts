@@ -1,6 +1,7 @@
 import type { Lang } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/dictionary';
 
+import type { PdfFontFace, PdfFontFamily } from './pdf-fonts';
 import {
   FONT_SIZES,
   PAGE,
@@ -30,7 +31,9 @@ type PdfOptions = {
   rtl: boolean;
 };
 
-type Doc = {
+type JsPdfApi = {
+  addFileToVFS: (file: string, base64: string) => void;
+  addFont: (file: string, family: string, style: string) => void;
   setFont: (family: string, style?: string) => void;
   setFontSize: (size: number) => void;
   setTextColor: (color: string) => void;
@@ -57,13 +60,44 @@ type Doc = {
   save: (name: string) => void;
 };
 
-const FAMILY = 'helvetica';
+/** The sheet carries its own family so `selectFont` stays the single place that
+ *  names a font, and no draw function needs to know about languages. */
+type Doc = JsPdfApi & { family: PdfFontFamily };
+
+const LATIN_FAMILY: PdfFontFamily = 'Hanken Grotesk';
+const CYRILLIC_FAMILY: PdfFontFamily = 'Noto Sans';
+const CYRILLIC_LANGS: ReadonlySet<Lang> = new Set(['ru', 'uk']);
+const ARABIC_SCRIPT_LANGS: ReadonlySet<Lang> = new Set(['ar', 'fa']);
 const CARD_RADIUS = 12;
 const CARD_PADDING = 16;
 const RANK_RADIUS = 10;
 
+/** `ar` and `fa` never reach this — see `supportsPdfExport`. */
+export function pdfFontFamily(lang: Lang): PdfFontFamily {
+  return CYRILLIC_LANGS.has(lang) ? CYRILLIC_FAMILY : LATIN_FAMILY;
+}
+
+/** jsPDF does no Arabic shaping and no bidi reordering, so an Arabic or Farsi
+ *  sheet would come out as unjoined letters in logical order — worse than no
+ *  PDF at all. Those languages keep the text export instead. */
+export function supportsPdfExport(lang: Lang): boolean {
+  return !ARABIC_SCRIPT_LANGS.has(lang);
+}
+
+/** Takes only what it needs, so registration is testable without standing up
+ *  the whole drawing surface. */
+type FontRegistrar = Pick<Doc, 'family' | 'addFileToVFS' | 'addFont'>;
+
+export function registerFontFaces(doc: FontRegistrar, faces: readonly PdfFontFace[]): void {
+  for (const face of faces) {
+    if (face.family !== doc.family) continue;
+    doc.addFileToVFS(face.file, face.data);
+    doc.addFont(face.file, face.family, face.style);
+  }
+}
+
 function selectFont(doc: Doc, size: number, bold: boolean, color: string): void {
-  doc.setFont(FAMILY, bold ? 'bold' : 'normal');
+  doc.setFont(doc.family, bold ? 'bold' : 'normal');
   doc.setFontSize(size);
   doc.setTextColor(color);
 }
@@ -223,8 +257,14 @@ export function renderPlan(doc: Doc, plan: PdfPlan, dict: Dictionary): void {
 }
 
 export async function downloadRecommendationPdf(options: PdfOptions): Promise<void> {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ format: 'a4', unit: 'pt' }) as unknown as Doc;
+  const [{ jsPDF }, { PDF_FONT_FACES }] = await Promise.all([
+    import('jspdf'),
+    import('./pdf-fonts'),
+  ]);
+  const doc: Doc = Object.assign(new jsPDF({ format: 'a4', unit: 'pt' }) as unknown as JsPdfApi, {
+    family: pdfFontFamily(options.lang),
+  });
+  registerFontFaces(doc, PDF_FONT_FACES);
   const plan = planRecommendationPdf(
     options.data,
     options.dict,

@@ -38,6 +38,8 @@ export const ru: Translations = {
   copyText: 'Копировать текст',
   copiedText: 'Текст скопирован',
   pdfPreparing: 'Создаётся PDF…',
+  pdfUnavailableScript:
+    'На этом языке PDF недоступен: письменность в нём отображается неправильно. Скопируй вместо этого текст.',
   exportError: 'Сохранение не удалось. Попробуй ещё раз.',
   exportTitle: 'Рекомендация Law Clinic Finder',
   exportConcern: 'Предоставленные сведения',

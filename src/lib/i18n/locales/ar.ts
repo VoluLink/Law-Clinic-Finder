@@ -37,6 +37,8 @@ export const ar: Translations = {
   copyText: 'نسخ النص',
   copiedText: 'تم نسخ النص',
   pdfPreparing: 'جارٍ إنشاء ملف PDF…',
+  pdfUnavailableScript:
+    'لا يتوفّر PDF بهذه اللغة، لأن الحروف لا تظهر فيه بشكل صحيح. انسخ النص بدلاً من ذلك.',
   exportError: 'تعذّر الحفظ. يرجى المحاولة مرة أخرى.',
   exportTitle: 'توصية Law Clinic Finder',
   exportConcern: 'التفاصيل التي قدّمتها',

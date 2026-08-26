@@ -38,6 +38,8 @@ export const tr: Translations = {
   copyText: 'Metni kopyala',
   copiedText: 'Metin kopyalandı',
   pdfPreparing: 'PDF oluşturuluyor…',
+  pdfUnavailableScript:
+    'Bu dilde PDF yok, çünkü yazı orada doğru görünmüyor. Bunun yerine metni kopyala.',
   exportError: 'Kaydetme çalışmadı. Lütfen tekrar dene.',
   exportTitle: 'Law Clinic Finder önerisi',
   exportConcern: 'Verdiğin bilgiler',

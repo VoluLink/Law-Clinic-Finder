@@ -47,6 +47,8 @@ export type Translations = {
   copyText: string;
   copiedText: string;
   pdfPreparing: string;
+  /** Shown instead of the PDF button where jsPDF cannot render the script. */
+  pdfUnavailableScript: string;
   exportError: string;
   exportTitle: string;
   exportConcern: string;

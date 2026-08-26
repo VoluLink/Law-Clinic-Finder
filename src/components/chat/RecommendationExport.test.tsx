@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { Lang } from '@/lib/i18n/config';
 import type { ClinicRecommendation } from '@/lib/chat/stream-protocol';
 import { getDictionary } from '@/lib/i18n/dictionary';
 
@@ -14,6 +15,8 @@ const pdfMocks = vi.hoisted(() => ({
   text: vi.fn(),
   addPage: vi.fn(),
   addImage: vi.fn(),
+  addFileToVFS: vi.fn(),
+  addFont: vi.fn(),
 }));
 
 /** Stands in for jsPDF's vector API. `splitTextToSize` and `getTextWidth` return
@@ -24,6 +27,8 @@ vi.mock('jspdf', () => ({
     text = pdfMocks.text;
     addPage = pdfMocks.addPage;
     addImage = pdfMocks.addImage;
+    addFileToVFS = pdfMocks.addFileToVFS;
+    addFont = pdfMocks.addFont;
     setFont = vi.fn();
     setFontSize = vi.fn();
     setTextColor = vi.fn();
@@ -56,6 +61,46 @@ afterEach(() => {
 });
 
 describe('RecommendationExport', () => {
+  function renderIn(lang: Lang) {
+    const dict = getDictionary(lang);
+    render(
+      <RecommendationExport
+        data={{
+          details: ['Ich wohne in Köln.'],
+          clinics: [clinic],
+          generatedAt: '2026-07-26T12:00:00.000Z',
+        }}
+        dict={dict}
+        lang={lang}
+        rtl={lang === 'ar' || lang === 'fa'}
+      />,
+    );
+    return dict;
+  }
+
+  /* jsPDF does no Arabic shaping, so the sheet would come out as unjoined
+   * letters in logical order. Offering the text export alone beats offering a
+   * download that is unreadable. */
+  it.each(['ar', 'fa'] as const)('offers no PDF button in %s', (lang) => {
+    const dict = renderIn(lang);
+    expect(screen.queryByRole('button', { name: dict.downloadPdf })).toBeNull();
+    expect(screen.getByRole('button', { name: dict.copyText })).toBeInTheDocument();
+  });
+
+  it.each(['ar', 'fa'] as const)('explains in %s why the PDF is missing', (lang) => {
+    const dict = renderIn(lang);
+    expect(screen.getByText(dict.pdfUnavailableScript)).toBeInTheDocument();
+  });
+
+  it.each(['de', 'en', 'fr', 'ku', 'tr', 'ru', 'uk'] as const)(
+    'offers the PDF button in %s',
+    (lang) => {
+      const dict = renderIn(lang);
+      expect(screen.getByRole('button', { name: dict.downloadPdf })).toBeInTheDocument();
+      expect(screen.queryByText(dict.pdfUnavailableScript)).toBeNull();
+    },
+  );
+
   it('creates the PDF locally without making a network request', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

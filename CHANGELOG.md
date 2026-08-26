@@ -26,6 +26,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Das Empfehlungs-PDF wird in der Hausschrift gesetzt. Hanken Grotesk (Latein) und Noto Sans
+  (Kyrillisch) werden als Untermengen eingebettet und erst beim Klick auf „Als PDF" nachgeladen.
+  Zuvor zeichnete jsPDF in der eingebauten Helvetica, der Kyrillisch und Arabisch vollständig
+  fehlen. Für Arabisch und Persisch entfällt der PDF-Knopf: jsPDF verbindet arabische Buchstaben
+  nicht und dreht die Leserichtung nicht um — der Textexport bleibt dort die bessere Ausgabe.
+
 - **Google Cloud Sensitive Data Protection ersetzt die lokale Redaktions-Engine.** Der gesamte
   Verlauf wird in einer Table-Anfrage in `europe-west4` de-identifiziert, bevor er Anthropic oder
   Firestore erreicht. Es gibt keinen lokalen Fallback mehr: Schlägt DLP fehl, antwortet der Chat mit

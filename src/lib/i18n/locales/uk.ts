@@ -38,6 +38,8 @@ export const uk: Translations = {
   copyText: 'Скопіювати текст',
   copiedText: 'Текст скопійовано',
   pdfPreparing: 'Створюється PDF…',
+  pdfUnavailableScript:
+    'Цією мовою PDF недоступний: писемність у ньому відображається неправильно. Скопіюй натомість текст.',
   exportError: 'Збереження не вдалося. Спробуй ще раз.',
   exportTitle: 'Рекомендація Law Clinic Finder',
   exportConcern: 'Надані відомості',
