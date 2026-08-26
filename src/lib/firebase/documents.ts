@@ -73,6 +73,10 @@ export const profileDocumentSchema = z
     activatedAt: firestoreDateSchema.nullable(),
     createdAt: firestoreDateSchema,
     updatedAt: firestoreDateSchema,
+    /* When an unanswered application stops holding its reservations. Absent on
+       every profile written before the lifecycle existed, and on every profile
+       that is not pending, so it stays optional rather than defaulted. */
+    expiresAt: firestoreDateSchema.nullish(),
   })
   .strict()
   .refine((profile) => profile.role !== 'clinic' || profile.clinicId !== null, {

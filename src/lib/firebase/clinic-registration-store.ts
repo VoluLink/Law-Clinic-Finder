@@ -10,10 +10,10 @@ import { maskEmail } from '@/lib/signup/mask-email';
 import { firebaseAccessReviewStore } from './access-review-store';
 import { firebaseFirestore } from './admin';
 import { ClinicNameConflictError, clinicNameReservationId, readClinic } from './clinic-repository';
-import { isEmailReserved } from './identity-reservations';
+import { emailReservationIsLive, releaseExpiredHolder } from './pending-expiry-store';
 import { invalidateSignupDirectory } from './signup-directory';
 
-async function findByName(name: string): Promise<ClaimMatch | null> {
+async function readNameMatch(name: string): Promise<ClaimMatch | null> {
   const database = firebaseFirestore();
   const reservation = await database
     .collection('uniqueClinicNames')
@@ -36,9 +36,20 @@ async function findByName(name: string): Promise<ClaimMatch | null> {
   };
 }
 
+/**
+ * A name held by a registration nobody ever answered is not a real collision.
+ * The release is attempted only once a conflict exists, so the ordinary case
+ * costs nothing extra.
+ */
+async function findByName(name: string): Promise<ClaimMatch | null> {
+  const match = await readNameMatch(name);
+  if (!match) return null;
+  const outcome = await releaseExpiredHolder(match.id);
+  return outcome === 'expired' ? readNameMatch(name) : match;
+}
+
 async function isEmailTaken(email: string): Promise<boolean> {
-  const database = firebaseFirestore();
-  return isEmailReserved(database, email);
+  return emailReservationIsLive(email);
 }
 
 function pendingClinic(submission: ClinicSubmission, now: Timestamp) {

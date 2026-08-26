@@ -9,6 +9,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added
 
+- Unbeantwortete Registrierungen und Übernahmen verfallen nach sieben Tagen. Bis dahin reservierte
+  ein nie bestätigter Antrag den Clinic-Namen, die E-Mail-Adresse, den Eigentümerplatz und eine
+  Auth-Identität dauerhaft — jeder konnte damit den Namen einer echten Law Clinic blockieren. Die
+  Freigabe läuft in einer Transaktion, die ihre Vorbedingungen erneut liest, und lässt bestätigte,
+  angemeldete oder bereits freigegebene Anträge unberührt.
 - `npm run dlp:check`: Vorabprüfung der De-Identifikation gegen das echte DLP-Projekt, bevor die
   Konfiguration scharf geschaltet wird.
 - Hinweis „Du interagierst gerade mit einer künstlichen Intelligenz." unter dem Chat-Eingabefeld,

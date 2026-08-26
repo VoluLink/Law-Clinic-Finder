@@ -70,7 +70,11 @@ async function approve(
       ...(publish && !clinic.isPublished ? { submissionNotifiedAt: null } : {}),
       ...(claim ? { publishNotifiedAt: now } : {}),
     });
-    transaction.update(profileReference, { accessStatus: 'active', updatedAt: now });
+    transaction.update(profileReference, {
+      accessStatus: 'active',
+      expiresAt: null,
+      updatedAt: now,
+    });
     return claim;
   });
   invalidateClinicDirectory();

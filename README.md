@@ -93,14 +93,16 @@ Firebase-Session und das aktuelle Profil erneut.
 | `src/components/chat/`                    | Finder-Chat, Zustände, Empfehlungskarten und lokaler PDF-/Text-Export                                                                                 |
 | `src/lib/auth/`                           | E-Mail-Link-State, Identity-Toolkit-Austausch und verifizierter E-Mail-Wechsel                                                                        |
 | `src/lib/firebase/`                       | Server-only Admin SDK, Dokument-Codecs und Firestore-Repositories                                                                                     |
-| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel und zentrale HTTP-Sicherheitsheader                                                                |
+| `src/lib/http/`                           | Client-IP, Origin, Request-ID, Idempotenzschlüssel, Body-Grenzen, URL-Schema-Prüfung und zentrale HTTP-Sicherheitsheader                              |
 | `src/lib/security/`                       | Cloud-DLP-De-Identifikation und Missbrauchs-Challenge (Proof-of-Work oder Cloudflare Turnstile)                                                       |
+| `src/lib/google/`                         | Namensregeln für Google-Cloud-Ressourcen, die in eine Request-URL einfließen                                                                          |
+| `src/lib/text/`                           | Entfernen unsichtbarer Steuerzeichen — je nach Ziel mit oder ohne die für Farsi/Arabisch nötigen Zeichen                                              |
 | `src/lib/clinics/visibility.ts`           | Selbstverwaltete Sichtbarkeit einer Clinic: sichtbar, befristet oder unbefristet ausgeblendet                                                         |
 | `src/components/chat/pdf-layout.ts`       | Reine, testbare Seitenberechnung des Empfehlungs-PDFs; `recommendation-pdf.ts` zeichnet sie als Vektoren                                              |
 | `scripts/update-chat-guidance.ts`         | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                                       |
 | `src/lib/mail/`                           | Provider-neutraler Transport mit geprüftem Ziel, SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
 | `src/lib/chat/`                           | Chat-Schema, Tools, Quota, Persistenz-Ports, Transkript-Fakten und Tokenkosten                                                                        |
-| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung und Signup-Logik                                                                                     |
+| `src/lib/clinics/`, `src/lib/signup/`     | Clinic-Schemata, Suchvokabular, Veröffentlichung, Signup-Logik und Ablauf unbeantworteter Anträge                                                     |
 | `functions/`                              | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                                        |
 | `firestore.rules`, `storage.rules`        | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                                         |
 | `firestore.indexes.json`                  | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                                       |
