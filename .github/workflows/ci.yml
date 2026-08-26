@@ -38,10 +38,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22.22.2
           cache: npm
@@ -76,6 +76,30 @@ jobs:
       - name: Build application
         run: npm run build
 
+      - name: Scan build output for credentials and source maps
+        run: |
+          set -euo pipefail
+          if find .next/standalone -name '.env*' | grep -q .; then
+            echo "::error::build output contains an env file"
+            exit 1
+          fi
+          if grep -rlE '"type"[[:space:]]*:[[:space:]]*"service_account"|BEGIN [A-Z ]*PRIVATE KEY' \
+               .next/standalone >/dev/null 2>&1; then
+            echo "::error::build output contains a credential"
+            exit 1
+          fi
+          if find .next/static -name '*.map' | grep -q .; then
+            echo "::error::client source maps would ship to visitors"
+            exit 1
+          fi
+          echo "build output clean"
+
+      # The moderate uuid advisory (GHSA-w5hq-g745-h8pq) reaches us only through
+      # firebase-admin -> @google-cloud/storage. It is an accepted residual: no
+      # application code calls the affected v3/v5/v6 buffer API, and the only fix
+      # npm offers downgrades firebase-admin to 10.3.0. Never run `npm audit fix
+      # --force` here, and do not lower this threshold to moderate until the
+      # upstream chain is fixed.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 

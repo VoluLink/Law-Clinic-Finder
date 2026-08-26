@@ -1,8 +1,26 @@
 node_modules
 .next
 .git
+.github
+
+# No env file belongs in the build context, template or not: an example file is
+# one careless edit away from carrying a real value into a layer.
 .env*
-!.env.example
+
 coverage
 Dockerfile
 .dockerignore
+
+# Local-only assistant configuration (CTS-3) and material the build never reads.
+# COPY . . in the builder stage would otherwise pull all of it into the build
+# context and its cached layers.
+.claude
+.codex
+CLAUDE.md
+AGENTS.md
+sync-agent-config.sh
+docs
+e2e
+supabase
+playwright-report
+test-results

@@ -26,6 +26,10 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- CI prüft das Build-Ergebnis auf mitgelieferte Env-Dateien, Zugangsdaten und Client-Source-Maps und
+  bricht ab, wenn eines davon auftaucht. Der Docker-Build-Kontext schließt jetzt alle Env-Dateien
+  sowie die lokale Assistenten-Konfiguration aus.
+
 - Verzeichnisinhalte erreichen das Modell nur noch in einer als reine Daten gekennzeichneten
   Umschließung. Freitext der Law Clinics wird zuvor von Winkelklammern, Steuer-, Nullbreiten- und
   Bidi-Zeichen befreit, sodass eine Beschreibung die Umschließung nicht schließen und sich nicht als
