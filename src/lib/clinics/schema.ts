@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { emailValue } from '@/lib/forms/email';
+import { externalUrlSchema } from '@/lib/http/external-url';
 
 import { memberBlockers } from './publish-requirements';
 
@@ -11,10 +12,8 @@ const optionalEmail = z
   .union([z.null(), z.literal(''), emailValue])
   .transform((value) => value || null);
 
-export const publicWebsiteUrlSchema = z
-  .url()
-  .max(500)
-  .refine((value) => /^https?:\/\//i.test(value), 'Ungültige URL.');
+/** Named for its callers; the rule itself is shared with the read codecs. */
+export const publicWebsiteUrlSchema = externalUrlSchema;
 
 const optionalUrl = z
   .union([z.null(), z.literal(''), publicWebsiteUrlSchema])

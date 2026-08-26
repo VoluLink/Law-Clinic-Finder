@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { safeExternalHref, safeMailtoAddress } from '@/lib/http/external-url';
+import { stripInvisible } from '@/lib/text/invisible';
+
 /**
  * Newline-delimited JSON frames on the /api/chat response body.
  *
@@ -9,18 +12,42 @@ import { z } from 'zod';
  * without a second request or a sentinel hidden in the text.
  */
 
+/**
+ * Card text is truncated rather than rejected. `reason` is written by the model
+ * and the rest is clinic-authored, so an over-long value is a display problem,
+ * not a reason to drop the whole recommendation frame.
+ */
+const CARD_TEXT_LIMIT = { name: 200, region: 1_000, area: 200, reason: 2_000 } as const;
+const MAX_CARD_AREAS = 12;
+
+const cardText = (limit: number) =>
+  z.string().transform((value) => stripInvisible(value).slice(0, limit));
+
+const nullableCardText = (limit: number) =>
+  z
+    .string()
+    .nullable()
+    .transform((value) => (value === null ? null : stripInvisible(value).slice(0, limit)));
+
+/**
+ * Re-validated on the client, not only where the frame is built. The card is
+ * the one place where database text becomes an href, and the schema is the last
+ * thing that runs before it is rendered.
+ */
 export const clinicRecommendationSchema = z.object({
   // The directory id, carried so the client can attribute a website/email
   // click back to this clinic. Published clinics are already public, so the id
   // is not sensitive.
-  id: z.string().min(1),
-  rank: z.number().int().positive(),
-  name: z.string().min(1),
-  region: z.string().nullable(),
-  areas: z.array(z.string()),
-  reason: z.string(),
-  website: z.string().nullable(),
-  email: z.string().nullable(),
+  id: z.string().min(1).max(200),
+  rank: z.number().int().positive().max(100),
+  name: cardText(CARD_TEXT_LIMIT.name),
+  region: nullableCardText(CARD_TEXT_LIMIT.region),
+  areas: z
+    .array(cardText(CARD_TEXT_LIMIT.area))
+    .transform((areas) => areas.slice(0, MAX_CARD_AREAS)),
+  reason: cardText(CARD_TEXT_LIMIT.reason),
+  website: z.string().nullable().transform(safeExternalHref),
+  email: z.string().nullable().transform(safeMailtoAddress),
 });
 
 export type ClinicRecommendation = z.infer<typeof clinicRecommendationSchema>;
@@ -42,7 +69,7 @@ export const CHAT_ERROR_CODES = [
 export type ChatErrorCode = (typeof CHAT_ERROR_CODES)[number];
 
 const chatEventSchema = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('text'), v: z.string() }),
+  z.object({ t: z.literal('text'), v: z.string().transform(stripInvisible) }),
   z.object({ t: z.literal('clinics'), v: z.array(clinicRecommendationSchema) }),
   // Signals that the assistant concluded no clinic fits; the client shows a
   // fixed "ways forward" card. Carries no payload — its copy is app-owned.

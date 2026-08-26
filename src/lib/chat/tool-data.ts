@@ -13,14 +13,9 @@
  * inside it cannot contain anything that closes or forges that delimiter.
  */
 
-const DATA_TAG = 'directory_data';
+import { stripInvisibleAndZeroWidth } from '@/lib/text/invisible';
 
-/**
- * C0/C1 controls except tab and newline, plus zero-width characters and the
- * bidi overrides that let text render differently from how it is stored.
- */
-const INVISIBLE =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
+const DATA_TAG = 'directory_data';
 
 /** Total tool-result size handed back to the model in one turn. */
 export const MAX_TOOL_RESULT_BYTES = 24 * 1024;
@@ -31,7 +26,7 @@ export const MAX_TOOL_RESULT_BYTES = 24 * 1024;
  * delimiter the model can decode.
  */
 export function sanitizeDirectoryText(value: string): string {
-  return value.replace(INVISIBLE, '').replace(/[<>]/g, '');
+  return stripInvisibleAndZeroWidth(value).replace(/[<>]/g, '');
 }
 
 export function toolDataEnvelope(json: string): string {

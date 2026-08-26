@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_EXTERNAL_URL_LENGTH, safeExternalHref } from '@/lib/http/external-url';
+
 const nullableText = (max: number) => z.string().max(max).nullable();
 
 function firestoreDate(value: unknown, ctx: z.RefinementCtx): Date {
@@ -22,7 +24,11 @@ export const clinicDocumentSchema = z
     name: z.string().trim().min(1).max(200),
     description: nullableText(2000),
     region: nullableText(1000),
-    website: z.url().max(500).nullable(),
+    /* Read-side scheme guard. The write schemas already reject anything but
+       http(s), so a value that reaches here came from the Supabase import or a
+       direct console edit. Nulling the link keeps the clinic listed instead of
+       failing the parse and taking the whole directory down with it. */
+    website: z.url().max(MAX_EXTERNAL_URL_LENGTH).nullable().transform(safeExternalHref),
     legalAreas: z.string().max(2000),
     targetClients: nullableText(2000),
     languages: nullableText(1000),

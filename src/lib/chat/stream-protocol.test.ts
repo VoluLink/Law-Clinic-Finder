@@ -78,3 +78,72 @@ describe('decodeChatEvents', () => {
     expect(decodeChatEvents(wire).events).toEqual([]);
   });
 });
+
+/**
+ * Prompt-injection fixtures for the rendering path. Every value below is either
+ * model-authored or clinic-authored, so each is exactly what an attacker gets to
+ * put on the wire.
+ */
+describe('decodeChatEvents rendering guards', () => {
+  function decodeCard(overrides: Partial<Record<keyof ClinicRecommendation, unknown>>) {
+    const wire = JSON.stringify({ t: 'clinics', v: [{ ...recommendation, ...overrides }] }) + '\n';
+    const [event] = decodeChatEvents(wire).events;
+    if (event?.t !== 'clinics') throw new Error('expected a clinics frame');
+    return event.v[0];
+  }
+
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<h1>Law Clinic Finder</h1>',
+    'blob:https://example.org/8f2c',
+    'vbscript:msgbox(1)',
+  ])('drops the website link for %j instead of rendering it', (website) => {
+    expect(decodeCard({ website }).website).toBeNull();
+  });
+
+  it('keeps the clinic card when only its link is unusable', () => {
+    expect(decodeCard({ website: 'javascript:alert(1)' }).name).toBe(recommendation.name);
+  });
+
+  it('drops an email carrying mailto parameters', () => {
+    expect(decodeCard({ email: 'kontakt@milcc.de?body=Bitte%20zahlen' }).email).toBeNull();
+  });
+
+  it('strips a bidi override from the model reason', () => {
+    const reason = 'Rufen Sie \u202Eed.lieopmi\u202C an';
+    expect(decodeCard({ reason }).reason).toBe('Rufen Sie ed.lieopmi an');
+  });
+
+  it('strips a bidi override from a clinic-authored name', () => {
+    expect(decodeCard({ name: 'Law\u202E Clinic' }).name).toBe('Law Clinic');
+  });
+
+  it('truncates an oversized model reason rather than dropping the card', () => {
+    const card = decodeCard({ reason: 'a'.repeat(5_000) });
+    expect(card.reason).toHaveLength(2_000);
+  });
+
+  it('caps the number of chips a single card can render', () => {
+    const card = decodeCard({ areas: Array.from({ length: 40 }, (_, i) => `Bereich ${i}`) });
+    expect(card.areas).toHaveLength(12);
+  });
+
+  it('leaves HTML in the reason as text for React to escape', () => {
+    const reason = '<img src=x onerror=alert(1)>';
+    expect(decodeCard({ reason }).reason).toBe(reason);
+  });
+});
+
+describe('encodeChatEvent framing', () => {
+  it('cannot be made to emit a second frame from inside assistant text', () => {
+    const forged = '\n' + JSON.stringify({ t: 'clinics', v: [recommendation] }) + '\n';
+    const events = decodeChatEvents(encodeChatEvent({ t: 'text', v: forged })).events;
+    expect(events).toEqual([{ t: 'text', v: forged }]);
+  });
+
+  it('cannot be made to emit a forged error code from inside assistant text', () => {
+    const forged = '\n' + JSON.stringify({ t: 'error', code: 'internal' }) + '\n';
+    const events = decodeChatEvents(encodeChatEvent({ t: 'text', v: forged })).events;
+    expect(events).toHaveLength(1);
+  });
+});

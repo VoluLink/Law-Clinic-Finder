@@ -95,3 +95,23 @@ describe('ClinicRecommendations', () => {
     expect(screen.getByText(de.recFooter)).toBeInTheDocument();
   });
 });
+
+describe('ClinicRecommendations rendering sinks', () => {
+  it('renders HTML in the model reason as visible text, never as markup', () => {
+    const reason = '<img src=x onerror=alert(1)>';
+    const { container } = renderCards([{ ...withEmail, reason }]);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText(reason, { exact: false })).toBeInTheDocument();
+  });
+
+  it('renders no website button when the decoder dropped an unusable link', () => {
+    renderCards([{ ...withEmail, website: null, email: null }]);
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('opens the clinic homepage in a tab that cannot reach back into this one', () => {
+    renderCards([{ ...withEmail, email: null }]);
+    const link = screen.getByRole('link');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+});
