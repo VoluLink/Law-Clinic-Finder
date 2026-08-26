@@ -26,6 +26,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Verzeichnisinhalte erreichen das Modell nur noch in einer als reine Daten gekennzeichneten
+  Umschließung. Freitext der Law Clinics wird zuvor von Winkelklammern, Steuer-, Nullbreiten- und
+  Bidi-Zeichen befreit, sodass eine Beschreibung die Umschließung nicht schließen und sich nicht als
+  Anweisung ausgeben kann; die Gesamtgröße eines Werkzeugergebnisses ist begrenzt.
+
 - Ein Zugang lässt sich erst freischalten, wenn die Law Clinic ihre E-Mail-Adresse bestätigt hat,
   also den zugesandten Link geöffnet hat. Zuvor konnte eine Freigabe ein Konto aktivieren, dessen
   Adresse nie jemand nachgewiesen hatte. Das Admin-Panel zeigt jetzt außerdem die Begründung des

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import type { ClinicDirectoryRepository, PublicClinic } from '@/lib/clinics/directory-repository';
 
+import { sanitizeDirectoryText, toolDataEnvelope, withinToolResultBudget } from './tool-data';
+
 export const searchClinicsInputSchema = z.object({
   query: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
@@ -45,17 +47,27 @@ function matchesQuery(clinic: PublicClinic, query: string): boolean {
   );
 }
 
-function truncate(value: string | null): string | null {
-  if (!value || value.length <= MAX_FIELD_CHARS) return value;
-  return `${value.slice(0, MAX_FIELD_CHARS)}…`;
+function capped(value: string): string {
+  const safe = sanitizeDirectoryText(value);
+  return safe.length <= MAX_FIELD_CHARS ? safe : `${safe.slice(0, MAX_FIELD_CHARS)}…`;
 }
 
+function truncate(value: string | null): string | null {
+  return value === null ? null : capped(value);
+}
+
+/** Every free-text field is written by a clinic, so all of them pass the
+ *  boundary — not only the long ones that get truncated. */
 function toToolClinic(clinic: PublicClinic): PublicClinic {
   return {
     ...clinic,
+    name: capped(clinic.name),
     description: truncate(clinic.description),
     target_clients: truncate(clinic.target_clients),
     requirements: truncate(clinic.requirements),
+    legal_areas: capped(clinic.legal_areas),
+    languages: truncate(clinic.languages),
+    region: truncate(clinic.region),
   };
 }
 
@@ -79,11 +91,41 @@ export async function searchClinics(
     .slice(filters.offset, filters.offset + RESULTS_PER_PAGE)
     .map(toToolClinic);
   const nextOffset = filters.offset + clinics.length;
-  return JSON.stringify({
-    count: matches.length,
-    offset: filters.offset,
-    has_more: nextOffset < matches.length,
-    next_offset: nextOffset < matches.length ? nextOffset : null,
-    clinics,
-  });
+  return toolDataEnvelope(
+    serializeWithinBudget({
+      count: matches.length,
+      offset: filters.offset,
+      has_more: nextOffset < matches.length,
+      next_offset: nextOffset < matches.length ? nextOffset : null,
+      clinics,
+    }),
+  );
 }
+
+/**
+ * A page of 100 clinics with long descriptions can outgrow what is reasonable to
+ * put in one turn's context. Rather than truncating the JSON into something
+ * unparsable, drop whole clinics from the end and say so, so the model can page
+ * for the rest.
+ */
+function serializeWithinBudget(payload: SearchPayload): string {
+  let clinics = payload.clinics;
+  while (clinics.length > 1) {
+    const candidate = JSON.stringify({
+      ...payload,
+      clinics,
+      truncated: clinics.length !== payload.clinics.length,
+    });
+    if (withinToolResultBudget(candidate)) return candidate;
+    clinics = clinics.slice(0, Math.ceil(clinics.length / 2));
+  }
+  return JSON.stringify({ ...payload, clinics, truncated: true });
+}
+
+type SearchPayload = {
+  count: number;
+  offset: number;
+  has_more: boolean;
+  next_offset: number | null;
+  clinics: PublicClinic[];
+};

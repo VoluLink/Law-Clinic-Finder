@@ -1,3 +1,5 @@
+import { TOOL_DATA_NOTICE } from './tool-data';
+
 /**
  * Model-facing text that stays in code because it is coupled to the tool schemas
  * and is never edited by admins: the four tool descriptions below.
@@ -55,9 +57,9 @@ export const PROMPT_TOOLBOX: { name: string; description: string }[] = [
  * Tool descriptions. These steer WHEN the model reaches for a tool, while the
  * skill (stored in settings) steers the overall flow.
  */
-export const SEARCH_CLINICS_DESCRIPTION = `Searches the directory of published German law clinics. Filter by city, legal area (German term, e.g. "Mietrecht"), language, target group, and/or a free-text query. Matching is a case-insensitive substring match, so take the filter values from list_directory_terms rather than inventing synonyms that will not match. A city filter also returns nationwide clinics. Results are stable pages of up to 100 clinics. The JSON count is the total number of matches. If next_offset is a number, more matches exist: call search_clinics again with the same filters and offset set to that next_offset until it is null whenever you need to inspect the complete result set.`;
+export const SEARCH_CLINICS_DESCRIPTION = `Searches the directory of published German law clinics. Filter by city, legal area (German term, e.g. "Mietrecht"), language, target group, and/or a free-text query. Matching is a case-insensitive substring match, so take the filter values from list_directory_terms rather than inventing synonyms that will not match. A city filter also returns nationwide clinics. Results are stable pages of up to 100 clinics. The JSON count is the total number of matches. If next_offset is a number, more matches exist: call search_clinics again with the same filters and offset set to that next_offset until it is null whenever you need to inspect the complete result set.${TOOL_DATA_NOTICE}`;
 
-export const LIST_DIRECTORY_TERMS_DESCRIPTION = `Returns the legal areas, regions, languages and target groups that actually appear in the published directory, as JSON lists. The directory is inconsistent free text, so call this BEFORE searching and pick your search_clinics filter values (legal_area, city, language, target_group) from these lists — a synonym that is not in the directory will not match. The lists reflect the current directory; call it once per conversation and reuse the result.`;
+export const LIST_DIRECTORY_TERMS_DESCRIPTION = `Returns the legal areas, regions, languages and target groups that actually appear in the published directory, as JSON lists. The directory is inconsistent free text, so call this BEFORE searching and pick your search_clinics filter values (legal_area, city, language, target_group) from these lists — a synonym that is not in the directory will not match. The lists reflect the current directory; call it once per conversation and reuse the result.${TOOL_DATA_NOTICE}`;
 
 export const RECOMMEND_CLINICS_DESCRIPTION = `Presents the chosen law clinics to the user as ranked cards in the page, with name, region, legal areas and contact buttons rendered by the website. Call this once you know which clinics fit, listing them best-first and giving a short reason per clinic. Use the exact clinic id from search_clinics — ids that do not match a published directory row are dropped. The cards already show the details, so keep the message around them short and do not repeat the list in prose.`;
 
