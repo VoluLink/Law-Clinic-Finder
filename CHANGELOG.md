@@ -26,6 +26,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Abmelden macht alle bestehenden Sitzungen des Kontos ungültig, nicht nur das Cookie im aktuellen
+  Browser. Eine zuvor kopierte Sitzung war sonst bis zu fünf Tage weiter gültig.
+- Admin-Sitzungen laufen nach acht Stunden ab, Clinic-Sitzungen weiterhin nach fünf Tagen. Ein
+  gestohlenes Admin-Cookie kann Admins anlegen, Einträge löschen und Verläufe lesen; es soll deshalb
+  nicht tagelang nutzbar bleiben.
+
 - CI prüft das Build-Ergebnis auf mitgelieferte Env-Dateien, Zugangsdaten und Client-Source-Maps und
   bricht ab, wenn eines davon auftaucht. Der Docker-Build-Kontext schließt jetzt alle Env-Dateien
   sowie die lokale Assistenten-Konfiguration aus.

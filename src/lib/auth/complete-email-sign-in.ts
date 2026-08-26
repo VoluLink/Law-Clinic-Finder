@@ -9,7 +9,7 @@ export type EmailSignInDependencies = {
   exchange: (email: string, actionCode: string) => Promise<ExchangeResult>;
   readProfile: (userId: string) => Promise<unknown>;
   activateFirstAccess: (userId: string) => Promise<void>;
-  createSession: (idToken: string) => Promise<void>;
+  createSession: (idToken: string, role: Profile['role']) => Promise<void>;
 };
 
 export function destinationFor(profile: Profile): string {
@@ -43,7 +43,7 @@ export async function completeEmailSignIn(
   if (profile.role === 'clinic' && profile.access_status === 'active' && !profile.activated_at) {
     await dependencies.activateFirstAccess(exchanged.userId);
   }
-  await dependencies.createSession(exchanged.idToken);
+  await dependencies.createSession(exchanged.idToken, profile.role);
   return {
     ok: true as const,
     userId: exchanged.userId,

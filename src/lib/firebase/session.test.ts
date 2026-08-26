@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { clearSessionCookie, createSessionCookie, readSessionCookie } from './session';
+import {
+  clearSessionCookie,
+  createSessionCookie,
+  readSessionCookie,
+  sessionLifetimeSeconds,
+} from './session';
 
 function cookieStore(value?: string) {
   return {
@@ -14,7 +19,7 @@ describe(createSessionCookie.name, () => {
     const auth = { createSessionCookie: vi.fn().mockResolvedValue('signed-session') };
     const store = cookieStore();
 
-    await createSessionCookie('firebase-id-token', { auth, store, production: true });
+    await createSessionCookie('firebase-id-token', 'clinic', { auth, store, production: true });
 
     expect(store.set).toHaveBeenCalledWith('__session', 'signed-session', {
       httpOnly: true,
@@ -23,6 +28,25 @@ describe(createSessionCookie.name, () => {
       path: '/',
       maxAge: 432_000,
     });
+  });
+
+  /* An admin cookie can add admins, delete entries and read transcripts, so a
+   * stolen one is worth hours rather than days. */
+  it('gives an admin a much shorter session than a clinic', async () => {
+    expect(sessionLifetimeSeconds('admin')).toBe(8 * 60 * 60);
+    expect(sessionLifetimeSeconds('clinic')).toBe(5 * 24 * 60 * 60);
+  });
+
+  it('asks Firebase for the same lifetime the cookie carries', async () => {
+    const auth = { createSessionCookie: vi.fn().mockResolvedValue('signed-session') };
+    const store = cookieStore();
+
+    await createSessionCookie('firebase-id-token', 'admin', { auth, store, production: true });
+
+    expect(auth.createSessionCookie).toHaveBeenCalledWith('firebase-id-token', {
+      expiresIn: sessionLifetimeSeconds('admin') * 1_000,
+    });
+    expect(store.set.mock.calls[0][2].maxAge).toBe(sessionLifetimeSeconds('admin'));
   });
 });
 

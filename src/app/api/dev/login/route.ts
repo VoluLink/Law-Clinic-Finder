@@ -21,6 +21,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const devSession = await ensureDevSession(firebaseDevLoginStore, role);
   const exchanged = await exchangeEmailLink(devSession.email, devSession.actionCode);
   if (exchanged.userId !== devSession.userId) throw new Error('dev identity mismatch');
-  await createSessionCookie(exchanged.idToken);
+  await createSessionCookie(exchanged.idToken, role);
   redirect(devSession.destination);
 }

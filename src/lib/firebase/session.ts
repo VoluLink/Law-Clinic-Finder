@@ -6,8 +6,22 @@ import { z } from 'zod';
 import { firebaseAdminAuth } from '@/lib/firebase/admin';
 
 const SESSION_COOKIE = '__session';
-const SESSION_MAX_AGE_SECONDS = 5 * 24 * 60 * 60;
-const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1_000;
+
+/**
+ * An admin session is worth far more than a clinic one — it can add admins,
+ * delete entries and read transcripts — so a stolen admin cookie gets hours
+ * rather than days. Clinics keep five days: their sessions do little beyond
+ * editing one entry, and a working day is a poor place to sign people out.
+ * Neither number is a substitute for the recent-auth gates on privileged
+ * writes; they bound how long a stolen cookie stays useful.
+ */
+const SESSION_SECONDS = { admin: 8 * 60 * 60, clinic: 5 * 24 * 60 * 60 } as const;
+
+export type SessionRole = keyof typeof SESSION_SECONDS;
+
+export function sessionLifetimeSeconds(role: SessionRole): number {
+  return SESSION_SECONDS[role];
+}
 
 const sessionSchema = z
   .object({
@@ -55,13 +69,15 @@ async function nextCookieStore(): Promise<SessionCookieStore> {
 
 export async function createSessionCookie(
   idToken: string,
+  role: SessionRole,
   deps?: { auth: CreateSessionAuth; store: SessionCookieStore; production: boolean },
 ) {
   const auth = deps?.auth ?? firebaseAdminAuth();
   const store = deps?.store ?? (await nextCookieStore());
   const production = deps?.production ?? process.env.NODE_ENV === 'production';
-  const session = await auth.createSessionCookie(idToken, { expiresIn: SESSION_MAX_AGE_MS });
-  store.set(SESSION_COOKIE, session, cookieOptions(production, SESSION_MAX_AGE_SECONDS));
+  const seconds = sessionLifetimeSeconds(role);
+  const session = await auth.createSessionCookie(idToken, { expiresIn: seconds * 1_000 });
+  store.set(SESSION_COOKIE, session, cookieOptions(production, seconds));
 }
 
 export async function readSessionCookie(deps?: {

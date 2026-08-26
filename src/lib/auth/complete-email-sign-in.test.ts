@@ -40,7 +40,7 @@ describe(completeEmailSignIn, () => {
       ok: true,
       destination: '/clinic',
     });
-    expect(deps.createSession).toHaveBeenCalledWith('firebase-id-token');
+    expect(deps.createSession).toHaveBeenCalledWith('firebase-id-token', 'clinic');
   });
 
   it('activates first access for an approved clinic account', async () => {
