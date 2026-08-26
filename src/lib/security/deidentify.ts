@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { googleLocationSchema, googleProjectIdSchema } from '@/lib/google/resource-names';
 import type { ChatMessage } from '@/lib/chat/schema';
 import { REGION_SUGGESTIONS } from '@/lib/clinics/options';
 import { logger } from '@/lib/logger';
@@ -137,9 +138,17 @@ async function accessToken(): Promise<string> {
   return token;
 }
 
-function endpoint(project: string): string {
-  const location = process.env.DLP_LOCATION || DEFAULT_DLP_LOCATION;
-  return `https://dlp.googleapis.com/v2/projects/${project}/locations/${location}/content:deidentify`;
+/**
+ * Null when the deployment names a project or region that cannot be a resource
+ * path segment. The caller turns that into `unconfigured`, so a mistyped region
+ * takes the chat offline rather than posting transcript text to whatever URL
+ * the value happened to build.
+ */
+function endpoint(project: string): string | null {
+  const projectId = googleProjectIdSchema.safeParse(project);
+  const location = googleLocationSchema.safeParse(process.env.DLP_LOCATION || DEFAULT_DLP_LOCATION);
+  if (!projectId.success || !location.success) return null;
+  return `https://dlp.googleapis.com/v2/projects/${projectId.data}/locations/${location.data}/content:deidentify`;
 }
 
 function httpFailure(status: number): Attempt {
@@ -168,10 +177,12 @@ function readRows(messages: ChatMessage[], body: unknown): Attempt {
 }
 
 async function requestDeidentification(project: string, messages: ChatMessage[]): Promise<Attempt> {
+  const url = endpoint(project);
+  if (!url) return { ok: false, reason: 'unconfigured', retryable: false };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DLP_TIMEOUT_MS);
   try {
-    const response = await fetch(endpoint(project), {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${await accessToken()}`,

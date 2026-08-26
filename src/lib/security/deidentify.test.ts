@@ -111,6 +111,17 @@ describe(deidentifyMessages, () => {
     );
   });
 
+  it.each(['attacker.example.org', '../../v2', 'europe west4'])(
+    'refuses the turn rather than posting the transcript when DLP_LOCATION is %j',
+    async (location) => {
+      useDlp();
+      vi.stubEnv('DLP_LOCATION', location);
+      const fetchMock = stubFetch(dlpTable('ok'));
+      expect(reasonOf(await deidentifyMessages(user('Hallo')))).toBe('unconfigured');
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it('requests no location detector', async () => {
     useDlp();
     const fetchMock = stubFetch(dlpTable('ok'));

@@ -3,6 +3,13 @@ import 'server-only';
 import { GoogleAuth } from 'google-auth-library';
 import { z } from 'zod';
 
+import {
+  googleLocationSchema,
+  googleProjectIdSchema,
+  googleSecretIdSchema,
+  googleSecretVersionSchema,
+} from '@/lib/google/resource-names';
+
 const CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
 /**
@@ -15,6 +22,18 @@ export type SecretReference = {
   secretId: string;
   location: string | null;
 };
+
+/**
+ * A reference that cannot be turned into a URL safely. Separate from
+ * SecretManagerError because nothing was sent: this is deployment
+ * configuration, and no access token has left the process.
+ */
+export class SecretConfigurationError extends Error {
+  constructor(readonly field: string) {
+    super(`Secret Manager reference has an invalid ${field}`);
+    this.name = 'SecretConfigurationError';
+  }
+}
 
 export class SecretManagerError extends Error {
   constructor(
@@ -37,18 +56,28 @@ const versionListSchema = z.object({
 });
 const addVersionSchema = z.object({ name: z.string().min(1) });
 
-function baseUrl(secret: SecretReference): string {
-  const host = secret.location
-    ? `secretmanager.${secret.location}.rep.googleapis.com`
-    : 'secretmanager.googleapis.com';
-  return `https://${host}/v1`;
-}
+const referenceSchema = z.object({
+  projectId: googleProjectIdSchema,
+  secretId: googleSecretIdSchema,
+  location: googleLocationSchema.nullable(),
+});
 
-function secretPath(secret: SecretReference): string {
-  const scope = secret.location
-    ? `projects/${secret.projectId}/locations/${secret.location}`
-    : `projects/${secret.projectId}`;
-  return `${scope}/secrets/${secret.secretId}`;
+/**
+ * The one place a reference becomes a URL, so it is the one place that has to
+ * check. `location` picks the host, not just a path segment, and every call
+ * made from here carries a cloud-platform access token.
+ */
+function secretUrl(secret: SecretReference, suffix: string): string {
+  const parsed = referenceSchema.safeParse(secret);
+  if (!parsed.success) {
+    throw new SecretConfigurationError(parsed.error.issues[0]?.path.join('.') || 'reference');
+  }
+  const { projectId, secretId, location } = parsed.data;
+  const host = location
+    ? `secretmanager.${location}.rep.googleapis.com`
+    : 'secretmanager.googleapis.com';
+  const scope = location ? `projects/${projectId}/locations/${location}` : `projects/${projectId}`;
+  return `https://${host}/v1/${scope}/secrets/${secretId}${suffix}`;
 }
 
 /** The trailing path segment is the numeric version id Secret Manager assigns. */
@@ -92,14 +121,16 @@ export async function accessSecretVersion(
   secret: SecretReference,
   version: string,
 ): Promise<string | null> {
-  const url = `${baseUrl(secret)}/${secretPath(secret)}/versions/${version}:access`;
+  const requested = googleSecretVersionSchema.safeParse(version);
+  if (!requested.success) throw new SecretConfigurationError('version');
+  const url = secretUrl(secret, `/versions/${requested.data}:access`);
   const result = await call(url, accessSchema, 'access', { allowNotFound: true });
   return result ? Buffer.from(result.payload.data, 'base64').toString('utf8') : null;
 }
 
 /** Enabled version ids, newest first. Null means the secret does not exist. */
 export async function listEnabledVersions(secret: SecretReference): Promise<string[] | null> {
-  const url = `${baseUrl(secret)}/${secretPath(secret)}/versions?pageSize=10`;
+  const url = secretUrl(secret, '/versions?pageSize=10');
   const result = await call(url, versionListSchema, 'list', { allowNotFound: true });
   if (!result) return null;
   return result.versions
@@ -111,7 +142,7 @@ export async function addSecretVersion(
   secret: SecretReference,
   payload: string,
 ): Promise<string | null> {
-  const url = `${baseUrl(secret)}/${secretPath(secret)}:addVersion`;
+  const url = secretUrl(secret, ':addVersion');
   const body = { payload: { data: Buffer.from(payload, 'utf8').toString('base64') } };
   const result = await call(url, addVersionSchema, 'addVersion', {
     method: 'POST',
