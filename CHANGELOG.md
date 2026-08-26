@@ -26,6 +26,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Logzeilen werden zentral bereinigt, statt sich auf jede einzelne Aufrufstelle zu verlassen: Felder
+  mit verräterischem Namen (Passwort, Token, Cookie, Signatur …) sowie E-Mail-Adressen, Bearer-Token
+  und JWTs in Werten werden vor stdout und dem Admin-Log ersetzt. Verschachtelte Strukturen, Zyklen
+  und überlange Werte sind begrenzt; `requestId` und Statusfelder bleiben lesbar.
+
 - Jede Route mit Request-Body liest ihn jetzt über eine gemeinsame, begrenzte Stelle: Medientyp,
   angekündigte Länge und tatsächlich gelesene Bytes werden geprüft, bevor ein Schema den Inhalt
   sieht (64 KiB allgemein, 320 KiB für den Chat, 2 MB für das Logo). Zuvor pufferten `request.json()`

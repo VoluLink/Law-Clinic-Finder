@@ -72,3 +72,34 @@ describe('setLogSink', () => {
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining('sink down'));
   });
 });
+
+describe('logger privacy boundary', () => {
+  /* The guarantee that matters is not that callers behave, but that a caller
+   * who does not cannot put personal data on stdout or into the admin log. */
+  it('redacts a secret a caller passed through by accident', () => {
+    const lines: LogLine[] = [];
+    const log = createLogger({}, (line) => lines.push(line));
+
+    log.error('smtp verification failed', { config: { host: 'smtp.example.org', password: 'x' } });
+
+    expect(lines[0].config).toEqual({ host: 'smtp.example.org', password: '[redacted]' });
+  });
+
+  it('redacts an address that arrived inside a third-party error message', () => {
+    const lines: LogLine[] = [];
+    const log = createLogger({}, (line) => lines.push(line));
+
+    log.warn('login failed', { reason: 'no user record for anna@example.org' });
+
+    expect(JSON.stringify(lines[0])).not.toContain('anna@example.org');
+  });
+
+  it('keeps the correlation id, which is the whole point of the log line', () => {
+    const lines: LogLine[] = [];
+    const log = createLogger({ requestId: 'r-42' }, (line) => lines.push(line));
+
+    log.info('signed out');
+
+    expect(lines[0]).toMatchObject({ requestId: 'r-42', msg: 'signed out', level: 'info' });
+  });
+});

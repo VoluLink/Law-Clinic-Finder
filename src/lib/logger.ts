@@ -1,3 +1,5 @@
+import { sanitizeLogFields } from './log-privacy';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type LogFields = Record<string, unknown>;
 export type LogLine = LogFields & { timestamp: string; level: LogLevel; msg: string };
@@ -20,7 +22,12 @@ function writeToStdio(line: LogLine): void {
 export function createLogger(base: LogFields = {}, write: WriteLine = writeToStdio): Logger {
   const emit = (level: LogLevel, msg: string, fields?: LogFields) => {
     if (level === 'debug' && process.env.LOG_DEBUG !== '1') return;
-    write({ timestamp: new Date().toISOString(), level, msg, ...base, ...fields });
+    /* Sanitizing here rather than at the call sites means one forgotten
+     * `logger.error('failed', { error })` cannot leak an address or a token
+     * into stdout or the admin log. `msg` is a literal at every call site but
+     * goes through the same pass, because a template string is one edit away. */
+    const safe = sanitizeLogFields({ msg, ...base, ...fields });
+    write({ ...safe, timestamp: new Date().toISOString(), level, msg: String(safe.msg) });
   };
   return {
     debug: (msg, fields) => emit('debug', msg, fields),
