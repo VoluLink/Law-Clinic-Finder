@@ -207,10 +207,14 @@ export function ClinicsManager({
     onSelect: setFocusedId,
   };
 
+  /* The server explains refusals an admin can act on — an unconfirmed address,
+   * a missing required field — so showing only "Aktion fehlgeschlagen." would
+   * hide the one thing that tells them what to do next. */
   async function call(url: string, init: RequestInit, okMessage: string) {
     setStatus('');
     const response = await fetch(url, init).catch(() => null);
-    setStatus(response && response.ok ? okMessage : 'Aktion fehlgeschlagen.');
+    if (response?.ok) setStatus(okMessage);
+    else setStatus((await serverMessage(response)) ?? 'Aktion fehlgeschlagen.');
     router.refresh();
   }
 
@@ -709,6 +713,13 @@ function ZugangCell({
 }
 
 /** Says plainly what the button will do, so approving is never a guess. */
+async function serverMessage(response: Response | null): Promise<string | null> {
+  if (!response) return null;
+  const body = await response.json().catch(() => null);
+  const error: unknown = (body as { error?: unknown } | null)?.error;
+  return typeof error === 'string' && error.length > 0 ? error : null;
+}
+
 function approveLabel(review: PendingReview): string {
   if (review.kind === 'claim') return 'Zugang freischalten';
   return review.missing.length === 0 ? 'Freigeben & veröffentlichen' : 'Freigeben (unvollständig)';

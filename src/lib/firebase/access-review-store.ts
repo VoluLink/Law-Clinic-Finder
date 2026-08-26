@@ -20,6 +20,22 @@ async function profileIdForClinic(clinicId: string): Promise<string> {
   return snapshot.docs[0].id;
 }
 
+/**
+ * Firebase marks the address verified when the invited person signs in through
+ * the emailed link, so this is the record of them actually answering it. Any
+ * failure to establish that — no profile, no Auth user, an unreadable record —
+ * counts as unverified rather than as permission to proceed.
+ */
+async function hasVerifiedIdentity(clinicIdInput: string): Promise<boolean> {
+  const clinicId = z.string().uuid().parse(clinicIdInput);
+  try {
+    const userId = await profileIdForClinic(clinicId);
+    return (await firebaseAdminAuth().getUser(userId)).emailVerified;
+  } catch {
+    return false;
+  }
+}
+
 async function approve(
   clinicIdInput: string,
   publish: boolean,
@@ -86,6 +102,7 @@ export const firebaseAccessReviewStore: AccessReviewStore = {
     const clinic = await readClinic(clinicId);
     return clinic ? { ...clinic, approval_status: clinic.approval_status } : null;
   },
+  hasVerifiedIdentity,
   approve,
   deleteSelfRegistered,
 };

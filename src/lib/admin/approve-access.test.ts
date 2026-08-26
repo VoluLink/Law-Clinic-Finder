@@ -27,6 +27,7 @@ function dependencies(clinic: TestClinic | null = completeClinic): AccessReviewD
   return {
     reviewStore: {
       readClinic: vi.fn().mockResolvedValue(clinic),
+      hasVerifiedIdentity: vi.fn().mockResolvedValue(true),
       approve: vi.fn().mockResolvedValue({ notifyPublication: false }),
       deleteSelfRegistered: vi.fn().mockResolvedValue(undefined),
     },
@@ -37,6 +38,48 @@ function dependencies(clinic: TestClinic | null = completeClinic): AccessReviewD
 }
 
 describe(approveAccess, () => {
+  /*
+   * A claimant is created with emailVerified: false and only becomes verified by
+   * following the emailed link. Approving before that activates an account bound
+   * to an address nobody proved they control — which is exactly how someone
+   * squats a clinic they have no connection to, using a stranger's address.
+   */
+  describe('proof of address control', () => {
+    it('refuses to activate an identity that never answered the invitation', async () => {
+      const deps = dependencies();
+      deps.reviewStore.hasVerifiedIdentity = vi.fn().mockResolvedValue(false);
+
+      expect(await approveAccess(deps, CLINIC_ID)).toEqual({ status: 'unverified' });
+      expect(deps.reviewStore.approve).not.toHaveBeenCalled();
+    });
+
+    it('records the refusal without naming the address', async () => {
+      const deps = dependencies();
+      deps.reviewStore.hasVerifiedIdentity = vi.fn().mockResolvedValue(false);
+
+      await approveAccess(deps, CLINIC_ID);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('approval'),
+        expect.objectContaining({ clinicId: CLINIC_ID }),
+      );
+    });
+
+    it('treats a missing identity as unverified rather than approving it', async () => {
+      const deps = dependencies();
+      deps.reviewStore.hasVerifiedIdentity = vi.fn().mockResolvedValue(false);
+
+      expect(await approveAccess(deps, CLINIC_ID)).toEqual({ status: 'unverified' });
+    });
+
+    it('still approves a claimant who followed the link', async () => {
+      const deps = dependencies();
+
+      expect(await approveAccess(deps, CLINIC_ID)).toEqual({ status: 'ok' });
+      expect(deps.reviewStore.approve).toHaveBeenCalledWith(CLINIC_ID, true);
+    });
+  });
+
   it('publishes a complete approved entry', async () => {
     const deps = dependencies();
     expect(await approveAccess(deps, CLINIC_ID)).toEqual({ status: 'ok' });

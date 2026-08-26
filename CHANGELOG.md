@@ -26,6 +26,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Ein Zugang lässt sich erst freischalten, wenn die Law Clinic ihre E-Mail-Adresse bestätigt hat,
+  also den zugesandten Link geöffnet hat. Zuvor konnte eine Freigabe ein Konto aktivieren, dessen
+  Adresse nie jemand nachgewiesen hatte. Das Admin-Panel zeigt jetzt außerdem die Begründung des
+  Servers an, statt nur „Aktion fehlgeschlagen."
+
 - Logzeilen werden zentral bereinigt, statt sich auf jede einzelne Aufrufstelle zu verlassen: Felder
   mit verräterischem Namen (Passwort, Token, Cookie, Signatur …) sowie E-Mail-Adressen, Bearer-Token
   und JWTs in Werten werden vor stdout und dem Admin-Log ersetzt. Verschachtelte Strukturen, Zyklen

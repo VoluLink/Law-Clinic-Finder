@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 
-import { approveAccess, rejectAccess } from '@/lib/admin/approve-access';
+import { approveAccess, rejectAccess, type ReviewResult } from '@/lib/admin/approve-access';
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseAccessReviewStore } from '@/lib/firebase/access-review-store';
 import { firebaseClinicAccessStore } from '@/lib/firebase/revoke-clinic-access';
@@ -15,8 +15,13 @@ async function clinicIdFrom(context: RouteContext): Promise<string | null> {
   return z.uuid().safeParse(id).success ? id : null;
 }
 
-function respond(status: 'ok' | 'not_found' | 'error', failure: string): Response {
+const UNVERIFIED_NOTICE =
+  'Die E-Mail-Adresse wurde noch nicht bestätigt. Die Law Clinic muss zuerst den ' +
+  'zugesandten Link öffnen; erst danach lässt sich der Zugang freischalten.';
+
+function respond(status: ReviewResult['status'], failure: string): Response {
   if (status === 'not_found') return Response.json({ error: 'Nicht gefunden.' }, { status: 404 });
+  if (status === 'unverified') return Response.json({ error: UNVERIFIED_NOTICE }, { status: 409 });
   if (status === 'error') return Response.json({ error: failure }, { status: 500 });
   return Response.json({ status: 'ok' });
 }

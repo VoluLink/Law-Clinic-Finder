@@ -3,7 +3,8 @@ import { revokeClinicAccess } from '@/lib/clinics/revoke-access';
 import { publishBlockers, type ClinicRequirementFields } from '@/lib/clinics/publish-requirements';
 import type { Logger } from '@/lib/logger';
 
-export type ReviewResult = { status: 'ok' } | { status: 'not_found' } | { status: 'error' };
+export type ReviewResult =
+  { status: 'ok' } | { status: 'not_found' } | { status: 'unverified' } | { status: 'error' };
 
 type PendingClinic = ClinicRequirementFields & {
   id: string;
@@ -12,6 +13,9 @@ type PendingClinic = ClinicRequirementFields & {
 
 export type AccessReviewStore = {
   readClinic: (clinicId: string) => Promise<PendingClinic | null>;
+  /** Whether the claimant proved control of the address by following the
+   *  emailed link. False when no identity exists, so this fails closed. */
+  hasVerifiedIdentity: (clinicId: string) => Promise<boolean>;
   approve: (clinicId: string, publish: boolean) => Promise<{ notifyPublication: boolean }>;
   deleteSelfRegistered: (clinicId: string) => Promise<void>;
 };
@@ -30,6 +34,14 @@ export async function approveAccess(
 ): Promise<ReviewResult> {
   const clinic = await deps.reviewStore.readClinic(clinicId);
   if (!clinic) return { status: 'not_found' };
+  /* A claimant is created unverified and only becomes verified by following the
+   * emailed link. Activating before that binds a clinic to an address nobody
+   * proved they control, which is how an entry gets squatted with a stranger's
+   * address. */
+  if (!(await deps.reviewStore.hasVerifiedIdentity(clinicId))) {
+    deps.logger.warn('clinic approval blocked', { clinicId, reason: 'address not verified' });
+    return { status: 'unverified' };
+  }
   const publish = publishBlockers(clinic).length === 0;
   let claimed = false;
   try {
