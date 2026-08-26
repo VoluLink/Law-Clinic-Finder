@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { requestLoginLink } from '@/lib/auth/login-link';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { clientIp } from '@/lib/http/client-ip';
 import { requestLogger } from '@/lib/http/request-id';
 import { isSameOrigin } from '@/lib/http/same-origin';
@@ -27,8 +28,9 @@ export async function POST(request: Request): Promise<Response> {
       { status: 429 },
     );
   }
-  const body = await request.json().catch(() => null);
-  const parsed = loginSchema.safeParse(body);
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = loginSchema.safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Anfrage.' }, { status: 400 });
 
   let status: 'sent' | 'not_registered' = 'sent';

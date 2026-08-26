@@ -10,6 +10,7 @@ import {
   type VisibilityRequest,
 } from '@/lib/clinics/visibility';
 import { setClinicVisibility, type VisibilityResult } from '@/lib/firebase/clinic-visibility-store';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 import { isSameOrigin } from '@/lib/http/same-origin';
 
@@ -37,8 +38,9 @@ export async function PATCH(request: NextRequest): Promise<Response> {
   try {
     const profile = await requireActiveRole(['clinic']);
     if (!profile.clinic_id) return Response.json({ error: 'Nicht berechtigt.' }, { status: 403 });
-    const body = await request.json().catch(() => null);
-    const parsed = visibilityRequestSchema.safeParse(body);
+    const body = await readJsonBody(request);
+    if (!body.ok) return bodyRejectionResponse(body.reason);
+    const parsed = visibilityRequestSchema.safeParse(body.value);
     if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
     if (outOfRange(parsed.data)) {
       return Response.json(

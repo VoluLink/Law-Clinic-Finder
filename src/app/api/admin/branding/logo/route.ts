@@ -1,9 +1,12 @@
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { BrandingLogoError, logoContentTypeSchema, normalizeLogo } from '@/lib/branding/logo';
 import { firebaseBrandingRepository } from '@/lib/firebase/branding-repository';
+import { bodyRejectionResponse, withinDeclaredLimit } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+/** Multipart framing — boundary, part headers, trailer — around the one file. */
+const MULTIPART_OVERHEAD_BYTES = 4 * 1024;
 
 function validateFile(value: FormDataEntryValue | null): File | Response {
   if (!(value instanceof File)) return Response.json({ error: 'Keine Datei.' }, { status: 400 });
@@ -20,6 +23,11 @@ export async function POST(request: Request): Promise<Response> {
   const logger = requestLogger(request);
   const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
+  /* formData() buffers the whole upload before validateFile can look at
+   * value.size, so the declared length has to be refused first. */
+  if (!withinDeclaredLimit(request, MAX_LOGO_BYTES + MULTIPART_OVERHEAD_BYTES)) {
+    return bodyRejectionResponse('too_large');
+  }
   const form = await request.formData().catch(() => null);
   const file = validateFile(form?.get('file') ?? null);
   if (file instanceof Response) return file;

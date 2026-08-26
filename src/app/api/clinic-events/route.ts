@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { clinicClickSchema, recordClinicClick } from '@/lib/clinics/click-event';
 import { firebaseClinicClickStore } from '@/lib/firebase/clinic-events';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { clientIp } from '@/lib/http/client-ip';
 import { requestLogger } from '@/lib/http/request-id';
 import { isSameOrigin } from '@/lib/http/same-origin';
@@ -17,7 +18,9 @@ export async function POST(request: NextRequest): Promise<Response> {
   const logger = requestLogger(request);
   if (!isSameOrigin(request)) return new Response(null, { status: 403 });
   if (limiter.isLimited(clientIp(request))) return new Response(null, { status: 429 });
-  const parsed = clinicClickSchema.safeParse(await request.json().catch(() => null));
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = clinicClickSchema.safeParse(body.value);
   if (!parsed.success) return new Response(null, { status: 400 });
   await recordClinicClick({ store: firebaseClinicClickStore, logger }, parsed.data);
   return new Response(null, { status: 204 });

@@ -26,6 +26,14 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Jede Route mit Request-Body liest ihn jetzt über eine gemeinsame, begrenzte Stelle: Medientyp,
+  angekündigte Länge und tatsächlich gelesene Bytes werden geprüft, bevor ein Schema den Inhalt
+  sieht (64 KiB allgemein, 320 KiB für den Chat, 2 MB für das Logo). Zuvor pufferten `request.json()`
+  und `request.formData()` beliebig große Anfragen vollständig im Speicher.
+- Antworten unter `/api`, `/admin`, `/clinic` und `/auth` tragen immer `Cache-Control: private,
+no-store`. Bisher hing der Header am Staging-Schutz — also genau an dem Mechanismus, der beim
+  öffentlichen Start wegfällt.
+
 - Das Empfehlungs-PDF wird in der Hausschrift gesetzt. Hanken Grotesk (Latein) und Noto Sans
   (Kyrillisch) werden als Untermengen eingebettet und erst beim Klick auf „Als PDF" nachgeladen.
   Zuvor zeichnete jsPDF in der eingebauten Helvetica, der Kyrillisch und Arabisch vollständig

@@ -1,3 +1,4 @@
+import { bodyRejectionResponse, CHAT_BODY_LIMIT, readJsonBody } from '@/lib/http/body';
 import { clientIp } from '@/lib/http/client-ip';
 import { isSameOrigin } from '@/lib/http/same-origin';
 import { challengeRequired, verifyChallenge } from '@/lib/security/challenge';
@@ -58,7 +59,9 @@ export async function handleChatRequest(
   if (!isSameOrigin(request)) return jsonError(403, 'Nicht erlaubt.');
   const limitScope = deps.limiter.check(clientIp(request));
   if (limitScope) return burstLimitResponse(limitScope);
-  const parsed = await parseChatRequest(request);
+  const body = await readJsonBody(request, CHAT_BODY_LIMIT);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = parseChatRequest(body.value);
   if (!parsed) return jsonError(400, 'Ungültige Anfrage.');
   if (!(await passesChallenge(deps, request, parsed))) {
     return jsonError(403, 'Sicherheitsprüfung fehlgeschlagen. Bitte lade die Seite neu.');
@@ -100,8 +103,7 @@ async function passesChallenge(
   });
 }
 
-async function parseChatRequest(request: Request): Promise<ChatRequest | null> {
-  const body = await request.json().catch(() => null);
+function parseChatRequest(body: unknown): ChatRequest | null {
   const parsed = chatRequestSchema.safeParse(body);
   return parsed.success ? parsed.data : null;
 }

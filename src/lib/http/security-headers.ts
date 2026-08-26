@@ -33,3 +33,18 @@ export function contentSecurityPolicy(nonce: string, development: boolean): stri
   ];
   return directives.filter(Boolean).join('; ');
 }
+
+/**
+ * Surfaces whose responses are specific to one signed-in person, or carry
+ * session/quota state, and must never be held by a shared cache or a browser's
+ * back-forward store.
+ */
+const PRIVATE_ROOTS = ['/api', '/admin', '/clinic', '/auth'] as const;
+
+export const PRIVATE_CACHE_CONTROL = 'private, no-store';
+
+/** Matches whole path segments: `/administrative-info` is a public page and must
+ *  not be caught by the `/admin` root. */
+export function requiresPrivateCache(pathname: string): boolean {
+  return PRIVATE_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}

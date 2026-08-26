@@ -2,6 +2,7 @@ import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { runSmtpChange } from '@/lib/admin/smtp-change-runner';
 import { activateSmtpSettings } from '@/lib/admin/smtp-configuration';
 import { firebaseSmtpSettingsStore } from '@/lib/firebase/smtp-settings-store';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 import { hasEnvironmentSmtpConfig } from '@/lib/mail/active-config';
 import { smtpSettingsUpdateSchema, smtpSettingsView } from '@/lib/mail/smtp-settings';
@@ -41,7 +42,9 @@ export async function PUT(request: Request): Promise<Response> {
   const logger = requestLogger(request);
   const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
-  const parsed = smtpSettingsUpdateSchema.safeParse(await request.json().catch(() => null));
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = smtpSettingsUpdateSchema.safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
   return runSmtpChange(request, guard, logger, (dependencies, actorId) =>
     activateSmtpSettings(dependencies, { update: parsed.data, actorId }),

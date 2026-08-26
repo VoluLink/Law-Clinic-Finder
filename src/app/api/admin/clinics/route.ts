@@ -5,6 +5,7 @@ import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { clinicInviteSchema } from '@/lib/clinics/schema';
 import { listAdminClinics } from '@/lib/firebase/admin-clinic-store';
 import { firebaseClinicInviteStore } from '@/lib/firebase/clinic-invite-store';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 
 export async function GET(request?: NextRequest): Promise<Response> {
@@ -23,8 +24,9 @@ export async function POST(request: NextRequest): Promise<Response> {
   const logger = requestLogger(request);
   const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
-  const body = await request.json().catch(() => null);
-  const parsed = clinicInviteSchema.safeParse(body);
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = clinicInviteSchema.safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
   const result = await inviteClinic({ store: firebaseClinicInviteStore, logger }, parsed.data);
   if (result.status === 'error') {

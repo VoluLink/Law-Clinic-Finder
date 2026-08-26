@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { requireAdminRoute } from '@/lib/auth/admin-guard';
 import { firebaseSettingsRepository } from '@/lib/firebase/settings-repository';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 import { chatSettingsUpdateSchema, readAssistantFormView } from '@/lib/settings';
 
@@ -21,8 +22,9 @@ export async function PUT(request: NextRequest): Promise<Response> {
   const logger = requestLogger(request);
   const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
-  const body = await request.json().catch(() => null);
-  const parsed = chatSettingsUpdateSchema.safeParse(body);
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = chatSettingsUpdateSchema.safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
   try {
     await firebaseSettingsRepository.updateEditable(parsed.data);

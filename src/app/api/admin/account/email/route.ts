@@ -5,6 +5,7 @@ import { requestEmailChange, type EmailChangeRequestResult } from '@/lib/auth/em
 import { sendEmailChangeLink } from '@/lib/auth/email-change-link';
 import { firebaseEmailChangeStore } from '@/lib/firebase/email-change-store';
 import { emailValue } from '@/lib/forms/email';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 
 const bodySchema = z.object({ email: emailValue });
@@ -27,8 +28,9 @@ export async function POST(request: Request): Promise<Response> {
   const logger = requestLogger(request);
   const guard = await requireAdminRoute(request);
   if ('response' in guard) return guard.response;
-  const body = await request.json().catch(() => null);
-  const parsed = bodySchema.safeParse(body);
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = bodySchema.safeParse(body.value);
   if (!parsed.success) {
     return Response.json({ error: 'Ungültige E-Mail-Adresse.' }, { status: 400 });
   }

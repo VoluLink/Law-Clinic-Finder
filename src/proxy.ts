@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { readOptimisticSession } from '@/lib/firebase/proxy-session';
-import { contentSecurityPolicy } from '@/lib/http/security-headers';
+import {
+  contentSecurityPolicy,
+  PRIVATE_CACHE_CONTROL,
+  requiresPrivateCache,
+} from '@/lib/http/security-headers';
 import { stagingAccessState, type StagingAccessState } from '@/lib/http/staging-access';
 
 const PENDING_PATH = '/clinic/pending';
@@ -28,7 +32,12 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const result = redirect ? NextResponse.redirect(new URL(redirect, request.url)) : response;
   result.headers.set('Content-Security-Policy', policy);
   result.headers.set('x-request-id', requestId);
-  if (stagingState === 'granted') result.headers.set('Cache-Control', 'private, no-store');
+  /* Not gated on the staging state: that gate disappears at public launch, which
+   * is exactly when an intermediary cache holding an admin page starts to
+   * matter. */
+  if (stagingState === 'granted' || requiresPrivateCache(request.nextUrl.pathname)) {
+    result.headers.set('Cache-Control', PRIVATE_CACHE_CONTROL);
+  }
   return result;
 }
 

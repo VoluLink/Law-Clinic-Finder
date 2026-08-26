@@ -10,6 +10,7 @@ import {
   type AdminClinicUpdateResult,
 } from '@/lib/firebase/admin-clinic-store';
 import { ClinicNameConflictError } from '@/lib/firebase/clinic-repository';
+import { bodyRejectionResponse, readJsonBody } from '@/lib/http/body';
 import { requestLogger } from '@/lib/http/request-id';
 import type { Logger } from '@/lib/logger';
 import { sendClinicPublishedNotice } from '@/lib/mail/clinic-notifications';
@@ -40,8 +41,9 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
   if ('response' in guard) return guard.response;
   const clinicId = await clinicIdFrom(context);
   if (!clinicId) return Response.json({ error: 'Ungültige ID.' }, { status: 400 });
-  const body = await request.json().catch(() => null);
-  const parsed = clinicAdminSchema.partial().safeParse(body);
+  const body = await readJsonBody(request);
+  if (!body.ok) return bodyRejectionResponse(body.reason);
+  const parsed = clinicAdminSchema.partial().safeParse(body.value);
   if (!parsed.success) return Response.json({ error: 'Ungültige Eingaben.' }, { status: 400 });
   try {
     const result = await updateAdminClinic(clinicId, parsed.data);
