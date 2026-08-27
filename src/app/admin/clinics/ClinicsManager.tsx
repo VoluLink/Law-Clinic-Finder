@@ -657,7 +657,12 @@ function ReadCell({ column, clinic }: { column: EditableKey; clinic: AdminClinic
   const value = clinic[column];
   if (column === 'website' && value) {
     return (
-      <a href={value} target="_blank" rel="noopener" className="break-all text-primary underline">
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-primary underline"
+      >
         {value}
       </a>
     );

@@ -109,8 +109,8 @@ Firebase-Session und das aktuelle Profil erneut.
 | `firestore.indexes.json`                          | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                                       |
 | `scripts/firebase-migration/`                     | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                                    |
 | `docs/firebase-migration-plan.md`                 | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                               |
+| `docs/audits/security-hardening-2026-08-22/`      | Sicherheitsbericht, ASVS-/AISVS-Matrix, Verzeichnis personenbezogener Daten, Prüfumfang, Betriebsprüfung                                              |
 | `docs/firebase-agent-playbook.md`                 | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                                  |
-| `docs/security-hardening-plan.md`                 | Resumierbarer ASVS-/AISVS-Sicherheitsaudit, verifizierte Befunde, Teilstand und gebündelte Entscheidungsoptionen                                      |
 | `.github/workflows/ci.yml`                        | Read-only CI-Gates für Pull Requests und `main`                                                                                                       |
 | `supabase/migrations/`                            | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                          |
 
@@ -432,13 +432,15 @@ Der verschlankte Arbeitsplan enthält ausschließlich noch offene Arbeit und die
 Migrationshistorie bleibt in Git und `CHANGELOG.md`; laufende Firebase-Konventionen stehen im
 [`Firebase Agent Playbook`](docs/firebase-agent-playbook.md).
 
-Ein zusätzlicher, derzeit nur dokumentierter Sicherheits- und Datenschutz-Härtungslauf ist begonnen
-und wegen des Sitzungsbudgets pausiert. Der vollständige Übergabestand einschließlich verifizierter
-Auth-/API-Befunde, unvollständig geprüfter Bereiche, lokaler Teiländerungen, ASVS-/AISVS-Zielniveau
-und später gemeinsam zu stellender Produktentscheidungen steht in
-[`docs/security-hardening-plan.md`](docs/security-hardening-plan.md). Dieser Plan ist noch kein
-abgeschlossener Sicherheitsaudit und die uncommitteten Teiländerungen sind noch nicht vollständig
-durch alle Qualitätsgates gelaufen.
+Der Sicherheits- und Datenschutz-Härtungslauf gegen ASVS 5.0 L2 und AISVS 1.0 L2 ist abgeschlossen.
+Bericht, Matrix, Verzeichnis der personenbezogenen Daten, Prüfumfang samt bestätigter Fehlalarme und
+die nur lesenden Betriebsprüfungen stehen in
+[`docs/audits/security-hardening-2026-08-22/`](docs/audits/security-hardening-2026-08-22/INDEX.md).
+
+**Vor dem Livegang zwingend:** `apphosting.yaml` setzt `REDACTION_PROVIDER=dlp`, und die
+De-Identifikation schließt fehlschlagend. Wird ausgerollt, bevor die Sensitive-Data-Protection-API
+aktiviert und `law-clinic-runtime` die Rolle `roles/dlp.user` erteilt ist, antwortet der Chat
+dauerhaft mit 503. `npm run dlp:check` prüft genau die Anfrage, die die Laufzeit schickt.
 
 ### Sichere Datenkopie
 

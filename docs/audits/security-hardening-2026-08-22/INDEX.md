@@ -1,0 +1,33 @@
+# Security-Härtung 2026-08-22 — Index
+
+Ergebnis der Sicherheitsüberprüfung, die am 22.08.2026 begonnen und am 27.08.2026 abgeschlossen
+wurde. Geprüft wurde der Stand nach der Migration von Supabase zu Firebase.
+
+| Datei                                                      | Inhalt                                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [README.md](README.md)                                     | Bericht: Befunde, Behebungen, bewusst akzeptierte Restrisiken             |
+| [asvs-aisvs-matrix.md](asvs-aisvs-matrix.md)               | OWASP ASVS 5.0 L2 und AISVS 1.0 L2 — Kapitel für Kapitel mit Belegstelle  |
+| [personal-data-inventory.md](personal-data-inventory.md)   | Welche personenbezogenen Daten wo entstehen, wohin sie fließen, wie lange |
+| [coverage-appendix.md](coverage-appendix.md)               | Welche Dateigruppen wie geprüft wurden, inklusive bestätigter Fehlalarme  |
+| [operational-verification.md](operational-verification.md) | Nur lesende Kommandos für das, was der Quelltext nicht beweisen kann      |
+
+## Kurzfassung
+
+19 Commits, keiner davon gepusht. Alle Gates grün: `typecheck`, 1534 Tests (41 übersprungen, weil
+sie Emulatoren brauchen), `lint`, `format:check`, `build`, Functions-Tests und -Build,
+Firestore-Regeltests, Emulator-Integrationstests, `npm audit --omit=dev` für beide Bäume.
+
+Die schwerwiegendsten behobenen Punkte:
+
+1. Ein nie bestätigter Antrag reservierte Clinic-Name, E-Mail-Adresse, Eigentümerplatz und
+   Auth-Identität **dauerhaft** — jeder konnte den Namen einer echten Law Clinic dauerhaft
+   blockieren.
+2. Die Freigabe eines Clinic-Zugangs prüfte nicht, ob die Adresse jemals bestätigt wurde.
+3. Kein einziger Endpunkt begrenzte die Größe des Request-Bodys, bevor er ihn puffert.
+4. Die De-Identifikation ging an den **globalen** DLP-Endpunkt, verarbeitete also außerhalb der EU.
+5. Die Branding-Schriftart lud ein Stylesheet von Google und übermittelte damit die IP jedes
+   Besuchers.
+
+Was noch offen ist, steht in [README.md](README.md) unter „Offene Punkte" — insbesondere die
+Cloud-Schritte, die nur die Eigentümerin ausführen kann, und die **vor dem Livegang zwingende**
+Aktivierung der DLP-API.

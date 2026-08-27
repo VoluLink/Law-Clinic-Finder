@@ -149,6 +149,8 @@ action; none has been performed.
       someone whose city has been redacted.
 - [ ] Optional: lower `LOG_PERSIST_LEVEL` to `info` temporarily when diagnosing something specific.
 
-After this plan, continue with [`security-hardening-plan.md`](security-hardening-plan.md). Four of
-its open DECISIONs are already settled by this work: G (transcript retention → 90 days), H (AI
-disclosure → the notice under the chat input), J (CAPTCHA → first-message challenge) and part of B.
+The security and privacy hardening run is finished; its report, ASVS/AISVS matrix, personal-data
+inventory, coverage record and read-only operational checks are in
+[`audits/security-hardening-2026-08-22/`](audits/security-hardening-2026-08-22/INDEX.md). Every
+DECISION it raised is settled there, and the owner-side cloud steps it still needs are listed
+under „Offene Punkte“ in that report — enabling the DLP API first among them.
