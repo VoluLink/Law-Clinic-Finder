@@ -5,7 +5,7 @@ import './globals.css';
 
 import { Analytics } from '@/components/analytics/Analytics';
 import { ConsentBanner } from '@/components/analytics/ConsentBanner';
-import { brandingCssVars, googleFontHref } from '@/lib/branding/branding';
+import { brandingCssVars, brandingFontFaces } from '@/lib/branding/branding';
 import { getBranding } from '@/lib/branding/server';
 import { dirFor } from '@/lib/i18n/config';
 import { getRequestLang } from '@/lib/i18n/get-request-lang';
@@ -37,7 +37,7 @@ export default async function RootLayout({
     getBranding(),
     headers(),
   ]);
-  const fontHref = googleFontHref(branding.font);
+  const fontFaces = brandingFontFaces(branding.font);
   const nonce = requestHeaders.get('x-nonce') ?? undefined;
   return (
     <html
@@ -46,9 +46,13 @@ export default async function RootLayout({
       className={`${hankenGrotesk.variable} ${notoSansArabic.variable} h-full antialiased motion-safe:scroll-smooth`}
     >
       <head>
-        {fontHref && <link rel="stylesheet" href={fontHref} />}
-        {/* Runtime :root token overrides from the admin Branding tab. */}
-        <style nonce={nonce} dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }} />
+        {/* Runtime :root token overrides from the admin Branding tab, plus the
+            self-hosted faces for the font it selected. Both are generated from
+            validated values — a hex-only colour and an enum'd family name. */}
+        <style
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: (fontFaces ?? '') + brandingCssVars(branding) }}
+        />
       </head>
       <body className="min-h-full flex flex-col">
         <Analytics nonce={nonce} />

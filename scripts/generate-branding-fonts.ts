@@ -1,0 +1,169 @@
+/**
+ * Vendors every selectable branding font into `public/fonts/` and regenerates
+ * `src/lib/branding/font-faces.ts`.
+ *
+ *   npm run branding:fonts
+ *
+ * The admin font selector used to render a `<link>` to `fonts.googleapis.com`,
+ * which hands every visitor's IP address to Google before anything is drawn —
+ * unlawful without consent for a German public site (LG München I, 20 January
+ * 2022, 3 O 17493/20). Self-hosting also lets the CSP drop its two Google
+ * exceptions, so `style-src` and `font-src` are back to `'self'`.
+ *
+ * Only the selected family's `@font-face` rules are emitted at runtime, so a
+ * visitor downloads two files, not the whole vendored set.
+ *
+ * Re-running without an upstream change rewrites byte-identical output, so the
+ * committed module and the vendored files can never silently drift.
+ */
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { format, resolveConfig } from 'prettier';
+
+import { BRANDING_FONTS, DEFAULT_BRANDING } from '../src/lib/branding/branding';
+
+const PUBLIC_ROOT = new URL('../public/fonts/', import.meta.url);
+const OUTPUT = new URL('../src/lib/branding/font-faces.ts', import.meta.url);
+
+/** Google serves woff2 only to a browser that says it can read it. */
+const BROWSER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+/**
+ * The site is German with European names throughout; the other blocks Google
+ * offers (Greek, Cyrillic, Vietnamese) would triple the vendored size for text
+ * the branding font never renders. Arabic and Farsi keep their own face.
+ */
+const SUBSETS = new Set(['latin', 'latin-ext']);
+
+const WEIGHTS = [400, 700] as const;
+
+type Face = { weight: number; unicodeRange: string; file: string };
+
+function slugOf(family: string): string {
+  return family.toLowerCase().replaceAll(' ', '-');
+}
+
+async function fetchStylesheet(family: string): Promise<string> {
+  const url =
+    `https://fonts.googleapis.com/css2?family=${family.replaceAll(' ', '+')}` +
+    `:wght@${WEIGHTS.join(';')}&display=swap`;
+  const response = await fetch(url, { headers: { 'user-agent': BROWSER_AGENT } });
+  if (!response.ok) throw new Error(`${family}: stylesheet request failed (${response.status})`);
+  const css = await response.text();
+  if (css.trimStart().startsWith('<')) throw new Error(`${family}: not offered by Google Fonts`);
+  return css;
+}
+
+type Block = { subset: string; weight: number; source: string; unicodeRange: string };
+
+/** Each `@font-face` arrives preceded by a `/* subset *​/` comment naming it. */
+function parseBlocks(css: string): Block[] {
+  return css
+    .split('/*')
+    .slice(1)
+    .flatMap((chunk) => {
+      const subset = chunk.slice(0, chunk.indexOf('*/')).trim();
+      const source = /url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.woff2)\)/.exec(chunk)?.[1];
+      const weight = /font-weight:\s*(\d+)/.exec(chunk)?.[1];
+      const unicodeRange = /unicode-range:\s*([^;]+);/.exec(chunk)?.[1];
+      if (!source || !weight || !unicodeRange) return [];
+      return [{ subset, weight: Number(weight), source, unicodeRange: unicodeRange.trim() }];
+    });
+}
+
+/**
+ * A variable font is served as one file for every weight, so the same URL comes
+ * back under both 400 and 700. Downloading it once and pointing both rules at
+ * it halves the vendored set.
+ */
+async function vendorFamily(family: string): Promise<Face[]> {
+  const slug = slugOf(family);
+  const blocks = parseBlocks(await fetchStylesheet(family)).filter((block) =>
+    SUBSETS.has(block.subset),
+  );
+  if (blocks.length === 0) throw new Error(`${family}: no Latin subset offered`);
+  await mkdir(new URL(`${slug}/`, PUBLIC_ROOT), { recursive: true });
+  const files = new Map<string, string>();
+  const faces: Face[] = [];
+  for (const block of blocks) {
+    const existing = files.get(block.source);
+    const file = existing ?? `${slug}-${files.size + 1}.woff2`;
+    if (!existing) {
+      files.set(block.source, file);
+      const bytes = await fetch(block.source).then((response) => response.arrayBuffer());
+      await writeFile(new URL(`${slug}/${file}`, PUBLIC_ROOT), Buffer.from(bytes));
+    }
+    faces.push({ weight: block.weight, unicodeRange: block.unicodeRange, file: `${slug}/${file}` });
+  }
+  return faces;
+}
+
+function faceCss(family: string, face: Face): string {
+  return [
+    '@font-face{',
+    `font-family:'${family}';`,
+    'font-style:normal;',
+    `font-weight:${face.weight};`,
+    'font-display:swap;',
+    `src:url('/fonts/${face.file}') format('woff2');`,
+    `unicode-range:${face.unicodeRange};`,
+    '}',
+  ].join('');
+}
+
+function renderModule(entries: [string, string][]): string {
+  const body = entries
+    .map(([family, css]) => `  ${JSON.stringify(family)}: ${JSON.stringify(css)},`)
+    .join('\n');
+  return `/* Generated by scripts/generate-branding-fonts.ts — do not edit by hand.
+ *
+ * The \`@font-face\` rules for every selectable branding font, pointing at the
+ * copies vendored under \`public/fonts/\`. Only the selected family's rules are
+ * written into the page, so a visitor downloads that family and nothing else.
+ *
+ * Run \`npm run branding:fonts\` to refresh both this file and the font files.
+ */
+
+export const BRANDING_FONT_FACES: Readonly<Record<string, string>> = {
+${body}
+};
+`;
+}
+
+async function main(): Promise<void> {
+  await rm(PUBLIC_ROOT, { recursive: true, force: true });
+  await mkdir(PUBLIC_ROOT, { recursive: true });
+  const entries: [string, string][] = [];
+  /* The default family is already self-hosted by `next/font` in the root layout
+     and is what `--font-sans` falls back to, so vendoring it here would ship a
+     second copy nothing ever loads. */
+  for (const family of BRANDING_FONTS.filter((name) => name !== DEFAULT_BRANDING.font)) {
+    const faces = await vendorFamily(family);
+    entries.push([family, faces.map((face) => faceCss(family, face)).join('')]);
+    process.stdout.write(`${family}: ${faces.length} faces\n`);
+  }
+  /* Formatted here rather than by hand afterwards, so re-running the script is
+     genuinely a no-op and `prettier --check` never disagrees with it. */
+  const path = fileURLToPath(OUTPUT);
+  const options = await resolveConfig(path);
+  await writeFile(
+    OUTPUT,
+    await format(renderModule(entries), { ...options, filepath: path }),
+    'utf8',
+  );
+  const vendored = await readdir(PUBLIC_ROOT, { recursive: true, withFileTypes: true });
+  const count = vendored.filter((entry) => entry.isFile()).length;
+  process.stdout.write(`\nwrote ${count} font files and ${entries.length} families\n`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error: unknown) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}
+
+export { faceCss, parseBlocks, slugOf, fileURLToPath };

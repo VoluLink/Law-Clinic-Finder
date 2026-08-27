@@ -9,6 +9,8 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added
 
+- `npm run branding:fonts`: lädt die auswählbaren Branding-Schriften einmalig herunter und legt sie
+  unter `public/fonts/` ab.
 - Dauerhafte Missbrauchsgrenzen in Firestore für Login-Mails sowie Namens- und Identitäts-
   reservierungen. Die bisherigen Grenzen lagen in einer Map pro Prozess und setzten sich bei jedem
   Kaltstart und jeder neuen Instanz zurück. Gespeichert werden nur Zeitstempel unter einem
@@ -35,6 +37,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Branding-Schriften kommen jetzt vom eigenen Server statt von Google Fonts. Bisher lud jede Seite
+  mit einer nicht voreingestellten Schrift ein Stylesheet von `fonts.googleapis.com` und übermittelte
+  damit die IP jedes Besuchers an Google — für eine deutsche öffentliche Seite ohne Einwilligung
+  unzulässig (LG München I, 20.01.2022, 3 O 17493/20). Die CSP verliert dadurch ihre beiden
+  Google-Ausnahmen in `style-src` und `font-src`, und Fettschrift wird nicht mehr synthetisiert,
+  weil neben 400 auch 700 ausgeliefert wird. Geladen wird weiterhin nur die gewählte Familie.
 - Folgenreiche Admin-Aktionen verlangen eine Anmeldung innerhalb der letzten fünf Minuten: Admins
   anlegen und entfernen, Clinic oder Zugang löschen, Verläufe und Protokolle löschen, Empfänger der
   Betriebsmeldungen ändern, Assistenten-Einstellungen speichern und SMTP zurückrollen. Lesen und das

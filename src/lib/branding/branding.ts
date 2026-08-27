@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { BRANDING_FONT_FACES } from './font-faces';
 import type { BrandingRepository } from './repository';
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Ungültige Farbe (z. B. #0d4b5b).');
@@ -81,13 +82,15 @@ export function brandingCssVars(branding: Branding): string {
   return `:root{${lines.join('')}}`;
 }
 
-/** Google-Fonts stylesheet URL for a non-default font, else null. */
-export function googleFontHref(font: string): string | null {
-  if (
-    font === DEFAULT_BRANDING.font ||
-    !BRANDING_FONTS.includes(font as (typeof BRANDING_FONTS)[number])
-  ) {
-    return null;
-  }
-  return `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}&display=swap`;
+/**
+ * The `@font-face` rules for a selected non-default font, else null.
+ *
+ * These used to be a `<link>` to `fonts.googleapis.com`, which handed every
+ * visitor's IP address to Google before the page drew anything. The faces are
+ * vendored under `public/fonts/` instead, and only the selected family's rules
+ * are written into the page, so nothing loads the other thirty-one.
+ */
+export function brandingFontFaces(font: string): string | null {
+  if (font === DEFAULT_BRANDING.font) return null;
+  return BRANDING_FONT_FACES[font] ?? null;
 }

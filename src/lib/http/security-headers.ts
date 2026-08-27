@@ -20,8 +20,8 @@ export function contentSecurityPolicy(nonce: string, development: boolean): stri
   const directives = [
     "default-src 'self'",
     script,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' data: https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob: https://firebasestorage.googleapis.com",
     `connect-src 'self' ${GOOGLE_ANALYTICS.join(' ')}`,
     "object-src 'none'",

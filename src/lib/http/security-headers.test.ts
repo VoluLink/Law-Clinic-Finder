@@ -23,6 +23,16 @@ describe(contentSecurityPolicy, () => {
     expect(contentSecurityPolicy('test-nonce', false)).toContain('upgrade-insecure-requests');
     expect(contentSecurityPolicy('test-nonce', true)).not.toContain('upgrade-insecure-requests');
   });
+  /* Both directives allowed a Google host purely so the admin font selector
+     could load a stylesheet. The faces are vendored now, so a re-added
+     exception here would be a privacy regression, not a styling fix. */
+  it('allows no external origin to serve styles or fonts', () => {
+    const policy = contentSecurityPolicy('test-nonce', false);
+    expect(policy).toContain("style-src 'self' 'unsafe-inline'");
+    expect(policy).toContain("font-src 'self' data:");
+    expect(policy).not.toContain('fonts.googleapis.com');
+    expect(policy).not.toContain('fonts.gstatic.com');
+  });
 });
 
 describe('STATIC_SECURITY_HEADERS', () => {
