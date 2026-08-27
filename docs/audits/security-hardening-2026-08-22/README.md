@@ -16,29 +16,7 @@ nicht stillschweigend fallen gelassen.
 Nach Schwere geordnet. „Beleg" nennt den Commit; die Datei- und Zeilenangaben stehen im jeweiligen
 Commit-Text.
 
-### 1.1 Dauerhafte Reservierung durch nie bestätigte Anträge — hoch
-
-Ein Antrag über das öffentliche Signup-Formular legte in einer Transaktion vier Reservierungen an:
-`uniqueClinicNames` (der Clinic-Name), `emailOwners` (die Adresse), `uniqueClinicOwners` (der
-Eigentümerplatz) und einen Auth-Nutzer. Keine davon lief jemals ab. Wer den Namen einer echten Law
-Clinic eintrug, machte diesen Namen dauerhaft unregistrierbar; eine veröffentlichte Clinic ohne
-hinterlegte Kontaktadresse konnte dauerhaft aus ihrem eigenen Übernahmeprozess ausgesperrt werden.
-
-Behoben mit einem Ablauf nach sieben Tagen (DECISION F). `profiles.expiresAt` wird beim Anlegen
-gesetzt, bei der Freigabe gelöscht und — entscheidend — auch dann gelöscht, wenn die antragstellende
-Person den Einladungslink anklickt. Damit laufen Anmeldung und Ablauf über dieselbe
-Firestore-Transaktion: welche zuerst committet, die andere liest das Ergebnis und tritt zurück,
-statt ein soeben bestätigtes Konto zu löschen. Der Auth-Nutzer wird zuletzt und nur dann gelöscht,
-wenn die Transaktion tatsächlich etwas freigegeben hat.
-
-Eine Selbstregistrierung nimmt ihren Clinic-Datensatz und die Namensreservierung mit. Eine Übernahme
-einer bereits freigegebenen Clinic gibt nur den Eigentümerplatz frei — den Eintrag zu löschen würde
-wegen einer unbeantworteten E-Mail eine aktive Verzeichnisseite entfernen.
-
-**Beleg:** `c771da1`. Gegen die Emulatoren geprüft, inklusive zweier gleichzeitiger Abläufe, von
-denen genau einer committet.
-
-### 1.2 Freigabe ohne Nachweis über die Adresse — hoch
+### 1.1 Freigabe ohne Nachweis über die Adresse — hoch
 
 `clinic-invite-store.ts` legt Clinic-Nutzer mit `emailVerified: false` an. `approve()` prüfte das
 nie. Eine Administratorin konnte damit einen Zugang für einen Eintrag freischalten, der an die
@@ -52,7 +30,7 @@ antwortet mit 409 und einer deutschen Begründung, die im Admin-UI auch ankommt.
 `emailVerified: false` an, und der legitime Weg bleibt offen, weil Firebase die Adresse beim
 E-Mail-Link-Login als bestätigt markiert.
 
-### 1.3 Kein Größenlimit auf Request-Bodys — hoch
+### 1.2 Kein Größenlimit auf Request-Bodys — hoch
 
 Keiner der 17 `request.json()`-Aufrufe prüfte eine Größe, bevor er den Body puffert; die
 Logo-Route puffert den gesamten Upload vor der Größenprüfung. Ein nicht angemeldeter Aufrufer
@@ -66,7 +44,7 @@ wieder grün.
 
 **Beleg:** `e1f9833`.
 
-### 1.4 De-Identifikation außerhalb der EU — hoch
+### 1.3 De-Identifikation außerhalb der EU — hoch
 
 Die DLP-Anfrage ging an `projects/{p}/content:deidentify` — das ist der **globale** Standort.
 Chatinhalte einer deutschen Rechtsberatungsseite wurden damit außerhalb der EU verarbeitet.
@@ -79,7 +57,7 @@ zehnten Zug zehn DLP-Aufrufe; jetzt geht das ganze Transkript als eine `item.tab
 
 **Beleg:** `335e552`.
 
-### 1.5 Branding-Schrift von Google — hoch (Datenschutz)
+### 1.4 Branding-Schrift von Google — hoch (Datenschutz)
 
 Sobald eine Administratorin eine andere als die voreingestellte Schrift wählte, lud jede Seite ein
 Stylesheet von `fonts.googleapis.com`. Damit erhält Google die IP-Adresse jedes Besuchers, bevor
@@ -94,7 +72,7 @@ wieder `'self'`.
 
 **Beleg:** `18569b8`.
 
-### 1.6 Verzeichnisexport über die Signup-Suche — mittel
+### 1.5 Verzeichnisexport über die Signup-Suche — mittel
 
 Eine leere Suchanfrage lieferte 200 Clinics samt maskierter Adressen zurück. Behoben:
 Mindestlänge, gedeckelte Trefferzahl, keine maskierte Adresse mehr — nur noch die Aussage, dass
@@ -102,7 +80,7 @@ eine Adresse hinterlegt ist (DECISION B, Option A).
 
 **Beleg:** `9555415`.
 
-### 1.7 Verzeichnistext ohne Vertrauensgrenze im Modellkontext — mittel
+### 1.6 Verzeichnistext ohne Vertrauensgrenze im Modellkontext — mittel
 
 Clinics schreiben ihren eigenen Namen, ihre Beschreibung und ihre Anforderungen. Aus Sicht des
 Modells ist das von Dritten gelieferter Text, der in einem Tool-Ergebnis ankommt. Behoben durch
@@ -113,7 +91,7 @@ der von Admins bearbeitbare Text ihn nicht abschwächen kann (AR-11).
 
 **Beleg:** `e60982b`.
 
-### 1.8 URLs und Text ohne erneute Prüfung vor dem Rendern — mittel
+### 1.7 URLs und Text ohne erneute Prüfung vor dem Rendern — mittel
 
 Die Clinic-Karte ist die Stelle, an der Verzeichnistext zu einem `href` wird, und auf dem Lesepfad
 schränkte nichts das Schema ein. Zods `z.url()` akzeptiert `javascript:`, `data:` und `vbscript:` —
@@ -129,7 +107,7 @@ bewusst stehen, weil Farsi, Arabisch und Kurdisch sie zum Rendern brauchen.
 
 **Beleg:** `ab284d8`.
 
-### 1.9 Weitere behobene Punkte
+### 1.8 Weitere behobene Punkte
 
 | Befund                                                                                                        | Beleg     |
 | ------------------------------------------------------------------------------------------------------------- | --------- |
@@ -152,47 +130,57 @@ bewusst stehen, weil Farsi, Arabisch und Kurdisch sie zum Rendern brauchen.
 
 Diese Punkte sind bekannt, bewertet und **nicht** behoben. Jeder hat einen Grund.
 
-### 2.1 Kein MFA für Administratorinnen — DECISION D
+### 2.1 Nie bestätigte Anträge reservieren dauerhaft — Entscheidung der Eigentümerin
+
+Ein Antrag über das öffentliche Signup-Formular legt in einer Transaktion vier Reservierungen an:
+`uniqueClinicNames` (den Clinic-Namen), `emailOwners` (die Adresse), `uniqueClinicOwners` (den
+Eigentümerplatz) und einen Auth-Nutzer. Keine davon läuft ab, auch dann nicht, wenn die Adresse nie
+bestätigt wird.
+
+**Was das bedeutet:** Wer den Namen einer echten Law Clinic in das öffentliche Formular einträgt,
+macht diesen Namen dauerhaft unregistrierbar. Eine bereits veröffentlichte Clinic ohne hinterlegte
+Kontaktadresse kann auf demselben Weg dauerhaft aus ihrem eigenen Übernahmeprozess ausgesperrt
+werden. Einziger Ausweg ist, dass eine Administratorin den offenen Antrag im Admin-Bereich löscht —
+sie muss also erst bemerken, dass es ihn gibt.
+
+Ein Ablauf nach sieben Tagen war implementiert (DECISION F) und ist auf ausdrückliche Anweisung
+wieder entfernt worden. Die Reservierungen bleiben damit bestehen, bis jemand sie von Hand löscht.
+
+**Was das für die Datenminimierung heißt:** Die Adresse einer Person, die nie geantwortet hat,
+bleibt unbegrenzt gespeichert. Das ist bei der Datenschutzerklärung und bei einer möglichen
+Löschanfrage zu berücksichtigen — siehe [personal-data-inventory.md](personal-data-inventory.md) §2.
+
+**Was weiterhin schützt:** Die Freigabe verlangt einen Nachweis über die Adresse (§1.1), ein
+Squatter erhält also keinen Zugang. Die dauerhaften Missbrauchsgrenzen begrenzen außerdem, wie viele
+Anträge eine Adresse und ein Netz pro Tag stellen können (`c2ed12e`). Blockiert bleibt der Name
+trotzdem.
+
+### 2.2 Kein MFA für Administratorinnen — DECISION D
 
 Entschieden: Der E-Mail-Magic-Link genügt vorerst. Die kompensierenden Kontrollen sind damit nicht
 mehr optional: Widerruf beim Abmelden und 8-Stunden-Sitzungen (`dd436fb`) sowie die erneute
 Anmeldung vor folgenreichen Aktionen (`65a3f46`). Wenn eine davon später zurückgenommen wird, muss
 MFA neu bewertet werden.
 
-### 2.2 Vier PII-Kategorien ohne Erkennung
+### 2.3 Vier PII-Kategorien ohne Erkennung
 
 Mit „nur DLP, fail closed" fällt die deutschsprachige Zusatzerkennung weg. DLP hat keinen infoType
 für: verschleierte E-Mail-Adressen (`anna (at) beispiel (punkt) de`), Sozialversicherungsnummern,
 Aktenzeichen und deutsche Kfz-Kennzeichen. Diese erreichen Anthropic und Firestore im Klartext.
 Bewusst so entschieden.
 
-### 2.3 Ein DLP-Ausfall ist ein Chat-Ausfall
+### 2.4 Ein DLP-Ausfall ist ein Chat-Ausfall
 
 Konstruktionsbedingt. Der Chat antwortet mit 503, statt eine ungeprüfte Nachricht weiterzugeben.
 
-### 2.4 Kein geplanter Sweep für abgelaufene Anträge
-
-`functions/` hat `rootDir: src` und kann `src/lib` nicht importieren. Eine Cloud Function hieße
-eine zweite Kopie der Ablaufentscheidung (DRY-4). Die Freigabe läuft deshalb dort, wo sie jemandem
-nützt: bei der Namens-, Eigentümer- und Adressprüfung im Signup. Folge: Auf einer Seite, auf der
-sich niemand registriert, bleibt ein unbeantworteter Antrag über die sieben Tage hinaus liegen.
-
-### 2.5 `clinicContacts` überlebt eine abgelaufene Übernahme
-
-Bei einer Übernahme über die bereits hinterlegte Adresse **muss** der Eintrag bleiben — es ist die
-Adresse der Clinic. Beim Weg über eine selbst angegebene Adresse bleibt dagegen die Adresse der
-antragstellenden Person am freigegebenen Eintrag stehen, bis eine Administratorin sie ändert. Beide
-Wege sind im Nachhinein nicht unterscheidbar, und bedingungsloses Löschen würde eine legitime
-Kontaktadresse zerstören.
-
-### 2.6 `uuid < 11.1.1` (GHSA, niedrig)
+### 2.5 `uuid < 11.1.1` (GHSA, niedrig)
 
 Transitiv über `firebase-admin`. Der einzige von `npm audit fix --force` vorgeschlagene „Fix" ist
 ein Downgrade von `firebase-admin` auf 10.3.0 — eine wesentlich größere Angriffsfläche als der
 Befund selbst. **Kein** `overrides`-Eintrag, **kein** `--force`. Bei jedem `firebase-admin`-Update
 neu prüfen.
 
-### 2.7 Docker-Image nicht gebaut, Basis-Image nicht digest-gepinnt
+### 2.6 Docker-Image nicht gebaut, Basis-Image nicht digest-gepinnt
 
 In dieser Umgebung ist kein Docker verfügbar. Die `.dockerignore` wurde deshalb auf Pfade begrenzt,
 die der Next.js-Build nachweislich nicht liest. Das `Dockerfile` benutzt `node:22-alpine` als
@@ -200,7 +188,7 @@ gleitendes Tag, läuft aber als Nicht-Root (`USER nextjs`) — und es liegt **ni
 Deploy-Pfad: App Hosting baut aus dem Quelltext, kein Dokument und keine Konfiguration verweist auf
 das `Dockerfile`.
 
-### 2.8 CodeQL nicht eingerichtet
+### 2.7 CodeQL nicht eingerichtet
 
 Bewusst aufgeschoben. Ein Scanner ohne dokumentierte Ausgangsbasis und ohne Verfahren für
 Fehlalarme erzeugt Rauschen, das niemand abarbeitet. Voraussetzung wäre außerdem eine Entscheidung

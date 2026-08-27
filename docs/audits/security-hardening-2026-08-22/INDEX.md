@@ -13,20 +13,22 @@ wurde. Geprüft wurde der Stand nach der Migration von Supabase zu Firebase.
 
 ## Kurzfassung
 
-19 Commits, keiner davon gepusht. Alle Gates grün: `typecheck`, 1534 Tests (41 übersprungen, weil
+21 Commits, keiner davon gepusht. Alle Gates grün: `typecheck`, 1534 Tests (41 übersprungen, weil
 sie Emulatoren brauchen), `lint`, `format:check`, `build`, Functions-Tests und -Build,
 Firestore-Regeltests, Emulator-Integrationstests, `npm audit --omit=dev` für beide Bäume.
 
 Die schwerwiegendsten behobenen Punkte:
 
-1. Ein nie bestätigter Antrag reservierte Clinic-Name, E-Mail-Adresse, Eigentümerplatz und
-   Auth-Identität **dauerhaft** — jeder konnte den Namen einer echten Law Clinic dauerhaft
-   blockieren.
-2. Die Freigabe eines Clinic-Zugangs prüfte nicht, ob die Adresse jemals bestätigt wurde.
-3. Kein einziger Endpunkt begrenzte die Größe des Request-Bodys, bevor er ihn puffert.
-4. Die De-Identifikation ging an den **globalen** DLP-Endpunkt, verarbeitete also außerhalb der EU.
-5. Die Branding-Schriftart lud ein Stylesheet von Google und übermittelte damit die IP jedes
+1. Die Freigabe eines Clinic-Zugangs prüfte nicht, ob die Adresse jemals bestätigt wurde.
+2. Kein einziger Endpunkt begrenzte die Größe des Request-Bodys, bevor er ihn puffert.
+3. Die De-Identifikation ging an den **globalen** DLP-Endpunkt, verarbeitete also außerhalb der EU.
+4. Die Branding-Schriftart lud ein Stylesheet von Google und übermittelte damit die IP jedes
    Besuchers.
+
+Der schwerwiegendste Befund der Prüfung ist **nicht** behoben, sondern auf Anweisung als Restrisiko
+angenommen: Ein nie bestätigter Antrag reserviert Clinic-Name, E-Mail-Adresse, Eigentümerplatz und
+Auth-Identität dauerhaft. Begründung und verbleibende Schutzmaßnahmen in
+[README.md](README.md) §2.1.
 
 Was noch offen ist, steht in [README.md](README.md) unter „Offene Punkte" — insbesondere die
 Cloud-Schritte, die nur die Eigentümerin ausführen kann, und die **vor dem Livegang zwingende**

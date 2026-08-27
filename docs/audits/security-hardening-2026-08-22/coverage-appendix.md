@@ -4,7 +4,7 @@ Was tatsächlich angesehen wurde, mit welchem Verfahren, und was sich bei der Na
 Quelltext **nicht** bestätigt hat. Fehlalarme stehen hier, statt stillschweigend zu verschwinden —
 sonst prüft die nächste Runde dieselbe Stelle noch einmal.
 
-Umfang: 633 versionierte Dateien. 1575 Tests, davon 1534 grün und 41 übersprungen, weil sie
+Umfang: 633 versionierte Dateien. 1553 Tests, davon 1524 grün und 29 übersprungen, weil sie
 Emulatoren brauchen.
 
 ---
@@ -101,20 +101,19 @@ Erschöpfende Suche nach `dangerouslySetInnerHTML`, `innerHTML`, `document.write
 
 Stichprobe pro Kontrolle: Gibt es einen Test, der fehlschlägt, wenn die Kontrolle entfernt wird?
 
-| Kontrolle                     | Negativ-, Missbrauchs- oder Wettlauftest                                                                                                                                                           |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Body-Grenzen                  | Ja — Wirksamkeit belegt, indem die Login-Route testweise auf `request.json()` zurückgesetzt wurde: zwei Tests fielen, nach dem Zurücksetzen wieder grün                                            |
-| Fail-closed-De-Identifikation | Ja — Timeout, 403, 400, defekter Body, unbrauchbare Region: jeweils 503, kein Anthropic-Aufruf, kein Kontingent verbraucht                                                                         |
-| Ort und Postleitzahl          | Ja — ein Stub, der einen Ort entfernt, muss `{ ok: false }` erzeugen, nicht eine redigierte Nachricht                                                                                              |
-| Rate-Limiter-Verdrängung      | Ja — Verdrängung nach Nutzung, `maxKeys: 0` abgewiesen                                                                                                                                             |
-| Dauerhafte Grenzen            | Ja — gegen den Emulator: zwei gleichzeitige Versuche um den letzten Platz, genau einer gewinnt                                                                                                     |
-| Ablauf offener Anträge        | Ja — gegen den Emulator: bestätigt / angemeldet / freigegeben / nicht fällig / ohne Frist bleiben unberührt; wiederholter Ablauf ist idempotent; zwei gleichzeitige Abläufe committen genau einmal |
-| Adressnachweis vor Freigabe   | Ja — bestätigt, unbestätigt, fehlend, Wettlauf                                                                                                                                                     |
-| Erneute Anmeldung             | Ja — abgelaufene `authTime` ergibt 401 mit `reauth_required`                                                                                                                                       |
-| Prompt-Injection              | Ja — Verzeichnistext und Renderpfad, einschließlich zweier im Assistententext gefälschter Frames                                                                                                   |
-| SSRF im SMTP-Ziel             | Ja — IPv4, IPv6, gemischte Antworten, Rebinding, Timeout, öffentlicher Host; zusätzlich mit 13 eigenen Fällen unabhängig nachgeprüft                                                               |
-| CSP ohne externe Quellen      | Ja — der Test benennt, warum eine wieder hinzugefügte Ausnahme eine Datenschutzregression wäre                                                                                                     |
-| Log-Maskierung                | Ja — und Gegenprobe: `statusCode`, `keyword`, `monkeyPatch`, `sessionsPerDay`, `authorName` bleiben lesbar                                                                                         |
+| Kontrolle                     | Negativ-, Missbrauchs- oder Wettlauftest                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Body-Grenzen                  | Ja — Wirksamkeit belegt, indem die Login-Route testweise auf `request.json()` zurückgesetzt wurde: zwei Tests fielen, nach dem Zurücksetzen wieder grün |
+| Fail-closed-De-Identifikation | Ja — Timeout, 403, 400, defekter Body, unbrauchbare Region: jeweils 503, kein Anthropic-Aufruf, kein Kontingent verbraucht                              |
+| Ort und Postleitzahl          | Ja — ein Stub, der einen Ort entfernt, muss `{ ok: false }` erzeugen, nicht eine redigierte Nachricht                                                   |
+| Rate-Limiter-Verdrängung      | Ja — Verdrängung nach Nutzung, `maxKeys: 0` abgewiesen                                                                                                  |
+| Dauerhafte Grenzen            | Ja — gegen den Emulator: zwei gleichzeitige Versuche um den letzten Platz, genau einer gewinnt                                                          |
+| Adressnachweis vor Freigabe   | Ja — bestätigt, unbestätigt, fehlend, Wettlauf                                                                                                          |
+| Erneute Anmeldung             | Ja — abgelaufene `authTime` ergibt 401 mit `reauth_required`                                                                                            |
+| Prompt-Injection              | Ja — Verzeichnistext und Renderpfad, einschließlich zweier im Assistententext gefälschter Frames                                                        |
+| SSRF im SMTP-Ziel             | Ja — IPv4, IPv6, gemischte Antworten, Rebinding, Timeout, öffentlicher Host; zusätzlich mit 13 eigenen Fällen unabhängig nachgeprüft                    |
+| CSP ohne externe Quellen      | Ja — der Test benennt, warum eine wieder hinzugefügte Ausnahme eine Datenschutzregression wäre                                                          |
+| Log-Maskierung                | Ja — und Gegenprobe: `statusCode`, `keyword`, `monkeyPatch`, `sessionsPerDay`, `authorName` bleiben lesbar                                              |
 
 ---
 

@@ -36,22 +36,6 @@ export function firstAccessUpdates(profile: ProfileDocument, clinic: ClinicDocum
   };
 }
 
-/**
- * Answering the invite takes the application off the expiry clock. It runs
- * inside the same transaction the sweep uses, which is what makes the two safe
- * against each other: whichever commits first, the other reads the result and
- * stands down rather than deleting an account that was just confirmed.
- */
-function confirmPendingApplication(
-  profile: ProfileDocument,
-  reference: FirebaseFirestore.DocumentReference,
-  transaction: FirebaseFirestore.Transaction,
-  now: Date,
-): void {
-  if (profile.accessStatus !== 'pending' || !profile.expiresAt) return;
-  transaction.update(reference, { expiresAt: null, updatedAt: Timestamp.fromDate(now) });
-}
-
 export async function activateFirstAccess(userId: string, now = new Date()): Promise<void> {
   const database = firebaseFirestore();
   const profileReference = database.collection('profiles').doc(userId);
@@ -61,10 +45,7 @@ export async function activateFirstAccess(userId: string, now = new Date()): Pro
     const clinicReference = database.collection('clinics').doc(profile.clinicId);
     const clinic = clinicDocumentSchema.parse((await transaction.get(clinicReference)).data());
     const updates = firstAccessUpdates(profile, clinic, now);
-    if (!updates) {
-      confirmPendingApplication(profile, profileReference, transaction, now);
-      return false;
-    }
+    if (!updates) return false;
     transaction.update(profileReference, timestamps(updates.profile));
     if (updates.clinic) transaction.update(clinicReference, timestamps(updates.clinic));
     return Boolean(updates.clinic);

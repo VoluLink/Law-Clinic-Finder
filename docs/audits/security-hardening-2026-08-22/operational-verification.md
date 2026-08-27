@@ -90,11 +90,10 @@ Jede `expiresAt`-Frist im Code wirkt nur, wenn die TTL-Richtlinie aktiv ist.
 # Aktive TTL-Richtlinien. Erwartet: authEmailStates, pendingEmailOwners,
 # chatDailyQuotas, claimLimits, clinicEvents, abuseLimits, idempotencyKeys,
 # conversations, conversationTranscripts, logs.
+# Bewusst NICHT dabei: profiles — offene Anträge laufen nicht ab (Bericht §2.1).
 gcloud firestore fields ttls list --database="$DATABASE" --project "$PROJECT"
 
-# Zusammengesetzte Indizes. Erwartet unter anderem:
-#   clinics (approvalStatus, name)
-#   profiles (accessStatus, expiresAt)   <- neu, für den Ablauf offener Anträge
+# Zusammengesetzte Indizes. Erwartet: clinics (approvalStatus, name).
 gcloud firestore indexes composite list --database="$DATABASE" --project "$PROJECT"
 
 # Löschschutz und Point-in-Time-Recovery.

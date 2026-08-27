@@ -28,13 +28,3 @@ export async function isEmailReserved(
   const [active, pending] = await Promise.all([references.active.get(), references.pending.get()]);
   return active.exists || pending.exists;
 }
-
-/** The Auth user an active e-mail reservation belongs to, when it names one. */
-export async function emailReservationHolder(
-  database: FirebaseFirestore.Firestore,
-  email: string,
-): Promise<string | null> {
-  const snapshot = await emailReservationReferences(database, email).active.get();
-  const userId = snapshot.data()?.userId;
-  return typeof userId === 'string' ? userId : null;
-}

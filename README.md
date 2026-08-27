@@ -103,7 +103,7 @@ Firebase-Session und das aktuelle Profil erneut.
 | `scripts/update-chat-guidance.ts`                 | Idempotente Datenänderung am Ablauf in `settings/chat`; Vorschau ohne `--apply`                                                                       |
 | `src/lib/mail/`                                   | Provider-neutraler Transport mit geprüftem Ziel, SMTP-Konfiguration aus Secret Manager, gemeinsame Mailvorlage sowie Auth- und Benachrichtigungsmails |
 | `src/lib/chat/`                                   | Chat-Schema, Tools, Quota, Persistenz-Ports, Transkript-Fakten und Tokenkosten                                                                        |
-| `src/lib/clinics/`, `src/lib/signup/`             | Clinic-Schemata, Suchvokabular, Veröffentlichung, Signup-Logik und Ablauf unbeantworteter Anträge                                                     |
+| `src/lib/clinics/`, `src/lib/signup/`             | Clinic-Schemata, Suchvokabular, Veröffentlichung, Signup-Logik                                                                                        |
 | `functions/`                                      | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                                        |
 | `firestore.rules`, `storage.rules`                | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                                         |
 | `firestore.indexes.json`                          | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                                       |

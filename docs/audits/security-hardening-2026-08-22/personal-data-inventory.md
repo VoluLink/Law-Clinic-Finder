@@ -41,18 +41,20 @@ zurück, die trotzdem einen Ort entfernt hat.
 
 ## 2 — Clinic-Mitarbeitende
 
-| Datum                              | Zweck                                | Herkunft            | Empfänger       | Aufbewahrung                      |
-| ---------------------------------- | ------------------------------------ | ------------------- | --------------- | --------------------------------- |
-| E-Mail-Adresse (Login und Kontakt) | Anmeldung, Benachrichtigung, Anzeige | Eingabe / Einladung | Firebase, Brevo | bis zur Löschung des Kontos       |
-| Hash der Adresse (`emailOwners`)   | Eindeutigkeit sicherstellen          | Ableitung           | —               | bis zur Löschung / bis zum Ablauf |
-| Auth-Identität (uid)               | Anmeldung                            | Firebase            | Firebase        | bis zur Löschung / bis zum Ablauf |
-| Anmeldezeitpunkt                   | Abläufe steuern                      | Firebase            | —               | Kontolaufzeit                     |
-| Öffentliche Clinic-Angaben         | Verzeichniseintrag                   | Eingabe             | öffentlich      | bis zur Löschung des Eintrags     |
+| Datum                              | Zweck                                | Herkunft            | Empfänger       | Aufbewahrung                  |
+| ---------------------------------- | ------------------------------------ | ------------------- | --------------- | ----------------------------- |
+| E-Mail-Adresse (Login und Kontakt) | Anmeldung, Benachrichtigung, Anzeige | Eingabe / Einladung | Firebase, Brevo | bis zur Löschung des Kontos   |
+| Hash der Adresse (`emailOwners`)   | Eindeutigkeit sicherstellen          | Ableitung           | —               | bis zur Löschung durch Admin  |
+| Auth-Identität (uid)               | Anmeldung                            | Firebase            | Firebase        | bis zur Löschung durch Admin  |
+| Anmeldezeitpunkt                   | Abläufe steuern                      | Firebase            | —               | Kontolaufzeit                 |
+| Öffentliche Clinic-Angaben         | Verzeichniseintrag                   | Eingabe             | öffentlich      | bis zur Löschung des Eintrags |
 
-**Neu seit `c771da1`:** Ein Antrag, der nie beantwortet wird, hält seine Reservierungen noch sieben
-Tage. Danach werden Profil, Namens-, Adress- und Eigentümerreservierung sowie der unbestätigte
-Auth-Nutzer freigegeben. Vorher galt das unbegrenzt — für nie bestätigte Adressen war das auch aus
-Sicht der Datenminimierung nicht haltbar.
+**Achtung, unbegrenzte Speicherung:** Ein Antrag, der nie beantwortet wird, behält seine
+Reservierungen — Profil, Namens-, Adress- und Eigentümerreservierung sowie den unbestätigten
+Auth-Nutzer — bis eine Administratorin ihn löscht. Die Adresse einer Person, die nie geantwortet
+hat, bleibt damit unbegrenzt gespeichert. Ein Ablauf nach sieben Tagen war implementiert und wurde
+auf Anweisung wieder entfernt; siehe [README.md](README.md) §2.1. Für die Datenschutzerklärung und
+für Löschanfragen ist das die Zeile, die abweicht: überall sonst gibt es eine Frist.
 
 ---
 

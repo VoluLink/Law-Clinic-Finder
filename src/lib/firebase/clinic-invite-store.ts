@@ -6,7 +6,6 @@ import { z } from 'zod';
 import type { AccessStatus, ClinicInviteStore } from '@/lib/admin/invite-clinic';
 import { sendSignInLink } from '@/lib/auth/email-link';
 import { clinicInviteSchema } from '@/lib/clinics/schema';
-import { pendingApplicationExpiry } from '@/lib/signup/pending-expiry';
 
 import { firebaseAdminAuth, firebaseFirestore } from './admin';
 import { clinicNameReservationId } from './clinic-repository';
@@ -105,12 +104,6 @@ async function linkProfile(
       activatedAt: null,
       createdAt: now,
       updatedAt: now,
-      /* Only a pending application is on the clock. An admin-activated one is
-         a real account from the moment it is created. */
-      expiresAt:
-        accessStatus === 'pending'
-          ? Timestamp.fromDate(pendingApplicationExpiry(now.toDate()))
-          : null,
     });
     transaction.set(contactReference, { contactEmail: email });
   });

@@ -8,7 +8,7 @@ import { maskEmail } from '@/lib/signup/mask-email';
 import { firebaseFirestore } from './admin';
 import { firestoreDateSchema } from './documents';
 import { readClinic } from './clinic-repository';
-import { emailReservationIsLive, releaseExpiredHolder } from './pending-expiry-store';
+import { isEmailReserved } from './identity-reservations';
 
 const claimLimitSchema = z
   .object({
@@ -20,9 +20,6 @@ const claimLimitSchema = z
 async function readMatch(clinicIdInput: string) {
   const clinicId = z.string().uuid().parse(clinicIdInput);
   const database = firebaseFirestore();
-  /* An ownership slot held by a claim nobody ever answered would otherwise lock
-     a live directory entry out of its own claim flow for good. */
-  await releaseExpiredHolder(clinicId);
   const [clinic, owner] = await Promise.all([
     readClinic(clinicId),
     database.collection('uniqueClinicOwners').doc(clinicId).get(),
@@ -40,7 +37,8 @@ async function readMatch(clinicIdInput: string) {
 
 async function isEmailTaken(emailInput: string): Promise<boolean> {
   const email = z.string().trim().email().parse(emailInput).toLowerCase();
-  return emailReservationIsLive(email);
+  const database = firebaseFirestore();
+  return isEmailReserved(database, email);
 }
 
 async function reserveAttempt(clinicIdInput: string, nowInput: Date) {
