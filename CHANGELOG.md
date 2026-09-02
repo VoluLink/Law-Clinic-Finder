@@ -113,6 +113,12 @@ no-store`. Bisher hing der Header am Staging-Schutz — also genau an dem Mechan
 
 ### Fixed
 
+- Die leeren GA-Platzhalter in `apphosting.yaml` brachen jeden Rollout ab. Der App-Hosting-Preparer
+  lehnt einen Eintrag ohne Wert und ohne Secret ab — `value: ''` zählt als beides nicht — und der
+  Build startete gar nicht erst. Beide Variablen stehen jetzt auskommentiert da, was der Code
+  ohnehin gleich behandelt; ein Test in `scripts/apphosting-config.test.ts` verlangt für jede
+  ausgelieferte Variable einen Wert oder ein Secret.
+
 - Die De-Identifikation forderte im Hotword-Ausschluss einen Teiltreffer an. Cloud DLP weist das
   mit 400 zurück, und weil die Redaktion fehlschlagend schließt, hätte der Chat jeder Besucherin
   mit 503 geantwortet — die Konfiguration war also von Anfang an unbenutzbar. Gegen die echte API

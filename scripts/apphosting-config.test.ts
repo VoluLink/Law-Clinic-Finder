@@ -35,22 +35,29 @@ function findLocalDatabaseClientImports(): string[] {
     });
 }
 
-type DeployedVariable = { variable: string; value: string | null; availability: string[] };
+type DeployedVariable = {
+  variable: string;
+  value: string | null;
+  secret: string | null;
+  availability: string[];
+};
 
 /** A targeted read of the `env:` list rather than a YAML parse: no YAML library
- *  is a declared dependency, and only these three fields are under test. */
+ *  is a declared dependency, and only these four fields are under test. */
 function deployedEnvironment(): DeployedVariable[] {
   const entries: DeployedVariable[] = [];
   for (const line of readFileSync('apphosting.yaml', 'utf8').split('\n')) {
     const declared = /^ {2}- variable: (\S+)/.exec(line);
     if (declared) {
-      entries.push({ variable: declared[1], value: null, availability: [] });
+      entries.push({ variable: declared[1], value: null, secret: null, availability: [] });
       continue;
     }
     const current = entries.at(-1);
     if (!current) continue;
     const value = /^ {4}value: (.*)$/.exec(line);
     if (value) current.value = value[1].trim().replace(/^'(.*)'$/, '$1');
+    const secret = /^ {4}secret: (\S+)/.exec(line);
+    if (secret) current.secret = secret[1];
     const availability = /^ {6}- (BUILD|RUNTIME)\b/.exec(line);
     if (availability) current.availability.push(availability[1]);
   }
@@ -60,6 +67,18 @@ function deployedEnvironment(): DeployedVariable[] {
 function deployedVariable(name: string): DeployedVariable | undefined {
   return deployedEnvironment().find((entry) => entry.variable === name);
 }
+
+describe('deployed environment', () => {
+  // App Hosting's preparer rejects an entry that carries neither, `value: ''`
+  // included, and the rollout fails before the build ever starts.
+  it('gives every variable a non-empty value or a secret', () => {
+    const undeclared = deployedEnvironment()
+      .filter((entry) => !entry.value && !entry.secret)
+      .map((entry) => entry.variable);
+
+    expect(undeclared).toEqual([]);
+  });
+});
 
 describe('deployed abuse challenge', () => {
   it('gates the first chat message with the self-hosted proof of work', () => {
