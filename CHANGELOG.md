@@ -32,6 +32,11 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Die Missbrauchs-Challenge ist in der Auslieferung eingeschaltet (`CHALLENGE_ENABLED=true`,
+  Provider `pow`). Der öffentliche Spiegel `NEXT_PUBLIC_CHALLENGE_PROVIDER` steht zusätzlich unter
+  `BUILD` zur Verfügung, weil er in das Browser-Bundle eingebaut wird; fehlt das, löst der Browser
+  nichts und der Server weist jede erste Nachricht ab. Ein Test in
+  `scripts/apphosting-config.test.ts` hält beides zusammen.
 - Branding-Schriften kommen jetzt vom eigenen Server statt von Google Fonts. Bisher lud jede Seite
   mit einer nicht voreingestellten Schrift ein Stylesheet von `fonts.googleapis.com` und übermittelte
   damit die IP jedes Besuchers an Google — für eine deutsche öffentliche Seite ohne Einwilligung
@@ -108,6 +113,10 @@ no-store`. Bisher hing der Header am Staging-Schutz — also genau an dem Mechan
 
 ### Fixed
 
+- Die De-Identifikation forderte im Hotword-Ausschluss einen Teiltreffer an. Cloud DLP weist das
+  mit 400 zurück, und weil die Redaktion fehlschlagend schließt, hätte der Chat jeder Besucherin
+  mit 503 geantwortet — die Konfiguration war also von Anfang an unbenutzbar. Gegen die echte API
+  in `europe-west4` geprüft: Name und Adresse werden ersetzt, Postleitzahl und Ort bleiben stehen.
 - Stadt und Region bleiben in der Redaktion erhalten; nur die Postleitzahl wird ersetzt. Ohne den
   Ort könnte die KI keine Clinic in der Nähe mehr finden.
 - Navigationslinks laden nicht mehr spekulativ vor; das beendet die Kaltstart-Welle, die den

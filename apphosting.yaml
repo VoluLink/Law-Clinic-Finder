@@ -63,6 +63,27 @@ env:
     value: europe-west4
     availability:
       - RUNTIME
+
+  # The first message of a conversation must solve a challenge. `pow` is a
+  # self-hosted proof of work: no third party, no cookie, nothing to provision
+  # and no Datenschutzerklärung entry. Turnstile is implemented server-side but
+  # has no browser widget yet, so selecting it here would leave the client with
+  # no token and the server rejecting every opening message.
+  - variable: CHALLENGE_ENABLED
+    value: 'true'
+    availability:
+      - RUNTIME
+  - variable: CHALLENGE_PROVIDER
+    value: pow
+    availability:
+      - RUNTIME
+  # The browser's copy is inlined at build time, so BUILD is required here. Drop
+  # it and the client never solves anything while the server keeps demanding it.
+  - variable: NEXT_PUBLIC_CHALLENGE_PROVIDER
+    value: pow
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: SITE_URL
     secret: siteUrl
   - variable: STAGING_ACCESS_ENABLED

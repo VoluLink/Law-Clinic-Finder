@@ -278,9 +278,12 @@ Profil verwenden. Der letzte Admin und der handelnde Admin selbst können nicht 
 
 Die erste Nachricht eines Gesprächs muss eine Challenge lösen. Die Grenze ist provider-neutral:
 Standard ist ein selbst gehosteter Proof-of-Work — keine dritte Partei, kein Cookie, kein
-Einwilligungsbedarf und nichts bereitzustellen. Cloudflare Turnstile ist implementiert und wird über
-`CHALLENGE_PROVIDER=turnstile` aktiv, sobald die Seite hinter Cloudflare steht; das Client-Widget
-benötigt dann noch einen Site-Key. Nur der erste Zug wird geprüft, die Lösung ist an die `sessionId`
+Einwilligungsbedarf und nichts bereitzustellen; `apphosting.yaml` schaltet ihn ein. Cloudflare
+Turnstile ist nur serverseitig implementiert: `src/lib/security/client-challenge.ts` löst
+ausschließlich den Proof-of-Work. `CHALLENGE_PROVIDER=turnstile` wäre deshalb heute ein Ausfall —
+der Browser schickte kein Token, der Server wiese jede erste Nachricht ab. Vor einer Umstellung
+braucht es das Client-Widget samt Site-Key, Cloudflare vor der Seite und einen Eintrag in der
+Datenschutzerklärung. Nur der erste Zug wird geprüft, die Lösung ist an die `sessionId`
 gebunden, und geprüft wird vor dem Verbrauch des Tageskontingents.
 
 Firebase App Hosting liegt hinter dem Google Front End, das volumetrische L3/L4-Angriffe abfängt.

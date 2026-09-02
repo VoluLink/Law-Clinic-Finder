@@ -35,6 +35,46 @@ function findLocalDatabaseClientImports(): string[] {
     });
 }
 
+type DeployedVariable = { variable: string; value: string | null; availability: string[] };
+
+/** A targeted read of the `env:` list rather than a YAML parse: no YAML library
+ *  is a declared dependency, and only these three fields are under test. */
+function deployedEnvironment(): DeployedVariable[] {
+  const entries: DeployedVariable[] = [];
+  for (const line of readFileSync('apphosting.yaml', 'utf8').split('\n')) {
+    const declared = /^ {2}- variable: (\S+)/.exec(line);
+    if (declared) {
+      entries.push({ variable: declared[1], value: null, availability: [] });
+      continue;
+    }
+    const current = entries.at(-1);
+    if (!current) continue;
+    const value = /^ {4}value: (.*)$/.exec(line);
+    if (value) current.value = value[1].trim().replace(/^'(.*)'$/, '$1');
+    const availability = /^ {6}- (BUILD|RUNTIME)\b/.exec(line);
+    if (availability) current.availability.push(availability[1]);
+  }
+  return entries;
+}
+
+function deployedVariable(name: string): DeployedVariable | undefined {
+  return deployedEnvironment().find((entry) => entry.variable === name);
+}
+
+describe('deployed abuse challenge', () => {
+  it('gates the first chat message with the self-hosted proof of work', () => {
+    expect(deployedVariable('CHALLENGE_ENABLED')?.value).toBe('true');
+    expect(deployedVariable('CHALLENGE_PROVIDER')?.value).toBe('pow');
+  });
+
+  it('reaches the browser bundle, without which every opening message is rejected', () => {
+    const mirrored = deployedVariable('NEXT_PUBLIC_CHALLENGE_PROVIDER');
+
+    expect(mirrored?.value).toBe(deployedVariable('CHALLENGE_PROVIDER')?.value);
+    expect(mirrored?.availability).toContain('BUILD');
+  });
+});
+
 describe('App Hosting source rollout config', () => {
   it('allows deployment from the protected local source', () => {
     expect(firebaseConfig.apphosting.alwaysDeployFromSource).toBe(true);
