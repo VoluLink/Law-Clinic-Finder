@@ -99,7 +99,9 @@ function inspectConfig() {
                 hotwordRegex: { pattern: '\\d{5}' },
                 proximity: { windowBefore: 8 },
               },
-              matchingType: 'MATCHING_TYPE_PARTIAL_MATCH',
+              // Hotword exclusions accept only a full match; a partial one is a
+              // 400 from DLP, and under fail-closed that is a total chat outage.
+              matchingType: 'MATCHING_TYPE_FULL_MATCH',
             },
           },
         ],

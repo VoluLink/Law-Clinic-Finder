@@ -141,6 +141,17 @@ describe(deidentifyMessages, () => {
     expect(rule.rules[0].exclusionRule.dictionary.wordList.words).toEqual([...REGION_SUGGESTIONS]);
   });
 
+  it('asks for full matches only, the sole kind a hotword exclusion accepts', async () => {
+    useDlp();
+    const fetchMock = stubFetch(dlpTable('ok'));
+    await deidentifyMessages(user('Hallo'));
+    const [rule] = requestBody(fetchMock).inspectConfig.ruleSet;
+    const matchingTypes = rule.rules.map(
+      (entry: { exclusionRule: { matchingType: string } }) => entry.exclusionRule.matchingType,
+    );
+    expect(matchingTypes).toEqual(['MATCHING_TYPE_FULL_MATCH', 'MATCHING_TYPE_FULL_MATCH']);
+  });
+
   it('refuses a response that removed a postal code', async () => {
     useDlp();
     stubFetch(dlpTable('Ich wohne in [LOCATION].'));
