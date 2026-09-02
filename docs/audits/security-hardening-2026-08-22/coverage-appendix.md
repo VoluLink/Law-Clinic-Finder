@@ -74,14 +74,14 @@ Erschöpfende Suche nach `dangerouslySetInnerHTML`, `innerHTML`, `document.write
 
 ## 5 — Build, Auslieferung, Lieferkette
 
-| Prüfung                      | Ergebnis                                                                                                                                                                                                                                      |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI-Schritte                  | typecheck, Tests (beide Bäume), lint, format, build, Scan der Build-Ausgabe, `npm audit --omit=dev --audit-level=high` je Baum                                                                                                                |
-| Berechtigungen des Workflows | `contents: read` — sonst nichts                                                                                                                                                                                                               |
-| Action-Pinning               | Beide auf einen Commit-SHA gepinnt, gegen die GitHub-API als `v4.4.0` bestätigt                                                                                                                                                               |
-| Dependabot                   | npm im Wurzelverzeichnis, npm in `functions/`, github-actions — wöchentlich                                                                                                                                                                   |
-| Dockerfile                   | Nicht-Root (`USER nextjs`), mehrstufig, `--chown`. **Nicht** auf dem Deploy-Pfad: App Hosting baut aus dem Quelltext, und kein Dokument verweist auf das Dockerfile. Basis-Tag gleitend, nicht digest-gepinnt — festgehalten, nicht geändert. |
-| `npm audit`                  | Ein Restbefund: `uuid < 11.1.1`, transitiv über `firebase-admin`. Kein `overrides`, kein `--force` — der vorgeschlagene „Fix" ist ein Downgrade auf `firebase-admin` 10.3.0.                                                                  |
+| Prüfung                      | Ergebnis                                                                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI-Schritte                  | typecheck, Tests (beide Bäume), lint, format, build, Scan der Build-Ausgabe, `npm audit --omit=dev --audit-level=high` je Baum                                                                                      |
+| Berechtigungen des Workflows | `contents: read` — sonst nichts                                                                                                                                                                                     |
+| Action-Pinning               | Beide auf einen Commit-SHA gepinnt, gegen die GitHub-API als `v4.4.0` bestätigt                                                                                                                                     |
+| Dependabot                   | npm im Wurzelverzeichnis, npm in `functions/`, github-actions — wöchentlich                                                                                                                                         |
+| Dockerfile                   | Nicht-Root (`USER nextjs`), mehrstufig, `--chown`. **Nicht** auf dem Deploy-Pfad: App Hosting baut aus dem Quelltext, und kein Dokument verwies auf das Dockerfile. Nach der Prüfung samt `.dockerignore` entfernt. |
+| `npm audit`                  | Ein Restbefund: `uuid < 11.1.1`, transitiv über `firebase-admin`. Kein `overrides`, kein `--force` — der vorgeschlagene „Fix" ist ein Downgrade auf `firebase-admin` 10.3.0.                                        |
 
 ---
 
@@ -89,10 +89,9 @@ Erschöpfende Suche nach `dangerouslySetInnerHTML`, `innerHTML`, `document.write
 
 | Prüfung                    | Ergebnis                                                                                                                                                                                                                       |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Supabase zur Laufzeit      | `@supabase/supabase-js` erscheint ausschließlich unter `scripts/firebase-migration/`. Keine einzige Datei unter `src/` importiert es.                                                                                          |
-| Migrationsquelle           | Host auf `https://<ref>.supabase.co` festgenagelt, Protokoll und Hostname geprüft.                                                                                                                                             |
+| Supabase zur Laufzeit      | Zum Prüfzeitpunkt erschien `@supabase/supabase-js` ausschließlich unter `scripts/firebase-migration/`; keine Datei unter `src/` importierte es. Die gesamte Supabase-Schicht wurde nach der Prüfung entfernt.                  |
 | `/api/dev/login`           | Antwortet mit **404**, sobald `parseDevLoginRole` null liefert — in Produktion und ohne Opt-in-Flag immer. Verlangt zusätzlich Emulatoren auf Loopback, kann also keine privilegierten Konten in einem echten Projekt anlegen. |
-| Test- und Seed-Identitäten | Nur `@example.com` und `@example.org`. Die beiden echten `@example.com`-Konten im Live-Projekt sind kein Repository-Problem, stehen aber in der Veröffentlichungs-Checkliste (`CLAUDE.md` §4 G-8).                             |
+| Test- und Seed-Identitäten | Nur `@example.com` und `@example.org`. Die beiden echten `@example.com`-Konten im Live-Projekt sind kein Repository-Problem, stehen aber unter „Offene Punkte" in `README.md`.                                                 |
 | `.env` in der Historie     | `git ls-files                                                                                                                                                                                                                  | grep -i env`und`git log --all -- '*.env'`: nur `.env.example`. |
 
 ---

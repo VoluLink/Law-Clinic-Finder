@@ -24,7 +24,6 @@ export const en: Translations = {
   footerImprint: 'Imprint',
   footerAccount: 'Account',
   cooperation: 'A cooperation project by',
-  assistantName: 'Clinic Finder Assistant',
   assistantTag: 'ASSISTANT',
   aiInteractionNotice: 'You are currently interacting with an artificial intelligence.',
   chatYou: 'You',

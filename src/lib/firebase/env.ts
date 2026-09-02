@@ -81,8 +81,6 @@ export function parseFirebaseConfig(env: Environment) {
   });
 }
 
-export type FirebaseConfig = ReturnType<typeof parseFirebaseConfig>;
-
 export function parseSmtpConfig(env: Environment) {
   const parsed = parseConfig(smtpSchema, {
     host: env.SMTP_HOST,

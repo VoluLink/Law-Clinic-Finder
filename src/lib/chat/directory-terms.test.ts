@@ -11,7 +11,7 @@ type Row = {
 
 type CallLog = Array<[string, unknown[]]>;
 
-function createSupabaseMock(rows: Row[] | null, error: { message: string } | null = null) {
+function createDirectoryMock(rows: Row[] | null, error: { message: string } | null = null) {
   const calls: CallLog = [];
   const client = {
     listPublished: async () => {
@@ -43,7 +43,7 @@ const rows: Row[] = [
 
 describe('listDirectoryTerms', () => {
   it('returns the distinct, sorted vocabulary of every searchable dimension', async () => {
-    const { client } = createSupabaseMock(rows);
+    const { client } = createDirectoryMock(rows);
     const result = JSON.parse(await listDirectoryTerms(client as never));
     expect(result).toEqual({
       legal_areas: ['Arbeitsrecht', 'Mietrecht', 'Zivilrecht (Mietrecht, Kaufrecht)'],
@@ -54,7 +54,7 @@ describe('listDirectoryTerms', () => {
   });
 
   it('pins the nationwide region first even when it sorts later alphabetically', async () => {
-    const { client } = createSupabaseMock([
+    const { client } = createDirectoryMock([
       { legal_areas: null, region: 'Aachen', languages: null, target_clients: null },
       { legal_areas: null, region: 'Bundesweit', languages: null, target_clients: null },
     ]);
@@ -65,7 +65,7 @@ describe('listDirectoryTerms', () => {
   it('drops a prose cell that is too long to be a real term', async () => {
     const prose =
       'Wir beraten umfassend und individuell zu allen Fragen rund um das Mietrecht und Wohnungsrecht';
-    const { client } = createSupabaseMock([
+    const { client } = createDirectoryMock([
       { legal_areas: prose, region: null, languages: null, target_clients: null },
     ]);
     const { legal_areas } = JSON.parse(await listDirectoryTerms(client as never));
@@ -73,13 +73,13 @@ describe('listDirectoryTerms', () => {
   });
 
   it('only reads through the published-directory boundary', async () => {
-    const { client, calls } = createSupabaseMock([]);
+    const { client, calls } = createDirectoryMock([]);
     await listDirectoryTerms(client as never);
     expect(calls).toContainEqual(['listPublished', []]);
   });
 
   it('returns empty lists for an empty directory', async () => {
-    const { client } = createSupabaseMock([]);
+    const { client } = createDirectoryMock([]);
     expect(JSON.parse(await listDirectoryTerms(client as never))).toEqual({
       legal_areas: [],
       regions: [],
@@ -89,7 +89,7 @@ describe('listDirectoryTerms', () => {
   });
 
   it('throws when the database returns an error', async () => {
-    const { client } = createSupabaseMock(null, { message: 'boom' });
+    const { client } = createDirectoryMock(null, { message: 'boom' });
     await expect(listDirectoryTerms(client as never)).rejects.toThrow(
       'directory terms lookup failed',
     );

@@ -24,7 +24,6 @@ export const fr: Translations = {
   footerImprint: 'Mentions légales',
   footerAccount: 'Compte',
   cooperation: 'Un projet de coopération de',
-  assistantName: 'Assistant Clinic Finder',
   assistantTag: 'ASSISTANT',
   aiInteractionNotice: 'Tu interagis actuellement avec une intelligence artificielle.',
   chatYou: 'Toi',

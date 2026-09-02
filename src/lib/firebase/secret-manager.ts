@@ -45,8 +45,6 @@ export class SecretManagerError extends Error {
   }
 }
 
-export type SecretVersion = { id: string; enabled: boolean };
-
 const accessSchema = z.object({ payload: z.object({ data: z.string() }) });
 const versionListSchema = z.object({
   versions: z

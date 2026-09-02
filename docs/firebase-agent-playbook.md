@@ -1,8 +1,8 @@
 # Firebase Agent Playbook
 
-This is the operational handoff for agents changing or operating this project. Read `AGENTS.md`
-and the root `README.md` first, then this file before touching Firebase, authentication, SMTP,
-hosting, data, IAM, or secrets.
+Operational handoff for anyone changing or running this project. Read the root `README.md`
+first, then this file before touching Firebase, authentication, SMTP, hosting, data, IAM, or
+secrets.
 
 ## Fixed targets
 
@@ -28,7 +28,7 @@ different project, database, bucket, region, or identity. Never substitute `(def
 ## Start and resume safely
 
 1. Run `git status --short --branch`; preserve unrelated or user-owned changes.
-2. Read `README.md`, then `docs/firebase-migration-plan.md` for only the outstanding work.
+2. Read `README.md`, in particular „Offene Punkte" under Spec & Status.
 3. Inspect the relevant implementation and its colocated tests before planning a change.
 4. For Next.js work, read the matching installed guide in `node_modules/next/dist/docs/` first.
 5. Confirm the active cloud target without reading secrets:
@@ -166,7 +166,8 @@ env -u DEBUG ./node_modules/.bin/firebase apphosting:backends:get web \
 ```
 
 Use Firebase Console → App Hosting → `web` → **Rollouts** for the normal commit/build/rollout check.
-The installed Firebase CLI 15.27.0 has no read-only `apphosting:rollouts:list` command. When an API
+The pinned Firebase CLI (`firebase-tools ^15.27.0`) has no read-only `apphosting:rollouts:list`
+command. When an API
 check is necessary, take the build and rollout IDs from the console and query only those exact
 resources; never print the access token or enable shell tracing:
 
@@ -201,17 +202,6 @@ env -u DEBUG ./node_modules/.bin/firebase apphosting:rollouts:create web \
 This command creates a new GitHub-sourced build/rollout; it does not reuse an orphaned build. Run
 the complete verification list afterward. Keep the manual local-source `firebase deploy --only
 apphosting` path below for last-resort recovery only.
-
-### First-connection incident snapshot
-
-The connection received `main` commit `cc4ef327bbf7d0741c3672d56562972624bb1b3f` and produced
-`build-2026-08-22-009` in state `READY`, proving repository access, branch delivery, and build
-attribution. The Firebase console then failed while creating the rollout with
-`getSourceCase`; no rollout resource exists for build 009. Cloud Run created healthy revision
-`web-build-2026-08-22-009`, but 100% traffic remains on verified rollout
-`web-build-2026-08-22-008`. Treat the first automatic rollout and end-to-end GitHub delivery as open
-until a later GitHub-attributed rollout satisfies every exit gate above; replace this incident
-snapshot with the verified rollout ID and commit when that happens.
 
 ## Explicit infrastructure deployments
 
@@ -339,9 +329,8 @@ authorization before:
 - creating or deleting any cloud database/resource;
 - disabling or deleting Supabase data or services.
 
-For public deployment, stop until the domain, authorized domains/action links, final Impressum and
-Datenschutzerklärung, Brevo first-party DKIM, content-level restore drill, and staging-exit checks in
-`docs/firebase-migration-plan.md` are complete.
+For public deployment, stop until every item under „Offene Punkte" in `README.md` is complete —
+in particular the Sensitive Data Protection API, without which the chat answers 503.
 
 ## Rollback and incident response
 

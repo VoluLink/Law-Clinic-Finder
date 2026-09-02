@@ -24,7 +24,6 @@ export const tr: Translations = {
   footerImprint: 'Künye',
   footerAccount: 'Hesap',
   cooperation: 'Bir iş birliği projesi',
-  assistantName: 'Klinik Bulucu Asistanı',
   assistantTag: 'ASİSTAN',
   aiInteractionNotice: 'Şu anda bir yapay zekâ ile etkileşim kuruyorsun.',
   chatYou: 'Sen',

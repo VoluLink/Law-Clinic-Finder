@@ -3,7 +3,7 @@
 ## What & Run
 
 Mehrsprachiger Finder für studentische Rechtsberatung mit öffentlichem KI-Chat, Clinic-Portal und
-Admin-Bereich. Diese Fassung ersetzt Supabase vollständig durch Firebase Authentication mit
+Admin-Bereich. Die Anwendung läuft vollständig auf Firebase Authentication mit
 Identity Platform, Cloud Firestore, Cloud Storage und Firebase App Hosting. Auth-Mails werden über
 einen provider-neutralen SMTP-Adapter versendet; Brevo ist nur die aktuelle Konfiguration.
 
@@ -21,16 +21,14 @@ npm run build
 
 Wichtige Befehle:
 
-| Befehl                                                          | Zweck                                                                |
-| --------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `npm run emulators`                                             | Auth-, Firestore-, Functions- und Storage-Emulatoren                 |
-| `npm run test:firebase`                                         | Firestore-Transaktionen und Race-Bedingungen gegen den Emulator      |
-| `npm run test:rules`                                            | Deny-by-default-Regeln gegen Emulatoren prüfen                       |
-| `npm run test:migration`                                        | Firebase-Ziel: Apply, Resume und Verify gegen Emulatoren             |
-| `npm run test:e2e`                                              | Rollen-, Public-, RTL- und Accessibility-E2E nur gegen Emulatoren    |
-| `npm run dev:login:teardown`                                    | Löscht nur die zwei `@example.com`-Konten aus Loopback-Emulatoren    |
-| `npm run import:clinics -- clinics.json`                        | Clinic-JSON validieren; ohne `--apply` nur Vorschau                  |
-| `npm run migrate:firebase -- --source-ref <REF> --run-id <RUN>` | Supabase lesen, validieren und Checksummen ausgeben; schreibt nichts |
+| Befehl                                   | Zweck                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `npm run emulators`                      | Auth-, Firestore-, Functions- und Storage-Emulatoren              |
+| `npm run test:firebase`                  | Firestore-Transaktionen und Race-Bedingungen gegen den Emulator   |
+| `npm run test:rules`                     | Deny-by-default-Regeln gegen Emulatoren prüfen                    |
+| `npm run test:e2e`                       | Rollen-, Public-, RTL- und Accessibility-E2E nur gegen Emulatoren |
+| `npm run dev:login:teardown`             | Löscht nur die zwei `@example.com`-Konten aus Loopback-Emulatoren |
+| `npm run import:clinics -- clinics.json` | Clinic-JSON validieren; ohne `--apply` nur Vorschau               |
 
 Die Emulator-Hosts müssen beim lokalen App-Prozess auf Loopback zeigen:
 
@@ -46,29 +44,31 @@ DEV_LOGIN_ENABLED=true
 Reale Werte gehören ausschließlich in `.env.local` bzw. App Hosting Secret Manager, nie ins Repo.
 `.env.example` enthält die vollständige Vorlage.
 
-| Variable                                                 | Sichtbarkeit          | Zweck                                                                                                          |
-| -------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `FIREBASE_PROJECT_ID`                                    | Server                | Fest auf `law-clinic-finder`; verhindert versehentliche Zielwechsel                                            |
-| `FIREBASE_DATABASE_ID`                                   | Server                | Fest auf die benannte EU-Datenbank `primary-eu`                                                                |
-| `FIREBASE_STORAGE_BUCKET`                                | Server                | Branding-Bucket des Projekts                                                                                   |
-| `IDENTITY_PLATFORM_API_KEY`                              | Server, nicht geheim  | Identity-Platform-REST-Austausch für E-Mail-Links                                                              |
-| `NEXT_PUBLIC_SITE_URL`                                   | öffentlich            | Kanonischer HTTPS-Origin für `/auth/confirm`                                                                   |
-| `SMTP_HOST` / `SMTP_PORT`                                | Server                | SMTP-Server und Port; 465 = TLS, andere Ports = STARTTLS                                                       |
-| `SMTP_LOGIN_EMAIL` / `SMTP_PASSWORD`                     | Server/Secret         | Provider-neutraler SMTP-Login                                                                                  |
-| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME`                     | Server                | Absender; E-Mail fällt auf den SMTP-Login zurück                                                               |
-| `SMTP_SETTINGS_SECRET` / `SMTP_SETTINGS_SECRET_LOCATION` | Server                | Name und Region des versionierten SMTP-Secrets, das der Admin-Bereich schreibt; leere Region = globales Secret |
-| `STAGING_ACCESS_ENABLED`                                 | Server                | Schaltet den temporären Vorschau-Schutz explizit ein                                                           |
-| `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD`    | Server/Secret         | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                                                             |
-| `ANTHROPIC_API_KEY`                                      | Server/Secret         | Claude API für den Finder-Chat                                                                                 |
-| `DEV_LOGIN_ENABLED`                                      | nur lokal             | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden                                                |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                          | öffentlich, optional  | Consent-gesteuertes GA4; ohne diesen Wert erscheint auch kein Cookie-Banner                                    |
-| `CHALLENGE_ENABLED` / `CHALLENGE_PROVIDER`               | Server                | Missbrauchs-Challenge vor der ersten Chatnachricht; `pow` (Standard) oder `turnstile`                          |
-| `CHALLENGE_POW_DIFFICULTY` / `TURNSTILE_SECRET`          | Server/Secret         | Schwierigkeit des Proof-of-Work bzw. Cloudflare-Turnstile-Secret                                               |
-| `NEXT_PUBLIC_CHALLENGE_PROVIDER` / `…_POW_DIFFICULTY`    | öffentlich            | Spiegel für den Browser; der Server bleibt die Autorität                                                       |
-| `TRUSTED_PROXY`                                          | Server                | `cloudflare` nur, wenn der Origin auf Cloudflare beschränkt ist — sonst sind alle Per-IP-Limits fälschbar      |
-| `LOG_PERSIST_LEVEL`                                      | Server, optional      | Niedrigstes Level, das nach Firestore geschrieben wird; Standard `warn`                                        |
-| `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`             | Server, optional      | GA-Karten im Admin-Dashboard                                                                                   |
-| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SECRET_KEY`       | nur Migrationsrechner | Read-only Quelle des Kopierwerkzeugs; kein App-Runtime-Zugriff                                                 |
+| Variable                                                 | Sichtbarkeit         | Zweck                                                                                                          |
+| -------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `FIREBASE_PROJECT_ID`                                    | Server               | Fest auf `law-clinic-finder`; verhindert versehentliche Zielwechsel                                            |
+| `FIREBASE_DATABASE_ID`                                   | Server               | Fest auf die benannte EU-Datenbank `primary-eu`                                                                |
+| `FIREBASE_STORAGE_BUCKET`                                | Server               | Branding-Bucket des Projekts                                                                                   |
+| `IDENTITY_PLATFORM_API_KEY`                              | Server, nicht geheim | Identity-Platform-REST-Austausch für E-Mail-Links                                                              |
+| `NEXT_PUBLIC_SITE_URL`                                   | öffentlich           | Kanonischer HTTPS-Origin für `/auth/confirm`                                                                   |
+| `SITE_URL`                                               | Server               | Serverseitiger Rückfall für die Origin-Prüfung, wenn `NEXT_PUBLIC_SITE_URL` fehlt                              |
+| `SMTP_HOST` / `SMTP_PORT`                                | Server               | SMTP-Server und Port; 465 = TLS, andere Ports = STARTTLS                                                       |
+| `SMTP_LOGIN_EMAIL` / `SMTP_PASSWORD`                     | Server/Secret        | Provider-neutraler SMTP-Login                                                                                  |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME`                     | Server               | Absender; E-Mail fällt auf den SMTP-Login zurück                                                               |
+| `SMTP_SETTINGS_SECRET` / `SMTP_SETTINGS_SECRET_LOCATION` | Server               | Name und Region des versionierten SMTP-Secrets, das der Admin-Bereich schreibt; leere Region = globales Secret |
+| `STAGING_ACCESS_ENABLED`                                 | Server               | Schaltet den temporären Vorschau-Schutz explizit ein                                                           |
+| `STAGING_ACCESS_USERNAME` / `STAGING_ACCESS_PASSWORD`    | Server/Secret        | HTTP-Basic-Zugang; Passwort nur aus Secret Manager                                                             |
+| `ANTHROPIC_API_KEY`                                      | Server/Secret        | Claude API für den Finder-Chat                                                                                 |
+| `DEV_LOGIN_ENABLED`                                      | nur lokal            | Test-Login, zusätzlich an Auth- und Firestore-Emulator gebunden                                                |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`                          | öffentlich           | Consent-gesteuertes GA4; ohne diesen Wert erscheint auch kein Cookie-Banner. In `apphosting.yaml` gesetzt      |
+| `CHALLENGE_ENABLED` / `CHALLENGE_PROVIDER`               | Server               | Missbrauchs-Challenge vor der ersten Chatnachricht; `pow` (Standard) oder `turnstile`                          |
+| `CHALLENGE_POW_DIFFICULTY` / `TURNSTILE_SECRET`          | Server/Secret        | Schwierigkeit des Proof-of-Work bzw. Cloudflare-Turnstile-Secret                                               |
+| `NEXT_PUBLIC_CHALLENGE_PROVIDER` / `…_POW_DIFFICULTY`    | öffentlich           | Spiegel für den Browser; der Server bleibt die Autorität                                                       |
+| `TRUSTED_PROXY`                                          | Server               | `cloudflare` nur, wenn der Origin auf Cloudflare beschränkt ist — sonst sind alle Per-IP-Limits fälschbar      |
+| `REDACTION_PROVIDER` / `DLP_LOCATION`                    | Server               | Einziger Redaktor vor Anthropic. `dlp` schließt fehlschlagend: ohne aktivierte API antwortet der Chat 503      |
+| `LOG_PERSIST_LEVEL`                                      | Server, optional     | Niedrigstes Level, das nach Firestore geschrieben wird; Standard `warn`                                        |
+| `LOG_DEBUG`                                              | Server, optional     | `1` gibt Debug-Zeilen auf stdout aus; standardmäßig aus                                                        |
+| `GA_PROPERTY_ID` / `GA_SERVICE_ACCOUNT_JSON`             | Server/Secret        | GA-Karten im Admin-Dashboard; numerische Property, nicht die `G-`-ID                                           |
 
 App Hosting stellt Application Default Credentials bereit. Lokal werden Emulatoren oder lokale ADC
 außerhalb des Repositories verwendet; Service-Account-JSON wird weder eingebaut noch committed.
@@ -107,12 +107,9 @@ Firebase-Session und das aktuelle Profil erneut.
 | `functions/`                                      | Kontoerstellungs-Blocker und günstiger, ereignisgesteuerter Betriebsalarm-Sync                                                                        |
 | `firestore.rules`, `storage.rules`                | Browserzugriff: Firestore komplett gesperrt, Storage nur Branding-Lesezugriff                                                                         |
 | `firestore.indexes.json`                          | Minimale Query-Indizes und TTL-/Index-Ausnahmen                                                                                                       |
-| `scripts/firebase-migration/`                     | Read-only Supabase-Quelle, Transformation, idempotenter Firebase-Writer und Verify                                                                    |
-| `docs/firebase-migration-plan.md`                 | Nur noch offene Migrations-, Cutover- und Folgearbeiten                                                                                               |
 | `docs/audits/security-hardening-2026-08-22/`      | Sicherheitsbericht, ASVS-/AISVS-Matrix, Verzeichnis personenbezogener Daten, Prüfumfang, Betriebsprüfung                                              |
 | `docs/firebase-agent-playbook.md`                 | Verbindlicher Firebase-Betriebs-, Sicherheits- und Übergabeleitfaden                                                                                  |
 | `.github/workflows/ci.yml`                        | Read-only CI-Gates für Pull Requests und `main`                                                                                                       |
-| `supabase/migrations/`                            | Unveränderte historische Quelle für Datenmodell/Seeds und möglichen Rollback                                                                          |
 
 ### Datenfluss und Sicherheitsgrenze
 
@@ -128,7 +125,8 @@ zugriffe ab; App Hosting schreibt mit der dedizierten, eingeschränkten Runtime-
 `law-clinic-runtime`. Die standardmäßige Build-Identität besitzt keine Rollen für Anwendungsdaten.
 
 Firebase-Auth-Zustand liegt ausschließlich im begrenzten `HttpOnly`-Cookie `__session` (`Secure` in
-Produktion, `SameSite=Lax`, fünf Tage). ID- und Refresh-Tokens werden nicht im Browser gespeichert.
+Produktion, `SameSite=Lax`; Admin 8 Stunden, Clinic 5 Tage). ID- und Refresh-Tokens werden nicht
+im Browser gespeichert.
 Ein gültiges Cookie allein reicht nicht: `requireRole` lädt immer das aktuelle `profiles/{uid}`-
 Dokument, sodass Löschung, Sperre oder Rollenänderung sofort wirken.
 
@@ -228,7 +226,7 @@ ausschließlich im URL-Fragment.
 | `authEmailStates`, `pendingEmailOwners`                    | Kurzlebige Einmal-State- und E-Mail-Reservierungen                         |
 | `idempotencyKeys`                                          | Kurzlebige Einmal-Marken für wiederholbare Admin-Schreibvorgänge, TTL      |
 | `logs`                                                     | PII-freie Admin-Protokolle, sieben Tage TTL                                |
-| `migrationRuns/{runId}`                                    | Nicht-PII Checkpoints, Counts und Checksummen                              |
+| `abuseLimits`                                              | Verteilte Login-/Signup-Grenzen als HMAC-Schlüssel mit TTL                 |
 
 Firestore ersetzt keine SQL-Constraints automatisch. Alle Namen, Eigentümer und E-Mail-Adressen
 werden deshalb über Hash-/Reservation-Dokumente in Transaktionen vergeben. Ein Pending-Eintrag kann
@@ -299,8 +297,8 @@ Empfohlen ist Firebase App Hosting in `europe-west4` (Niederlande), mit Firestor
 Storage in derselben Region. App Hosting hat derzeit keine deutsche Region. Diese EU-Kombination
 vermeidet regionsübergreifende Latenz und Egress. `apphosting.yaml` startet mit `minInstances: 0`,
 höchstens drei Instanzen, Concurrency 80 und 512 MiB, um Leerlaufkosten und Ausreißer zu begrenzen.
-`firebase.json` erlaubt den lokalen App-Hosting-Quellrollout erst seit der SMTP-, IAM- und
-Staging-Schutz vorbereitet und der alte Supabase-Quellschlüssel widerrufen wurde.
+`firebase.json` erlaubt den lokalen App-Hosting-Quellrollout, seit SMTP, IAM und der
+Staging-Schutz eingerichtet sind.
 
 Der Zielzustand für Auslieferung ist die native Firebase-App-Hosting-Verknüpfung mit
 `hackerFlo/Law-Clinic-Finder`, Repository-Wurzel `/`, Live-Branch `main` und automatischen Rollouts.
@@ -346,9 +344,9 @@ gibt weder Uptime-Polling noch eine eigene Log-Metrik.
   `src/lib/firebase/`; UI und Domänenlogik kennen keine Cloud-Abfragesyntax. Datenbank-Client,
   `Timestamp`, `FieldPath` und `FieldValue` kommen einheitlich aus `firebase-admin/firestore`, damit
   der Produktions-Bundler keine inkompatiblen Firestore-Instanzen erzeugt.
-- `@supabase/supabase-js` und der direkte `@google-cloud/firestore`-Client sind ausschließlich
-  Entwicklungsabhängigkeiten für die ignorierten lokalen Kopier-/Importskripte. Ein Konfigurationstest
-  verhindert ihre Aufnahme in `src/`, Produktionsabhängigkeiten oder das App-Hosting-Quellarchiv.
+- Der direkte `@google-cloud/firestore`-Client ist ausschließlich Entwicklungsabhängigkeit für die
+  ignorierten lokalen Import-/Emulatorskripte. Ein Konfigurationstest verhindert seine Aufnahme in
+  `src/`, in Produktionsabhängigkeiten oder in das App-Hosting-Quellarchiv.
 - `settings/chat` bleibt strikt DB-only. Admin-editierbare Prompt-Texte werden nie als Codekopie
   ergänzt; Änderungen/Defaults laufen über eine versionierte, idempotente Datenmigration.
 - Clinic-Felder mit Mehrfachwerten bleiben `"; "`-getrennter Text und verwenden die gemeinsamen
@@ -375,155 +373,45 @@ gibt weder Uptime-Polling noch eine eigene Log-Metrik.
 
 ## Spec & Status
 
-Zielprojekt: `law-clinic-finder`. Zielregion: `europe-west4`. Supabase ist derzeit nicht öffentlich
-in Benutzung und bleibt als Quelle/Backup vollständig erhalten. Die Migration kopiert ausschließlich;
-kein Transfer-Skript enthält eine Supabase-Delete-/Update-Operation.
+Zielprojekt `law-clinic-finder`, Zielregion `europe-west4` (Firestore `primary-eu`, Storage,
+Identity Platform mit Blocking Function, App Hosting Backend `web`).
 
-GitHub-Meilenstein: `main` enthält die vollständige Firebase-Migration direkt und ohne Pull Request;
-Commit `640036e` war die geprüfte Quelle des ersten anschließend ausgerollten Staging-Builds. Die
-native regionale Verbindung zu `hackerFlo/Law-Clinic-Finder` ist vollständig und hat Commit
-`cc4ef327bbf7d0741c3672d56562972624bb1b3f` korrekt als READY-Build 009 erstellt. Wegen des
-Firebase-Console-Fehlers `getSourceCase` entstand dafür noch kein Rollout; 100% Traffic bleibt
-bewusst auf dem verifizierten Rollout 008. Der Stand bleibt zugriffsgeschütztes Staging und ist
-ausdrücklich noch keine öffentliche Veröffentlichung.
+**Der Stand ist zugriffsgeschütztes Staging, keine öffentliche Veröffentlichung.**
+`STAGING_ACCESS_ENABLED=true` schützt das Backend mit HTTP-Basic; alle Laufzeitpfade — Public Site,
+Chat, Clinic- und Adminbereich, Auth, Signup, Branding, Logs, Quota und Metriken — laufen auf
+Firebase. Client-Regeln, Least-Privilege-IAM, API-Key-Einschränkung, regionale Secrets,
+Runtime-Limits, Abrechnungssicherung und tägliche Backups sind eingerichtet.
 
-Aktueller Stand (2026-08-22): lokale App-Umstellung 100%, vollständige Migration bis zum
-produktiven Cutover ungefähr 94%. Runtime-Pfade für Public Site, Chat, Clinic/Admin, Auth, Signup,
-Branding, Logs, Quota und Metriken verwenden Firebase. `primary-eu`, Storage, Identity Platform mit
-Blocking Function und App Hosting liegen in `europe-west4`; Client-Regeln, Least-Privilege-IAM,
-API-Key-Einschränkung, regionale Secrets, Runtime-Limits, Abrechnungssicherung und tägliche
-Sieben-Tage-Backups sind eingerichtet. Der Brevo-Sender ist für Staging verifiziert und DMARC ist
-konfiguriert; die eigene DKIM-Domainauthentifizierung bleibt vor Produktion offen.
+**Vor dem Livegang zwingend:** `apphosting.yaml` setzt `REDACTION_PROVIDER=dlp`, und die
+De-Identifikation schließt fehlschlagend. Wird ausgerollt, bevor die Sensitive-Data-Protection-API
+aktiviert und `law-clinic-runtime` die Rolle `roles/dlp.user` erteilt ist, antwortet der Chat
+dauerhaft mit 503. `npm run dlp:check` prüft genau die Anfrage, die die Laufzeit schickt, und muss
+melden: Identifikatoren entfernt, Postleitzahl und Ort erhalten.
 
-Die freigegebene Kopie `copy-20260822-staging`, ihre abschließende Reconciliation und eine neue
-unabhängige Prüfung stimmen über 169 vorbereitete Dokumente, die reale Auth-Identität, den
-Branding-Datensatz und alle sechs Checksummen mit der Quelle überein. Die Quelle enthält kein eigenes
-Logo-Objekt. Direkte Semantikprüfungen bestätigen 59 Clinics, davon 47 veröffentlicht, sowie
-gültige Identity-, Clinic-, Reservation-, Settings-, Branding- und Checkpoint-Referenzen. Supabase
-wurde ausschließlich gelesen und bleibt vollständig erhalten; nur die zwei reservierten
-`@example.com`-Entwicklungsidentitäten wurden im Firebase-Ziel ausgelassen.
+### Offene Punkte
 
-Rollout `web-build-2026-08-22-008` aus Commit `640036e` läuft zu 100% hinter dem
-Secret-Manager-gestützten Staging-Schutz unter `law-clinic-runtime`. Der erneute Smoke-Test erhielt
-401, `no-store`, den Basic-Challenge und die erwarteten HTTPS-Sicherheitsheader; die vom CLI erneut
-angelegte breite Build-Rolle wurde anschließend entfernt und es gab keine Error-Level-Logs der
-neuen Revision. Ein frischer, gehärteter Fragment-plus-POST-Magic-Link wurde auf dem vorherigen
-funktionsgleichen Rollout durch den Nutzer bis `/admin` bestätigt und durch PII-freie, query-lose
-Cloud-Logs unabhängig belegt. Der Login zeigt den ausdrücklich gewünschten Fehler für nicht
-registrierte Adressen. Unter `/admin/admins` kann ein aktiver Admin als Empfänger der
-Google-Cloud-Betriebsalarme gewählt werden; Standard ist der einzige beziehungsweise älteste aktive
-Admin. Der ereignisgesteuerte Sync hat einen aktivierten E-Mail-Kanal und eingebaute Cloud-Run-Alarme
-für 5xx und das Instanzlimit angelegt. Neun Playwright-E2E-Journeys laufen ausschließlich gegen
-Auth-/Firestore-/Storage-Emulatoren. Live-Staging-Prüfungen belegen zusätzlich strikte Browserregeln,
-echte Brevo-Anmeldung, inkrementelles NDJSON-Streaming und die verzögerte `after()`-Persistenz; die
-dabei exakt erzeugten Testdatensätze wurden anschließend entfernt.
+Alle folgenden Schritte sind Cloud-Aktionen der Eigentümerin; die Anwendungsseite ist jeweils
+implementiert, getestet und ausgeliefert.
 
-Der freigegebene Restore von `restore-drill-20260822` bewies Wiederherstellung und Isolation; nur die
-temporäre Datenbank wurde anschließend gelöscht, `primary-eu` blieb löschgeschützt und das Backup
-READY. Da der verwendete Snapshot vom 21. August vor der Datenkopie liegt, enthielt er erwartungsgemäß
-keine App-Collections. Eine Inhaltsprüfung mit dem ersten READY-Backup nach der Kopie bleibt offen.
-Der Betreiber hat noch keine öffentliche Domain, kein endgültiges Impressum/keine endgültige
-Datenschutzerklärung und noch keine vollständige Brevo-Domainauthentifizierung. Diese Punkte bleiben
-bewusst als Go-live-Erinnerungen offen. Ebenfalls offen bleibt ein Inhalts-Restore aus dem ersten
-READY-Backup nach der finalen Kopie; das Erstellen und anschließende Löschen einer neuen temporären
-Datenbank benötigt weiterhin eine genaue Freigabe. Danach folgen Domain-/Link-Konfiguration,
-öffentlicher Trafficwechsel und Beobachtung. Die gewünschte Auth-Mail-Gestaltung und
-SMTP-Administration bleiben Phase 10.
-
-Der verschlankte Arbeitsplan enthält ausschließlich noch offene Arbeit und die Resume-Reihenfolge:
-[`docs/firebase-migration-plan.md`](docs/firebase-migration-plan.md). Abgeschlossene
-Migrationshistorie bleibt in Git und `CHANGELOG.md`; laufende Firebase-Konventionen stehen im
-[`Firebase Agent Playbook`](docs/firebase-agent-playbook.md).
+| Punkt                                                                                                                                                                                                  | Wirkung, solange offen                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Sensitive-Data-Protection-API aktivieren, `roles/dlp.user` an `law-clinic-runtime`                                                                                                                     | Chat antwortet dauerhaft 503                                                |
+| Öffentliche Domain wählen; `NEXT_PUBLIC_SITE_URL`, Firebase Authorized Domains und die Redirect-Allowlist auf denselben Wert setzen                                                                    | Anmeldelinks landen still auf der Landingpage statt im Portal               |
+| Endgültiges Impressum und endgültige Datenschutzerklärung einsetzen; Anthropic, Cloud DLP, Brevo und Google Analytics als Auftragsverarbeiter benennen                                                 | Rechtlich unvollständig für eine deutsche öffentliche Seite                 |
+| Brevo-Domainauthentifizierung mit eigenem DKIM abschließen                                                                                                                                             | Zustellrate und Absender-Alignment ungesichert                              |
+| Secret `smtpSettings` in `europe-west4` anlegen, der Runtime-Identität nur `secretmanager.versions.access` und `.add` **auf genau dieses Secret** geben; Firestore-TTL auf `idempotencyKeys.expiresAt` | `/admin/smtp` bleibt schreibgeschützt; Versand nutzt die `SMTP_*`-Variablen |
+| Scheduled Function `restoreScheduledVisibility` deployen (täglich 03:15 Europe/Berlin)                                                                                                                 | Eine befristete Selbst-Pause einer Clinic endet nie von allein              |
+| Assistenz-Leitfaden anwenden: `npm run chat:guidance -- --apply --confirm-target law-clinic-finder`                                                                                                    | Der Ablauf in `settings/chat` bleibt ohne den Darstellungs-Block            |
+| Inhaltlichen Restore aus einem READY-Backup in einer temporären Datenbank prüfen                                                                                                                       | Wiederherstellbarkeit der Inhalte unbelegt                                  |
+| Optional: Cloudflare als Reverse Proxy, danach `TRUSTED_PROXY=cloudflare`                                                                                                                              | Ohne auf Cloudflare beschränkten Origin ist `CF-Connecting-IP` fälschbar    |
+| Zum Launch `STAGING_ACCESS_ENABLED`, `STAGING_ACCESS_USERNAME` und `STAGING_ACCESS_PASSWORD` entfernen                                                                                                 | Die Seite bleibt hinter dem Vorschau-Passwort                               |
 
 Der Sicherheits- und Datenschutz-Härtungslauf gegen ASVS 5.0 L2 und AISVS 1.0 L2 ist abgeschlossen.
 Bericht, Matrix, Verzeichnis der personenbezogenen Daten, Prüfumfang samt bestätigter Fehlalarme und
 die nur lesenden Betriebsprüfungen stehen in
 [`docs/audits/security-hardening-2026-08-22/`](docs/audits/security-hardening-2026-08-22/INDEX.md).
-
-**Vor dem Livegang zwingend:** `apphosting.yaml` setzt `REDACTION_PROVIDER=dlp`, und die
-De-Identifikation schließt fehlschlagend. Wird ausgerollt, bevor die Sensitive-Data-Protection-API
-aktiviert und `law-clinic-runtime` die Rolle `roles/dlp.user` erteilt ist, antwortet der Chat
-dauerhaft mit 503. `npm run dlp:check` prüft genau die Anfrage, die die Laufzeit schickt.
-
-### Sichere Datenkopie
-
-Die Quelle wird direkt und seitenweise gelesen; es entsteht kein PII-Export im Repo. Das Tool
-validiert jede Zeile, normalisiert das Logo zu PNG, erhält Auth-UIDs, baut Reservations/Metriken neu
-und setzt keine Supabase-Schreiboperation ab.
-
-```bash
-# 1. Standard: nur lesen, validieren, zählen und Checksummen ausgeben
-npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD
-
-# 2. Erst nach geprüftem Dry-Run und vorbereiteten Firebase-Ressourcen schreiben
-npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD \
-  --apply --confirm-target law-clinic-finder
-
-# 3. Ziel danach erneut read-only verifizieren
-npm run migrate:firebase:verify -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD
-
-# 4. Nur bei Drift erwarteter Quellpfade: denselben geprüften Run gezielt abgleichen
-npm run migrate:firebase -- --source-ref <SUPABASE_PROJECT_REF> --run-id copy-YYYYMMDD \
-  --apply --reconcile --confirm-target law-clinic-finder
-```
-
-Beim ersten Apply verweigert das Tool ein nicht leeres Firebase-Daten-/Auth-Ziel ohne passenden
-`migrationRuns/{runId}`-Checkpoint. Wiederholungen mit demselben Run sind idempotent und überspringen
-nur Phasen mit identischer Anzahl und Checksumme. Bestehende Firebase- oder Supabase-Daten werden nie
-automatisch gelöscht. Supabase-Sessions sind nicht übertragbar; nach Cutover ist ein neuer Magic Link
-erforderlich. `--reconcile` verlangt einen bereits passenden Run, prüft dessen Checkpoints erneut und
-überschreibt ausschließlich die exakten erwarteten Quelldokumentpfade; zusätzliche Firebase-
-Runtime-Dokumente werden weder verändert noch gelöscht. Danach immer erneut mit `verify` prüfen.
-
-### Cloud-Schritte vor Staging
-
-- [x] Blaze aktivieren; App-Hosting- und Firestore-API sind freigeschaltet.
-- [x] Leere Fehlanlage nach Freigabe löschen; `primary-eu` geschützt in `europe-west4` anlegen.
-- [x] Identity Platform, Web-App, Storage und App-Hosting-Backend `web` in `europe-west4` anlegen.
-- [x] Authorized Domains, Signup-/Löschsperre und `beforeAccountCreated` konfigurieren/deployen.
-- [x] Rules, Indizes/TTL, Least-Privilege-IAM, API-Key-Einschränkung und tägliche Backups setzen.
-- [x] Site-URL, Firebase-Auth-Key und Anthropic-Key regional in Secret Manager setzen.
-- [x] SMTP-Secrets mit Zugriff nur über die dedizierte Runtime-Identität einrichten.
-- [x] Live SMTP-Secret-Referenzen und Brevo-Authentifizierung über TLS auf Port 587 ohne Mailversand
-      verifizieren; die gespeicherten Zugangsdaten werden akzeptiert.
-- [x] Brevo-Sender für Testversand verifizieren und Abrechnungssicherung konfigurieren.
-- [ ] Eigene Brevo-DKIM-Domainauthentifizierung vor Produktion abschließen.
-- [ ] Das versionierte Secret `smtpSettings` in `europe-west4` anlegen, der Runtime-Identität
-      ausschließlich `secretmanager.versions.access` und `secretmanager.versions.add` **auf genau
-      dieses Secret** gewähren und eine Firestore-TTL auf `idempotencyKeys.expiresAt` setzen. Bis
-      dahin bleibt `/admin/smtp` bewusst schreibgeschützt und der Versand nutzt die `SMTP_*`-Variablen
-      der Umgebung.
-- [x] Admin-Auswahl sowie günstige Cloud-Run-5xx-/Instanzlimit-Betriebsalarme einrichten.
-- [x] GA4-Property anlegen, das Dienstkonto `ga-reader` mit Viewer-Rechten auf die Property
-      berechtigen, die Data API freischalten und den Schlüssel als Secret `gaServiceAccountJson`
-      ausschließlich dem Backend `web` gewähren.
-- [x] Das starke `stagingAccessPassword`-Secret erstellen und dem Backend gewähren.
-- [x] Den App-Hosting-Backend erstmals aus lokalem Quellstand hinter dem Zugriffsschutz ausrollen
-      und die automatisch wiederhergestellte breite Build-Rolle erneut entfernen.
-- [x] Erste freigegebene Datenkopie mit exakten Checksummen, Auth-Identität und Branding-Datensatz
-      ausführen und unabhängig verifizieren; Supabase bleibt unverändert.
-- [x] Geschützte Staging-Seite mit den privaten Vorschau-Zugangsdaten im Browser öffnen.
-- [x] Reale Magic-Link-Zustellung über Brevo und Weiterleitung in den Admin-Bereich auf dem
-      vorherigen und gehärteten Fragment-plus-POST-Rollout live nachweisen.
-- [x] Restore-Mechanik in der freigegebenen getrennten Testdatenbank prüfen und nur diese löschen.
-- [ ] Inhaltlichen Restore mit einem READY-Backup nach der Staging-Kopie prüfen.
-- [x] Streaming/Auth/SMTP/Rollen und Accessibility im geschützten Staging prüfen.
-
-Die ausdrücklich freigegebene erste Datenkopie und ihre unabhängige Verifikation sind abgeschlossen;
-Backend `web` bleibt zugriffsgeschützt. Der öffentliche Trafficwechsel, weitere Datenbanklöschungen
-und eine spätere Supabase-Deaktivierung benötigen weiterhin die im Plan festgelegten Eingaben,
-Prüfungen beziehungsweise ausdrücklichen Freigaben.
-
-Der zuvor auf die Zeit nach dem Cutover verschobene Admin-Bereich für provider-neutrale
-SMTP-Konfiguration und die visuelle Überarbeitung aller Auth-Mails sind implementiert und getestet.
-Passwörter/Keys liegen ausschließlich versioniert in Secret Manager und sind im Browser nur als
-„gesetzt“ sichtbar. Die Funktion bleibt bis zur Cloud-Bereitstellung des Secrets bewusst
-schreibgeschützt; sie zählt weiterhin nicht zum Migrationsfortschritt und ändert den Staging-Status
-nicht.
-
-Der gewünschte kanonische Firebase-Leitfaden für zukünftige Agenten ist jetzt unter
-[`docs/firebase-agent-playbook.md`](docs/firebase-agent-playbook.md) vorhanden und aus der
-Architekturkarte verlinkt.
+Laufende Firebase-Konventionen, Deploy-Matrix, Secrets-Vertrag und Rollback-Runbook stehen im
+[`Firebase-Playbook`](docs/firebase-agent-playbook.md).
 
 ## Versionierung
 

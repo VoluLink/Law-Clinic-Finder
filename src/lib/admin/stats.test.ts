@@ -1,79 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  aggregateConversationStats,
-  matchRate,
-  monthWeekCounts,
-  monthWeekCountsFromDays,
-  weeklyCounts,
-  weeklyCountsFromDays,
-} from './stats';
+import { monthWeekCountsFromDays, weeklyCountsFromDays } from './stats';
 
-const rows = [
-  { created_at: '2026-07-16T09:00:00Z', detected_legal_area: 'Mietrecht' },
-  { created_at: '2026-07-16T15:30:00Z', detected_legal_area: 'Asylrecht' },
-  { created_at: '2026-07-17T08:00:00Z', detected_legal_area: 'Mietrecht' },
-  { created_at: '2026-07-17T09:00:00Z', detected_legal_area: null },
-];
-
-describe(aggregateConversationStats, () => {
-  it('returns empty stats for no rows', () => {
-    expect(aggregateConversationStats([])).toEqual({ total: 0, byDay: [], byLegalArea: [] });
-  });
-
-  it('counts totals and groups by day in ascending order', () => {
-    const stats = aggregateConversationStats(rows);
-    expect(stats.total).toBe(4);
-    expect(stats.byDay).toEqual([
-      { day: '2026-07-16', count: 2 },
-      { day: '2026-07-17', count: 2 },
-    ]);
-  });
-
-  it('groups by legal area sorted by count descending', () => {
-    const stats = aggregateConversationStats(rows);
-    expect(stats.byLegalArea[0]).toEqual({ legalArea: 'Mietrecht', count: 2 });
-    expect(stats.byLegalArea).toHaveLength(3);
-  });
-
-  it('labels missing legal areas as Unbekannt', () => {
-    const stats = aggregateConversationStats(rows);
-    expect(stats.byLegalArea).toContainEqual({ legalArea: 'Unbekannt', count: 1 });
-  });
-});
-
-describe(weeklyCounts, () => {
+describe(weeklyCountsFromDays, () => {
   const now = new Date('2026-07-20T12:00:00Z').getTime();
 
-  it('returns one bucket per week, oldest first, all zero for no rows', () => {
-    const weeks = weeklyCounts([], now, 8);
+  it('returns one bucket per week, oldest first, all zero without counters', () => {
+    const weeks = weeklyCountsFromDays({}, now, 8);
     expect(weeks).toHaveLength(8);
     expect(weeks.every((week) => week.value === 0)).toBe(true);
   });
 
-  it('counts a recent conversation into the newest (last) bucket', () => {
-    const weeks = weeklyCounts(['2026-07-19T09:00:00Z'], now, 8);
-    expect(weeks[7].value).toBe(1);
-    expect(weeks[0].value).toBe(0);
+  it('adds pre-aggregated day counts into the newest bucket', () => {
+    expect(weeklyCountsFromDays({ '2026-07-19': 3 }, now, 8)[7].value).toBe(3);
   });
 
-  it('ignores conversations older than the window', () => {
-    const weeks = weeklyCounts(['2026-01-01T00:00:00Z'], now, 8);
+  it('ignores days older than the window', () => {
+    const weeks = weeklyCountsFromDays({ '2026-01-01': 5 }, now, 8);
     expect(weeks.reduce((sum, week) => sum + week.value, 0)).toBe(0);
   });
 });
 
-describe(weeklyCountsFromDays, () => {
-  it('adds pre-aggregated day counts without expanding event rows', () => {
-    const now = new Date('2026-07-20T12:00:00Z').getTime();
-    const weeks = weeklyCountsFromDays({ '2026-07-19': 3 }, now, 8);
-    expect(weeks[7].value).toBe(3);
-  });
-});
-
-describe(monthWeekCounts, () => {
-  it('returns five zeroed columns for no rows', () => {
-    expect(monthWeekCounts([])).toEqual([
+describe(monthWeekCountsFromDays, () => {
+  it('returns five zeroed columns without counters', () => {
+    expect(monthWeekCountsFromDays({})).toEqual([
       { label: '1.', value: 0 },
       { label: '8.', value: 0 },
       { label: '15.', value: 0 },
@@ -82,40 +32,14 @@ describe(monthWeekCounts, () => {
     ]);
   });
 
-  it('buckets each day into its week-of-month column', () => {
-    const counts = monthWeekCounts([
-      '2026-10-03T09:00:00Z', // day 3 -> column 0
-      '2026-10-10T09:00:00Z', // day 10 -> column 1
-      '2026-10-30T09:00:00Z', // day 30 -> column 4
-      '2026-10-31T09:00:00Z', // day 31 -> column 4 (clamped)
-    ]);
-    expect(counts.map((column) => column.value)).toEqual([1, 1, 0, 0, 2]);
-  });
-});
-
-describe(monthWeekCountsFromDays, () => {
-  it('buckets pre-aggregated daily counters without expanding rows', () => {
+  it('buckets each day into its week-of-month column, clamping the last', () => {
     expect(
       monthWeekCountsFromDays({
         '2026-10-03': 2,
         '2026-10-10': 1,
+        '2026-10-30': 1,
         '2026-10-31': 4,
       }).map((column) => column.value),
-    ).toEqual([2, 1, 0, 0, 4]);
-  });
-});
-
-describe(matchRate, () => {
-  it('is 0 for no conversations', () => {
-    expect(matchRate([])).toBe(0);
-  });
-
-  it('is the rounded percent that matched at least one clinic', () => {
-    const rate = matchRate([
-      { matched_clinic_count: 2 },
-      { matched_clinic_count: 0 },
-      { matched_clinic_count: null },
-    ]);
-    expect(rate).toBe(33);
+    ).toEqual([2, 1, 0, 0, 5]);
   });
 });

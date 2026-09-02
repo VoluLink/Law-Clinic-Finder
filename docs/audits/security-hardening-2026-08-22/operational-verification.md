@@ -137,8 +137,8 @@ Zu prüfen:
 
 - **Blocking Function** `beforeAccountCreated` registriert — sie ist das, was Selbstregistrierung
   über die Firebase-Web-API verhindert.
-- **E-Mail-OTP-Gültigkeit 900 Sekunden.** Die Vorlagen in `supabase/email-templates/` versprechen
-  „15 Minuten"; die Voreinstellung ist 60 Sekunden. Passt das nicht, meldet ein Link sich zwar an,
+- **E-Mail-OTP-Gültigkeit 900 Sekunden.** Die ausgelieferte Auth-Mail verspricht „15 Minuten"
+  (`src/lib/mail/auth-email.ts`). Passt die Einstellung nicht dazu, meldet ein Link sich zwar an,
   aber nur im anfragenden Browser, und hinterlässt eine Warnung in `/admin/logs`.
 - **Autorisierte Domains** enthalten genau die Produktionsdomain.
 

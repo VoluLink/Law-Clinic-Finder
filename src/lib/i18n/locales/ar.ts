@@ -23,7 +23,6 @@ export const ar: Translations = {
   footerImprint: 'بيانات الناشر',
   footerAccount: 'الحساب',
   cooperation: 'مشروع تعاون من',
-  assistantName: 'مساعد الباحث عن العيادات',
   assistantTag: 'المساعد',
   aiInteractionNotice: 'أنت تتفاعل حاليًا مع ذكاء اصطناعي.',
   chatYou: 'أنت',

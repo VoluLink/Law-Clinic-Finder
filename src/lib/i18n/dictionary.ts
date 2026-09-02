@@ -33,7 +33,6 @@ export type Translations = {
   footerImprint: string;
   footerAccount: string;
   cooperation: string;
-  assistantName: string;
   assistantTag: string;
   /** EU AI Act Art. 50 disclosure, shown under the chat input. */
   aiInteractionNotice: string;

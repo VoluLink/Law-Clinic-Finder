@@ -64,10 +64,6 @@ export function setLogSink(next: WriteLine | null): void {
   registry()[SINK_KEY] = next;
 }
 
-export function hasLogSink(): boolean {
-  return Boolean(registry()[SINK_KEY]);
-}
-
 function fanout(line: LogLine): void {
   writeToStdio(line);
   const sink = registry()[SINK_KEY];

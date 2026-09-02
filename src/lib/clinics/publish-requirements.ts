@@ -83,7 +83,3 @@ export function memberBlockers(row: ClinicRequirementFields): string[] {
 export function toRequiredLabels(keys: string[]): string[] {
   return keys.map((key) => REQUIRED_FIELD_LABELS[key] ?? key);
 }
-
-/** The columns a publish gate must read to evaluate completeness. */
-export const REQUIREMENT_COLUMNS =
-  'name, website, region, legal_areas, target_clients, languages, advises_clients, description';

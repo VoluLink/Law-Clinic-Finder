@@ -24,7 +24,6 @@ export const ru: Translations = {
   footerImprint: 'Выходные данные',
   footerAccount: 'Аккаунт',
   cooperation: 'Совместный проект',
-  assistantName: 'Ассистент поиска клиник',
   assistantTag: 'АССИСТЕНТ',
   aiInteractionNotice: 'Сейчас ты взаимодействуешь с искусственным интеллектом.',
   chatYou: 'Ты',

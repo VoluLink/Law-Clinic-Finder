@@ -188,6 +188,9 @@ gleitendes Tag, läuft aber als Nicht-Root (`USER nextjs`) — und es liegt **ni
 Deploy-Pfad: App Hosting baut aus dem Quelltext, kein Dokument und keine Konfiguration verweist auf
 das `Dockerfile`.
 
+Nach der Prüfung erledigt: `Dockerfile` und `.dockerignore` wurden entfernt, weil ein
+ungetesteter Pfad still veraltet. Damit entfällt dieser Punkt.
+
 ### 2.7 CodeQL nicht eingerichtet
 
 Bewusst aufgeschoben. Ein Scanner ohne dokumentierte Ausgangsbasis und ohne Verfahren für
@@ -213,13 +216,17 @@ antworten. Reihenfolge:
 Nichts davon wurde ausgeführt (G-5). Die nur lesenden Prüfkommandos stehen in
 [operational-verification.md](operational-verification.md).
 
-- Secret `gaServiceAccountJson` anlegen; Secret `smtpSettings` anlegen.
+- Secret `smtpSettings` anlegen.
 - `restoreScheduledVisibility` deployen.
-- `npm run chat:guidance --apply` ausführen.
+- `npm run chat:guidance -- --apply --confirm-target law-clinic-finder` ausführen.
 - TTL-Richtlinien für `abuseLimits`, `idempotencyKeys` und die übrigen `expiresAt`-Felder aktivieren.
-- Den zusammengesetzten Index für `profiles (accessStatus, expiresAt)` ausrollen.
-- Challenge-Provider entscheiden; Cloudflare-Reverse-Proxy-Umstellung.
-- Die Punkte aus der Veröffentlichungs-Checkliste in `CLAUDE.md` §4 G-8.
+- Cloudflare-Reverse-Proxy-Umstellung.
+- Die vollständige Liste steht unter „Offene Punkte" in `README.md`.
+
+Seit der Prüfung erledigt: Secret `gaServiceAccountJson` angelegt und dem Backend gewährt;
+Challenge-Provider auf `pow` entschieden und in `apphosting.yaml` gesetzt. Der zusammengesetzte
+Index für `profiles` entfällt — die Sieben-Tage-Ablauffrist, die ihn gebraucht hätte, wurde auf
+Anweisung zurückgenommen (§2.1).
 
 ### 3.3 Nicht Teil dieser Prüfung
 

@@ -7,6 +7,28 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Removed
+
+- **Die Supabase-Schicht ist vollständig entfernt.** Die Anwendung lief bereits ausschließlich auf
+  Firebase; übrig waren nur noch tote Artefakte: `supabase/` (34 SQL-Migrationen und drei
+  Mailvorlagen), das einmalige Kopierwerkzeug `scripts/firebase-migration/`, die beiden Tests, die
+  den Inhalt jener SQL-Dateien prüften, und die Abhängigkeit `@supabase/supabase-js`. Die Historie
+  bleibt in Git; das Supabase-Projekt und seine Daten sind unangetastet.
+- Toter Anwendungscode aus der Supabase-Zeit: `DIRECTORY_COLUMNS`, `toDirectoryMatch` und
+  `escapeLikePattern` (PostgREST-Auswahl und ilike-Escaping), `deriveAccessState`/`profileUserId`
+  (eingebettete `profiles(user_id)`-Form), sowie die zeilenbasierten Statistikfunktionen
+  `aggregateConversationStats`, `weeklyCounts`, `monthWeekCounts` und `matchRate`, die von den
+  `*FromDays`-Varianten auf Firestore-Zählern abgelöst wurden.
+- Ungenutzte Bausteine ohne Verwendung: die Komponenten `AreaHeader` und `Checkbox`, das Modul
+  `auth-redirect.ts`, der Wörterbuchschlüssel `assistantName` in allen neun Sprachen und sieben
+  ungenutzte Typen/Konstanten.
+- `Dockerfile` und `.dockerignore`. App Hosting baut aus dem Quelltext, die CI baut kein Image —
+  der Pfad war ungetestet und wäre still veraltet. `output: 'standalone'` bleibt, weil Playwright
+  den Standalone-Server startet.
+- Die Entwicklungsabhängigkeit `fast-check` war nirgends importiert.
+- `docs/firebase-migration-plan.md`. Der noch offene Rest steht als „Offene Punkte" unter
+  Spec & Status in `README.md`; die abgeschlossene Migrationshistorie bleibt in Git.
+
 ### Added
 
 - `npm run branding:fonts`: lädt die auswählbaren Branding-Schriften einmalig herunter und legt sie
@@ -121,9 +143,10 @@ no-store`. Bisher hing der Header am Staging-Schutz — also genau an dem Mechan
 
 - Die leeren GA-Platzhalter in `apphosting.yaml` brachen jeden Rollout ab. Der App-Hosting-Preparer
   lehnt einen Eintrag ohne Wert und ohne Secret ab — `value: ''` zählt als beides nicht — und der
-  Build startete gar nicht erst. Beide Variablen stehen jetzt auskommentiert da, was der Code
-  ohnehin gleich behandelt; ein Test in `scripts/apphosting-config.test.ts` verlangt für jede
-  ausgelieferte Variable einen Wert oder ein Secret.
+  Build startete gar nicht erst. Beide Variablen wurden zunächst auskommentiert, was der Code
+  gleich behandelt; inzwischen tragen sie echte Werte (siehe „Google Analytics 4" oben). Ein Test
+  in `scripts/apphosting-config.test.ts` verlangt für jede ausgelieferte Variable einen Wert oder
+  ein Secret.
 
 - Die De-Identifikation forderte im Hotword-Ausschluss einen Teiltreffer an. Cloud DLP weist das
   mit 400 zurück, und weil die Redaktion fehlschlagend schließt, hätte der Chat jeder Besucherin

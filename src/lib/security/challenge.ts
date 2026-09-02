@@ -27,8 +27,6 @@ export type ChallengeProvider = (typeof CHALLENGE_PROVIDERS)[number];
 export const DEFAULT_POW_DIFFICULTY = 16;
 const MAX_POW_DIFFICULTY = 24;
 
-export const challengeTokenSchema = z.string().trim().min(1).max(4096);
-
 const difficultySchema = z.coerce
   .number()
   .int()

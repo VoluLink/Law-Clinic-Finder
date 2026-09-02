@@ -24,7 +24,6 @@ export const uk: Translations = {
   footerImprint: 'Вихідні дані',
   footerAccount: 'Акаунт',
   cooperation: 'Спільний проєкт',
-  assistantName: 'Асистент пошуку клінік',
   assistantTag: 'АСИСТЕНТ',
   aiInteractionNotice: 'Зараз ти взаємодієш зі штучним інтелектом.',
   chatYou: 'Ти',

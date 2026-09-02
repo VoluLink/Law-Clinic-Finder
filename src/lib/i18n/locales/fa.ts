@@ -23,7 +23,6 @@ export const fa: Translations = {
   footerImprint: 'اطلاعات ناشر',
   footerAccount: 'حساب کاربری',
   cooperation: 'یک پروژه همکاری از',
-  assistantName: 'دستیار یابنده کلینیک',
   assistantTag: 'دستیار',
   aiInteractionNotice: 'تو در حال تعامل با یک هوش مصنوعی هستی.',
   chatYou: 'تو',

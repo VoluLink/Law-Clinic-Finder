@@ -63,7 +63,6 @@ export const de: Translations = {
   footerImprint: 'Impressum',
   footerAccount: 'Account',
   cooperation: 'Ein Kooperationsprojekt von',
-  assistantName: 'Clinic-Finder Assistent',
   assistantTag: 'ASSISTENT',
   aiInteractionNotice: 'Du interagierst gerade mit einer künstlichen Intelligenz.',
   chatYou: 'Du',

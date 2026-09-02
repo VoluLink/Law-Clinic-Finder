@@ -44,9 +44,6 @@ ui-debug.log*
 # vercel
 .vercel
 
-# Supabase CLI connection and version cache
-supabase/.temp/
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -60,9 +57,4 @@ next-env.d.ts
 CLAUDE.md
 AGENTS.md
 sync-agent-config.sh
-PLAN.md
-LOCAL-TESTING.md
-WHICH-COPY.md
 
-# Unpublished security assessment; tracked deliberately nowhere.
-docs/security-hardening-plan.md

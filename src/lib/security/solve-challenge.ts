@@ -9,8 +9,6 @@ import { leadingZeroBits, powPayload } from './challenge';
 const YIELD_INTERVAL = 512;
 const MAX_ATTEMPTS = 5_000_000;
 
-export type ChallengeConfig = { provider: string; difficulty: number };
-
 async function digestBits(sessionId: string, nonce: string): Promise<number> {
   const bytes = new TextEncoder().encode(powPayload(sessionId, nonce));
   const digest = await crypto.subtle.digest('SHA-256', bytes);

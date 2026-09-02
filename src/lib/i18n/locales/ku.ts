@@ -23,7 +23,6 @@ export const ku: Translations = {
   footerImprint: 'Împrêsûm',
   footerAccount: 'Account',
   cooperation: 'Projeyeke hevkariyê ya',
-  assistantName: 'Alîkarê Clinic-Finder',
   assistantTag: 'ALÎKAR',
   aiInteractionNotice: 'Tu niha bi zîrekiya sûnî re danûstandinê dikî.',
   chatYou: 'Tu',

@@ -24,7 +24,7 @@ const packageConfig = packageConfigSchema.parse(
   JSON.parse(readFileSync('package.json', 'utf8')) as unknown,
 );
 
-const LOCAL_ONLY_DATABASE_CLIENTS = ['@google-cloud/firestore', '@supabase/supabase-js'];
+const LOCAL_ONLY_DATABASE_CLIENTS = ['@google-cloud/firestore'];
 
 function findLocalDatabaseClientImports(): string[] {
   return readdirSync('src', { encoding: 'utf8', recursive: true })
@@ -118,10 +118,10 @@ describe('App Hosting source rollout config', () => {
     expect(firebaseConfig.apphosting.alwaysDeployFromSource).toBe(true);
   });
 
-  it('excludes local migration sources from the deployment archive', () => {
+  it('excludes local tooling sources from the deployment archive', () => {
     const ignoredSources = firebaseConfig.apphosting.ignore;
 
-    expect(ignoredSources).toEqual(expect.arrayContaining(['scripts', 'supabase']));
+    expect(ignoredSources).toEqual(expect.arrayContaining(['scripts', 'e2e', 'docs']));
   });
 
   it('keeps local-only database clients out of production dependencies', () => {
@@ -132,7 +132,7 @@ describe('App Hosting source rollout config', () => {
     expect(localClientsInProduction).toEqual([]);
   });
 
-  it('retains local-only database clients for migration and emulator tooling', () => {
+  it('retains local-only database clients for emulator and import tooling', () => {
     const developmentPackages = Object.keys(packageConfig.devDependencies);
 
     expect(developmentPackages).toEqual(expect.arrayContaining(LOCAL_ONLY_DATABASE_CLIENTS));
