@@ -94,6 +94,25 @@ describe('deployed abuse challenge', () => {
   });
 });
 
+describe('deployed analytics', () => {
+  it('inlines the public measurement id into the browser bundle', () => {
+    const measurementId = deployedVariable('NEXT_PUBLIC_GA_MEASUREMENT_ID');
+
+    expect(measurementId?.value).toMatch(/^G-[A-Z0-9]{4,20}$/);
+    expect(measurementId?.availability).toContain('BUILD');
+  });
+
+  // The Data API addresses the numeric property, not the `G-` id; swapping the
+  // two leaves the banner working and the dashboard cards permanently at "—".
+  it('addresses the Data API by the numeric property id', () => {
+    expect(deployedVariable('GA_PROPERTY_ID')?.value).toMatch(/^\d{1,20}$/);
+  });
+
+  it('keeps the reporting credentials in Secret Manager', () => {
+    expect(deployedVariable('GA_SERVICE_ACCOUNT_JSON')?.secret).toBe('gaServiceAccountJson');
+  });
+});
+
 describe('App Hosting source rollout config', () => {
   it('allows deployment from the protected local source', () => {
     expect(firebaseConfig.apphosting.alwaysDeployFromSource).toBe(true);

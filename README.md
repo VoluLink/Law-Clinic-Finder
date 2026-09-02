@@ -494,6 +494,9 @@ Runtime-Dokumente werden weder verändert noch gelöscht. Danach immer erneut mi
       dahin bleibt `/admin/smtp` bewusst schreibgeschützt und der Versand nutzt die `SMTP_*`-Variablen
       der Umgebung.
 - [x] Admin-Auswahl sowie günstige Cloud-Run-5xx-/Instanzlimit-Betriebsalarme einrichten.
+- [x] GA4-Property anlegen, das Dienstkonto `ga-reader` mit Viewer-Rechten auf die Property
+      berechtigen, die Data API freischalten und den Schlüssel als Secret `gaServiceAccountJson`
+      ausschließlich dem Backend `web` gewähren.
 - [x] Das starke `stagingAccessPassword`-Secret erstellen und dem Backend gewähren.
 - [x] Den App-Hosting-Backend erstmals aus lokalem Quellstand hinter dem Zugriffsschutz ausrollen
       und die automatisch wiederhergestellte breite Build-Rolle erneut entfernen.

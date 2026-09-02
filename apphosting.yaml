@@ -98,30 +98,26 @@ env:
     secret: stagingAccessPassword
     availability:
       - RUNTIME
-  # Google Analytics 4 (optional), off until all three entries below are
-  # uncommented and filled in. Until then the dashboard's GA cards stay at "—".
+  # Google Analytics 4, einwilligungsgesteuert: der Browser lädt gtag erst,
+  # wenn das Banner zustimmt, und das Admin-Dashboard liest dieselbe Property
+  # über die Data API mit dem `ga-reader`-Dienstkonto.
   #
-  # `value: ''` is not a way to leave one of them empty: the App Hosting preparer
-  # rejects an entry with neither a value nor a secret — "either 'value' or
-  # 'secret' field is required" — and the whole rollout fails before the build
-  # starts. Commented out is the only representation of "unset" it accepts, and
-  # the code reads unset and empty identically anyway (`ga-metrics.ts`,
-  # `consent.ts`).
+  # Die Measurement-ID ist die öffentliche "G-"-ID und wird in das Browser-Bundle
+  # eingebaut, braucht also BUILD. GA_PROPERTY_ID ist die numerische Property,
+  # die die Data API adressiert — eine andere ID, nicht austauschbar.
   #
-  # The measurement id is the public "G-" one and must reach the build so it can
-  # be inlined into the client bundle; GA_PROPERTY_ID is the numeric property the
-  # Data API addresses. GA_SERVICE_ACCOUNT_JSON additionally needs its secret to
-  # exist first — a `secret:` reference that cannot be resolved also fails the
-  # rollout. Create `gaServiceAccountJson` in Secret Manager and grant
-  # law-clinic-runtime `secretmanager.versions.access` on it alone.
-  # - variable: NEXT_PUBLIC_GA_MEASUREMENT_ID
-  #   value: G-XXXXXXXXXX
-  #   availability:
-  #     - BUILD
-  #     - RUNTIME
-  # - variable: GA_PROPERTY_ID
-  #   value: '000000000'
-  #   availability:
-  #     - RUNTIME
-  # - variable: GA_SERVICE_ACCOUNT_JSON
-  #   secret: gaServiceAccountJson
+  # `value: ''` ist kein Weg, einen Eintrag leer zu lassen: der App-Hosting-
+  # Preparer lehnt einen Eintrag ohne Wert und ohne Secret ab und der Rollout
+  # bricht vor dem Build ab. Auskommentiert ist die einzige Schreibweise für
+  # "nicht gesetzt", die er akzeptiert.
+  - variable: NEXT_PUBLIC_GA_MEASUREMENT_ID
+    value: G-PTQZ3TYZGP
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: GA_PROPERTY_ID
+    value: '550071220'
+    availability:
+      - RUNTIME
+  - variable: GA_SERVICE_ACCOUNT_JSON
+    secret: gaServiceAccountJson

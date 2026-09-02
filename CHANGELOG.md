@@ -32,6 +32,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed
 
+- Google Analytics ist in der Auslieferung konfiguriert: Messung, Consent-Banner und die
+  GA-Karten des Dashboards sind aktiv. Die öffentliche Measurement-ID steht zusätzlich unter
+  `BUILD` zur Verfügung, weil sie in das Browser-Bundle eingebaut wird; die Data API adressiert
+  dagegen die numerische Property-ID, und die Zugangsdaten des Dienstkontos liegen versioniert
+  in Secret Manager. Ein Test in `scripts/apphosting-config.test.ts` hält die drei Einträge
+  auseinander.
 - Die Missbrauchs-Challenge ist in der Auslieferung eingeschaltet (`CHALLENGE_ENABLED=true`,
   Provider `pow`). Der öffentliche Spiegel `NEXT_PUBLIC_CHALLENGE_PROVIDER` steht zusätzlich unter
   `BUILD` zur Verfügung, weil er in das Browser-Bundle eingebaut wird; fehlt das, löst der Browser
